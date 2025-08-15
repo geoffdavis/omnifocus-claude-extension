@@ -36,6 +36,7 @@ dist/
 build/
 build-temp/
 build-temp-*/
+.archive/
 
 # npm/yarn
 .npm
