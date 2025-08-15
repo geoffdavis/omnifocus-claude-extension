@@ -10,12 +10,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: macos-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
     
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -25,29 +24,19 @@ jobs:
     
     - name: Install dependencies
       run: npm ci
-    
-    - name: Build extension
-      run: npm run build
-    
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: omnifocus-gtd-extension
-        path: dist/omnifocus-gtd.dxt
-        if-no-files-found: error
     
     - name: Run tests
       run: npm test
-      continue-on-error: true
+    
+    - name: Test server
+      run: node test-server.js
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+  build:
+    needs: test
+    runs-on: macos-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
     
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -61,37 +50,53 @@ jobs:
     - name: Build extension
       run: npm run build
     
-    - name: Get version from tag
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    - name: Validate extension
+      run: npm run validate
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: omnifocus-gtd-dxt
+        path: dist/omnifocus-gtd.dxt
+        retention-days: 30
+    
+    - name: Upload build report
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-report
+        path: dist/build-report.json
+        retention-days: 30
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build extension
+      run: npm run release
     
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
-        body: |
-          ## OmniFocus Claude Extension ${{ steps.get_version.outputs.VERSION }}
-          
-          ### Installation
-          1. Download the `omnifocus-gtd.dxt` file below
-          2. Open Claude Desktop
-          3. Drag and drop the file onto Claude Desktop
-          
-          ### What's New
-          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+        files: |
+          dist/omnifocus-gtd.dxt
+          dist/build-report.json
+        generate_release_notes: true
         draft: false
         prerelease: false
-    
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/omnifocus-gtd.dxt
-        asset_name: omnifocus-gtd.dxt
-        asset_content_type: application/zip
