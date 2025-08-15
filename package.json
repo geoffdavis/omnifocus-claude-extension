@@ -1,0 +1,29 @@
+{
+  "name": "omnifocus-claude-extension",
+  "version": "1.0.0",
+  "description": "OmniFocus GTD integration for Claude Desktop",
+  "main": "omnifocus-gtd.dxt",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "omnifocus",
+    "claude",
+    "desktop",
+    "extension",
+    "gtd",
+    "productivity",
+    "task-management",
+    "macos"
+  ],
+  "author": "Community Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/omnifocus-claude-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/omnifocus-claude-extension/issues"
+  },
+  "homepage": "https://github.com/yourusername/omnifocus-claude-extension#readme"
+}

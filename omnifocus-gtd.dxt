@@ -1,0 +1,260 @@
+{
+  "id": "omnifocus-gtd",
+  "name": "OmniFocus GTD",
+  "version": "1.0.0",
+  "description": "Complete OmniFocus task management integration for Claude Desktop. Add tasks, manage projects, process inbox, conduct reviews, and implement GTD methodology.",
+  "author": "Community Contributors",
+  "license": "MIT",
+  "readme": "# OmniFocus GTD Extension\n\nA comprehensive OmniFocus integration for Claude Desktop that enables natural language task management.\n\n## Features\n- Add tasks with natural language parsing\n- View and process inbox\n- List today's tasks and upcoming due dates\n- Complete tasks by name\n- Create and manage projects\n- Search across all tasks\n- Weekly and daily reviews\n- GTD methodology support\n\n## Usage\nSimply describe what you want to do with your tasks in natural language:\n- \"Add task: Call dentist tomorrow\"\n- \"What's due today?\"\n- \"Show my inbox\"\n- \"Complete the task about the report\"\n- \"Create a project for vacation planning\"\n\n## Requirements\n- OmniFocus 3 or later must be installed\n- macOS with AppleScript support\n- Appropriate permissions for Claude Desktop to control OmniFocus",
+  "config": {
+    "enabled": true,
+    "settings": {
+      "defaultProject": "",
+      "includeNotes": true,
+      "showCompletedTasks": false,
+      "maxTasksToShow": 20
+    }
+  },
+  "tools": [
+    {
+      "name": "add_task",
+      "description": "Add a new task to OmniFocus inbox or specific project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The task name/title"
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional note or description for the task"
+          },
+          "project": {
+            "type": "string",
+            "description": "Optional project name to add the task to"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Optional due date (e.g., 'tomorrow', 'next week', 'Friday')"
+          },
+          "flagged": {
+            "type": "boolean",
+            "description": "Whether to flag this task as important",
+            "default": false
+          }
+        },
+        "required": ["name"]
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "on run argv\n  set taskName to item 1 of argv\n  set taskNote to \"\"\n  set projectName to \"\"\n  set dueDate to missing value\n  set isFlagged to false\n  \n  if (count of argv) > 1 then set taskNote to item 2 of argv\n  if (count of argv) > 2 then set projectName to item 3 of argv\n  if (count of argv) > 3 then\n    set dueDateString to item 4 of argv\n    if dueDateString is not \"\" then\n      if dueDateString contains \"tomorrow\" then\n        set dueDate to (current date) + 1 * days\n      else if dueDateString contains \"today\" then\n        set dueDate to current date\n      else if dueDateString contains \"week\" then\n        set dueDate to (current date) + 7 * days\n      end if\n    end if\n  end if\n  if (count of argv) > 4 then\n    if item 5 of argv is \"true\" then set isFlagged to true\n  end if\n  \n  tell application \"OmniFocus\"\n    tell default document\n      if projectName is not \"\" then\n        try\n          set targetProject to first project whose name contains projectName\n          set newTask to make new task with properties {name:taskName, note:taskNote, flagged:isFlagged} at end of tasks of targetProject\n        on error\n          set newTask to make new inbox task with properties {name:taskName, note:taskNote, flagged:isFlagged}\n        end try\n      else\n        set newTask to make new inbox task with properties {name:taskName, note:taskNote, flagged:isFlagged}\n      end if\n      \n      if dueDate is not missing value then\n        set due date of newTask to dueDate\n      end if\n      \n      return \"✅ Added: \" & taskName\n    end tell\n  end tell\nend run",
+        "{{name}}",
+        "{{note}}",
+        "{{project}}",
+        "{{due_date}}",
+        "{{flagged}}"
+      ]
+    },
+    {
+      "name": "list_inbox",
+      "description": "List all tasks currently in the OmniFocus inbox",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "include_notes": {
+            "type": "boolean",
+            "description": "Include task notes in the output",
+            "default": false
+          }
+        }
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "tell application \"OmniFocus\"\n  tell default document\n    set inboxTasks to inbox tasks\n    set taskList to {}\n    \n    repeat with aTask in inboxTasks\n      set taskName to name of aTask\n      set taskNote to note of aTask\n      set taskDue to due date of aTask\n      set taskFlagged to flagged of aTask\n      \n      set taskInfo to \"• \" & taskName\n      \n      if taskFlagged then\n        set taskInfo to taskInfo & \" 🚩\"\n      end if\n      \n      if taskDue is not missing value then\n        set taskInfo to taskInfo & \" (Due: \" & (taskDue as string) & \")\"\n      end if\n      \n      if taskNote is not \"\" and \"{{include_notes}}\" is \"true\" then\n        set taskInfo to taskInfo & \"\\n  Note: \" & taskNote\n      end if\n      \n      set end of taskList to taskInfo\n    end repeat\n    \n    if (count of taskList) is 0 then\n      return \"📥 Inbox is empty!\"\n    else\n      set AppleScript's text item delimiters to return\n      set taskListText to taskList as string\n      set AppleScript's text item delimiters to \"\"\n      return \"📥 Inbox (\" & (count of taskList) & \" items):\\n\" & taskListText\n    end if\n  end tell\nend tell"
+      ]
+    },
+    {
+      "name": "today_tasks",
+      "description": "List all tasks due today",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "tell application \"OmniFocus\"\n  tell default document\n    set todayStart to current date\n    set hours of todayStart to 0\n    set minutes of todayStart to 0\n    set seconds of todayStart to 0\n    \n    set todayEnd to todayStart + 1 * days\n    \n    set todayTasks to {}\n    set allTasks to flattened tasks whose completed is false\n    \n    repeat with aTask in allTasks\n      set taskDue to due date of aTask\n      if taskDue is not missing value then\n        if taskDue ≥ todayStart and taskDue < todayEnd then\n          set taskName to name of aTask\n          set projectName to \"Inbox\"\n          try\n            set projectName to name of container of aTask\n          end try\n          set end of todayTasks to \"• \" & taskName & \" (\" & projectName & \")\"\n        end if\n      end if\n    end repeat\n    \n    if (count of todayTasks) > 0 then\n      set AppleScript's text item delimiters to return\n      set taskList to todayTasks as string\n      set AppleScript's text item delimiters to \"\"\n      return \"📅 Today's Tasks (\" & (count of todayTasks) & \"):\\n\" & taskList\n    else\n      return \"✅ No tasks due today!\"\n    end if\n  end tell\nend tell"
+      ]
+    },
+    {
+      "name": "complete_task",
+      "description": "Mark a task as complete by searching for it by name",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string",
+            "description": "Name or partial name of the task to complete"
+          }
+        },
+        "required": ["task_name"]
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "on run argv\n  set searchName to item 1 of argv\n  \n  tell application \"OmniFocus\"\n    tell default document\n      try\n        set targetTask to first flattened task whose name contains searchName and completed is false\n        set taskFullName to name of targetTask\n        set completed of targetTask to true\n        return \"✅ Completed: \" & taskFullName\n      on error\n        return \"❌ Could not find task containing: \" & searchName\n      end try\n    end tell\n  end tell\nend run",
+        "{{task_name}}"
+      ]
+    },
+    {
+      "name": "list_projects",
+      "description": "List all active projects with task counts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "include_empty": {
+            "type": "boolean",
+            "description": "Include projects with no tasks",
+            "default": false
+          }
+        }
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "tell application \"OmniFocus\"\n  tell default document\n    set projectList to {}\n    set includeEmpty to \"{{include_empty}}\" is \"true\"\n    \n    repeat with aProject in projects\n      set projectName to name of aProject\n      set activeCount to count of (flattened tasks of aProject whose completed is false)\n      \n      if activeCount > 0 or includeEmpty then\n        set folderName to \"No Folder\"\n        try\n          set folderName to name of folder of aProject\n        end try\n        \n        set projectInfo to \"• \" & projectName & \" (\" & activeCount & \" tasks) - \" & folderName\n        set end of projectList to projectInfo\n      end if\n    end repeat\n    \n    if (count of projectList) > 0 then\n      set AppleScript's text item delimiters to return\n      set listText to projectList as string\n      set AppleScript's text item delimiters to \"\"\n      return \"📁 Projects (\" & (count of projectList) & \"):\\n\" & listText\n    else\n      return \"No active projects found\"\n    end if\n  end tell\nend tell"
+      ]
+    },
+    {
+      "name": "search_tasks",
+      "description": "Search for tasks containing specific text",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search_term": {
+            "type": "string",
+            "description": "Text to search for in task names"
+          },
+          "include_completed": {
+            "type": "boolean",
+            "description": "Include completed tasks in search",
+            "default": false
+          }
+        },
+        "required": ["search_term"]
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "on run argv\n  set searchTerm to item 1 of argv\n  set includeCompleted to false\n  if (count of argv) > 1 then\n    if item 2 of argv is \"true\" then set includeCompleted to true\n  end if\n  \n  tell application \"OmniFocus\"\n    tell default document\n      set foundTasks to {}\n      \n      if includeCompleted then\n        set allTasks to flattened tasks\n      else\n        set allTasks to flattened tasks whose completed is false\n      end if\n      \n      repeat with aTask in allTasks\n        if name of aTask contains searchTerm then\n          set taskName to name of aTask\n          set taskCompleted to completed of aTask\n          try\n            set projectName to name of container of aTask\n          on error\n            set projectName to \"Inbox\"\n          end try\n          \n          set taskInfo to \"• \" & taskName & \" [\" & projectName & \"]\"\n          if taskCompleted then set taskInfo to taskInfo & \" ✓\"\n          \n          set end of foundTasks to taskInfo\n          if (count of foundTasks) ≥ 20 then exit repeat\n        end if\n      end repeat\n      \n      if (count of foundTasks) > 0 then\n        set AppleScript's text item delimiters to return\n        set resultText to foundTasks as string\n        set AppleScript's text item delimiters to \"\"\n        return \"🔍 Found \" & (count of foundTasks) & \" tasks containing '\" & searchTerm & \"':\\n\" & resultText\n      else\n        return \"No tasks found containing: \" & searchTerm\n      end if\n    end tell\n  end tell\nend run",
+        "{{search_term}}",
+        "{{include_completed}}"
+      ]
+    },
+    {
+      "name": "create_project",
+      "description": "Create a new project in OmniFocus",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the new project"
+          },
+          "folder": {
+            "type": "string",
+            "description": "Optional folder to place the project in"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional notes for the project"
+          }
+        },
+        "required": ["name"]
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "on run argv\n  set projectName to item 1 of argv\n  set folderName to \"\"\n  set projectNotes to \"\"\n  \n  if (count of argv) > 1 then set folderName to item 2 of argv\n  if (count of argv) > 2 then set projectNotes to item 3 of argv\n  \n  tell application \"OmniFocus\"\n    tell default document\n      if folderName is not \"\" then\n        try\n          set targetFolder to first folder whose name is folderName\n          set newProject to make new project with properties {name:projectName, note:projectNotes, folder:targetFolder}\n        on error\n          set newProject to make new project with properties {name:projectName, note:projectNotes}\n        end try\n      else\n        set newProject to make new project with properties {name:projectName, note:projectNotes}\n      end if\n      \n      return \"✅ Created project: \" & projectName\n    end tell\n  end tell\nend run",
+        "{{name}}",
+        "{{folder}}",
+        "{{notes}}"
+      ]
+    },
+    {
+      "name": "weekly_review",
+      "description": "Get a comprehensive weekly review summary",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "tell application \"OmniFocus\"\n  tell default document\n    -- Gather statistics\n    set inboxCount to count of inbox tasks\n    set flaggedCount to count of (flattened tasks whose flagged is true and completed is false)\n    set overdueCount to 0\n    set dueThisWeek to 0\n    set projectCount to count of projects\n    set activeProjectCount to 0\n    \n    set todayStart to current date\n    set weekEnd to todayStart + 7 * days\n    \n    -- Count overdue and upcoming\n    set allTasks to flattened tasks whose completed is false\n    repeat with aTask in allTasks\n      set taskDue to due date of aTask\n      if taskDue is not missing value then\n        if taskDue < todayStart then\n          set overdueCount to overdueCount + 1\n        else if taskDue < weekEnd then\n          set dueThisWeek to dueThisWeek + 1\n        end if\n      end if\n    end repeat\n    \n    -- Count active projects\n    repeat with aProject in projects\n      if (count of (flattened tasks of aProject whose completed is false)) > 0 then\n        set activeProjectCount to activeProjectCount + 1\n      end if\n    end repeat\n    \n    -- Build report\n    set report to \"📊 WEEKLY REVIEW SUMMARY\\n\"\n    set report to report & \"════════════════════════\\n\\n\"\n    set report to report & \"📥 Inbox: \" & inboxCount & \" items\\n\"\n    set report to report & \"🚩 Flagged: \" & flaggedCount & \" tasks\\n\"\n    set report to report & \"⚠️  Overdue: \" & overdueCount & \" tasks\\n\"\n    set report to report & \"📅 Due this week: \" & dueThisWeek & \" tasks\\n\"\n    set report to report & \"📁 Active projects: \" & activeProjectCount & \" of \" & projectCount & \"\\n\\n\"\n    \n    if inboxCount > 0 then\n      set report to report & \"💡 Action: Process \" & inboxCount & \" inbox items\\n\"\n    end if\n    if overdueCount > 0 then\n      set report to report & \"💡 Action: Review \" & overdueCount & \" overdue tasks\\n\"\n    end if\n    \n    return report\n  end tell\nend tell"
+      ]
+    },
+    {
+      "name": "upcoming_tasks",
+      "description": "List tasks due in the next N days",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "description": "Number of days to look ahead",
+            "default": 7
+          }
+        }
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "on run argv\n  set daysAhead to 7\n  if (count of argv) > 0 then\n    set daysAhead to item 1 of argv as integer\n  end if\n  \n  tell application \"OmniFocus\"\n    tell default document\n      set todayStart to current date\n      set hours of todayStart to 0\n      set minutes of todayStart to 0\n      set cutoffDate to todayStart + daysAhead * days\n      \n      set upcomingTasks to {}\n      set allTasks to flattened tasks whose completed is false\n      \n      repeat with aTask in allTasks\n        set taskDue to due date of aTask\n        if taskDue is not missing value then\n          if taskDue ≥ todayStart and taskDue < cutoffDate then\n            set taskName to name of aTask\n            set daysDiff to ((taskDue - todayStart) / days) as integer\n            \n            if daysDiff = 0 then\n              set dueText to \"Today\"\n            else if daysDiff = 1 then\n              set dueText to \"Tomorrow\"\n            else\n              set dueText to \"In \" & daysDiff & \" days\"\n            end if\n            \n            set end of upcomingTasks to \"• \" & taskName & \" (\" & dueText & \")\"\n          end if\n        end if\n      end repeat\n      \n      if (count of upcomingTasks) > 0 then\n        set AppleScript's text item delimiters to return\n        set taskList to upcomingTasks as string\n        set AppleScript's text item delimiters to \"\"\n        return \"📅 Upcoming tasks (next \" & daysAhead & \" days):\\n\" & taskList\n      else\n        return \"No tasks due in the next \" & daysAhead & \" days\"\n      end if\n    end tell\n  end tell\nend run",
+        "{{days}}"
+      ]
+    },
+    {
+      "name": "flagged_tasks",
+      "description": "List all flagged tasks",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "tell application \"OmniFocus\"\n  tell default document\n    set flaggedTasks to {}\n    set allFlagged to flattened tasks whose flagged is true and completed is false\n    \n    repeat with aTask in allFlagged\n      set taskName to name of aTask\n      set taskDue to due date of aTask\n      try\n        set projectName to name of container of aTask\n      on error\n        set projectName to \"Inbox\"\n      end try\n      \n      set taskInfo to \"• \" & taskName & \" [\" & projectName & \"]\"\n      if taskDue is not missing value then\n        set taskInfo to taskInfo & \" (Due: \" & (taskDue as string) & \")\"\n      end if\n      set end of flaggedTasks to taskInfo\n    end repeat\n    \n    if (count of flaggedTasks) > 0 then\n      set AppleScript's text item delimiters to return\n      set taskList to flaggedTasks as string\n      set AppleScript's text item delimiters to \"\"\n      return \"🚩 Flagged Tasks (\" & (count of flaggedTasks) & \"):\\n\" & taskList\n    else\n      return \"No flagged tasks\"\n    end if\n  end tell\nend tell"
+      ]
+    },
+    {
+      "name": "process_inbox",
+      "description": "Interactive inbox processing helper",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "tell application \"OmniFocus\"\n  tell default document\n    set inboxCount to count of inbox tasks\n    \n    if inboxCount = 0 then\n      return \"✅ Inbox is empty!\"\n    else\n      set firstTask to first inbox task\n      set taskName to name of firstTask\n      set taskNote to note of firstTask\n      \n      set taskInfo to \"📥 Inbox has \" & inboxCount & \" items\\n\\n\"\n      set taskInfo to taskInfo & \"First task: \" & taskName\n      if taskNote is not \"\" then\n        set taskInfo to taskInfo & \"\\nNote: \" & taskNote\n      end if\n      \n      set taskInfo to taskInfo & \"\\n\\n💡 Suggestions:\\n\"\n      set taskInfo to taskInfo & \"• Assign to a project\\n\"\n      set taskInfo to taskInfo & \"• Add a due date\\n\"\n      set taskInfo to taskInfo & \"• Flag if important\\n\"\n      set taskInfo to taskInfo & \"• Delete if not needed\\n\"\n      \n      return taskInfo\n    end if\n  end tell\nend tell"
+      ]
+    },
+    {
+      "name": "quick_stats",
+      "description": "Get quick statistics about your OmniFocus database",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      },
+      "command": "osascript",
+      "arguments": [
+        "-e",
+        "tell application \"OmniFocus\"\n  tell default document\n    set totalActive to count of (flattened tasks whose completed is false)\n    set totalCompleted to count of (flattened tasks whose completed is true)\n    set totalProjects to count of projects\n    set totalFolders to count of folders\n    set inboxCount to count of inbox tasks\n    \n    set stats to \"📈 OMNIFOCUS STATISTICS\\n\"\n    set stats to stats & \"═══════════════════════\\n\\n\"\n    set stats to stats & \"Active tasks: \" & totalActive & \"\\n\"\n    set stats to stats & \"Completed tasks: \" & totalCompleted & \"\\n\"\n    set stats to stats & \"Completion rate: \" & (round ((totalCompleted / (totalActive + totalCompleted)) * 100)) & \"%\\n\"\n    set stats to stats & \"Projects: \" & totalProjects & \"\\n\"\n    set stats to stats & \"Folders: \" & totalFolders & \"\\n\"\n    set stats to stats & \"Inbox items: \" & inboxCount & \"\\n\"\n    \n    return stats\n  end tell\nend tell"
+      ]
+    }
+  ]
+}
