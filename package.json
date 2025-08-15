@@ -4,15 +4,15 @@
   "description": "OmniFocus GTD integration for Claude Desktop",
   "main": "build.js",
   "scripts": {
-    "build": "node build.js",
-    "build:dxt": "node build-dxt.js",
-    "build:all": "node build.js && node build-dxt.js && node build-minimal.js && node build-simple.js",
-    "clean": "rm -rf dist build build-temp* .archive",
-    "rebuild": "npm run clean && npm run build:all",
+    "build": "node build-dxt-new.js",
+    "build:dxt": "node build-dxt-new.js",
+    "build:legacy": "node build-dxt.js",
+    "clean": "rm -rf dist build build-temp* extension-build",
+    "rebuild": "npm run clean && npm run build",
     "test": "node test.js",
     "validate": "node validate-dxt.js",
-    "watch": "node build.js --watch",
-    "release": "npm run clean && npm run build:dxt && npm run validate"
+    "dev": "node build-dxt-new.js && npm run validate",
+    "release": "npm run clean && npm run build && npm run validate"
   },
   "keywords": [
     "omnifocus",
