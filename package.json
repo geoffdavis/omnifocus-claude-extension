@@ -5,11 +5,14 @@
   "main": "build.js",
   "scripts": {
     "build": "node build.js",
-    "clean": "rm -rf dist build",
-    "rebuild": "npm run clean && npm run build",
+    "build:dxt": "node build-dxt.js",
+    "build:all": "node build.js && node build-dxt.js && node build-minimal.js && node build-simple.js",
+    "clean": "rm -rf dist build build-temp*",
+    "rebuild": "npm run clean && npm run build:all",
     "test": "node test.js",
+    "validate": "node validate-dxt.js",
     "watch": "node build.js --watch",
-    "release": "npm run build && npm run create-release"
+    "release": "npm run build:all && npm run validate"
   },
   "keywords": [
     "omnifocus",
