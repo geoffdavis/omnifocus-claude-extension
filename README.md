@@ -2,13 +2,99 @@
 
 A comprehensive OmniFocus integration for Claude Desktop that enables natural language task management using GTD (Getting Things Done) methodology.
 
-## 🚀 Installation
+## 🚀 Quick Start
 
-1. Download the `omnifocus-gtd.dxt` file
+### Installation (Pre-built)
+
+1. Download the latest `omnifocus-gtd.dxt` from [Releases](https://github.com/yourusername/omnifocus-claude-extension/releases)
 2. Open Claude Desktop
 3. Drag and drop the `.dxt` file onto the Claude Desktop window
-4. The extension will be installed automatically
-5. Grant permission for Claude Desktop to control OmniFocus when prompted
+4. Grant permission when prompted
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/omnifocus-claude-extension.git
+cd omnifocus-claude-extension
+
+# Install dependencies
+npm install
+
+# Build the extension
+npm run build
+
+# The extension will be created at dist/omnifocus-gtd.dxt
+```
+
+## 🛠️ Development
+
+### Project Structure
+
+```
+omnifocus-claude-extension/
+├── src/
+│   ├── manifest.json         # Extension metadata
+│   ├── tools/                # Tool definitions (JSON)
+│   │   ├── add_task.json
+│   │   ├── complete_task.json
+│   │   └── ...
+│   └── scripts/              # AppleScript implementations
+│       ├── add_task.applescript
+│       ├── complete_task.applescript
+│       └── ...
+├── dist/                     # Built extension (gitignored)
+│   └── omnifocus-gtd.dxt
+├── build.js                  # Build script
+├── test.js                   # Test suite
+└── package.json             # Project configuration
+```
+
+### Building
+
+```bash
+# Build the extension
+npm run build
+
+# Clean build directories
+npm run clean
+
+# Clean and rebuild
+npm run rebuild
+
+# Run tests
+npm test
+
+# Watch mode (rebuilds on file changes)
+npm run watch
+```
+
+### Adding New Tools
+
+1. Create a tool definition in `src/tools/`:
+```json
+{
+  "name": "tool_name",
+  "description": "What this tool does",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "param": {
+        "type": "string",
+        "description": "Parameter description"
+      }
+    },
+    "required": ["param"]
+  },
+  "script": "tool_name.applescript"
+}
+```
+
+2. Create the AppleScript in `src/scripts/tool_name.applescript`
+
+3. Run `npm run build` to rebuild the extension
+
+4. Test the new tool
 
 ## ✨ Features
 
@@ -30,11 +116,6 @@ A comprehensive OmniFocus integration for Claude Desktop that enables natural la
 - **Process inbox** - Interactive guidance for inbox zero
 - **Quick stats** - Database overview and completion rates
 
-### Project Management
-- **Create projects** with optional folder placement
-- **List projects** with active task counts
-- **Organize by folders** for better structure
-
 ## 💬 Natural Language Examples
 
 ### Adding Tasks
@@ -55,44 +136,22 @@ A comprehensive OmniFocus integration for Claude Desktop that enables natural la
 - "Mark 'Buy milk' as done"
 - "Complete the budget review task"
 
-### Searching
-- "Search for tasks about meetings"
-- "Find all tasks with 'report' in the name"
-- "Search completed tasks for invoice"
-
-### Reviews
-- "Run weekly review"
-- "Show quick stats"
-- "Process my inbox"
-
-### Project Management
-- "Create project called Q1 Planning in Work folder"
-- "List all projects"
-- "Show projects with tasks"
-
 ## 🛠️ Available Commands
 
 | Command | Description | Parameters |
 |---------|-------------|------------|
 | `add_task` | Add a new task | name, note, project, due_date, flagged |
-| `list_inbox` | Show inbox items | include_notes |
+| `list_inbox` | Show inbox items | - |
 | `today_tasks` | List today's tasks | - |
 | `complete_task` | Mark task complete | task_name |
-| `list_projects` | Show all projects | include_empty |
-| `search_tasks` | Find tasks | search_term, include_completed |
-| `create_project` | New project | name, folder, notes |
 | `weekly_review` | Review summary | - |
-| `upcoming_tasks` | Future tasks | days |
-| `flagged_tasks` | Priority items | - |
-| `process_inbox` | Inbox helper | - |
-| `quick_stats` | Statistics | - |
 
 ## 📋 Requirements
 
 - **OmniFocus 3** or later installed on macOS
 - **Claude Desktop** application
 - **macOS** with AppleScript support enabled
-- Permission for Claude Desktop to control OmniFocus (granted on first use)
+- **Node.js** 14+ (for building from source)
 
 ## 🔧 Troubleshooting
 
@@ -101,45 +160,32 @@ A comprehensive OmniFocus integration for Claude Desktop that enables natural la
 2. Check System Preferences → Security & Privacy → Privacy → Automation
 3. Allow Claude Desktop to control OmniFocus
 
-### Tasks not appearing?
-- Verify tasks are not completed (hidden by default)
-- Check the correct project/folder is selected
-- Ensure proper date filters are applied
-
-### Permission errors?
-- Grant automation permissions when prompted
-- Restart Claude Desktop after granting permissions
-- Check that OmniFocus is not in a modal dialog state
+### Build issues?
+1. Ensure Node.js is installed: `node --version`
+2. Clear and rebuild: `npm run rebuild`
+3. Check for script errors: `npm test`
 
 ## 🤝 Contributing
 
-This extension is open source and community-driven. Contributions are welcome!
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-### How to contribute:
-1. Test the extension and report issues
-2. Suggest new features or improvements
-3. Share your workflows and use cases
-4. Help improve the documentation
+### Development Workflow
 
-### Feature requests:
-- Perspective support
-- Custom metadata fields
-- Recurring task templates
-- Batch operations
-- Integration with OmniFocus tags/contexts
+1. Fork the repository
+2. Create a feature branch
+3. Add your tool/feature
+4. Run tests: `npm test`
+5. Build: `npm run build`
+6. Test in Claude Desktop
+7. Submit a pull request
 
 ## 📄 License
 
-MIT License - Feel free to use, modify, and share!
+MIT License - See [LICENSE](LICENSE) for details
 
 ## 🙏 Acknowledgments
 
 Created by the Claude Desktop community for GTD practitioners and OmniFocus users everywhere.
-
-Special thanks to:
-- The OmniFocus team for their excellent AppleScript support
-- Anthropic for making Claude Desktop extensible
-- The GTD community for methodology and workflows
 
 ## 📚 Resources
 
@@ -147,37 +193,9 @@ Special thanks to:
 - [GTD Methodology](https://gettingthingsdone.com/)
 - [Claude Desktop Extensions Docs](https://claude.ai/docs/desktop-extensions)
 
-## 💡 Tips for Best Use
-
-1. **Natural language works best** - Just describe what you want naturally
-2. **Use projects for organization** - Keep inbox clean by assigning to projects
-3. **Regular reviews** - Run weekly review every week for best results
-4. **Flag sparingly** - Only flag true priorities to maintain focus
-5. **Process inbox daily** - Keep inbox at zero for clarity
-
-## 🐛 Known Limitations
-
-- Date parsing is limited to "today", "tomorrow", and "next week" (more coming soon)
-- Cannot access OmniFocus perspectives directly
-- Limited to 20 results in search to prevent overload
-- Cannot modify recurring task patterns
-- No access to tags/contexts (OF2 legacy)
-
 ## 📈 Version History
 
-### v1.0.0 (Current)
-- Initial release with core GTD features
-- 12 commands for complete task management
-- Natural language task entry
-- Weekly review automation
-- Basic date parsing
-
-### Planned for v1.1.0
-- Enhanced date parsing
-- Tag/context support
-- Perspective access
-- Recurring task templates
-- Batch operations
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
 ---
 
