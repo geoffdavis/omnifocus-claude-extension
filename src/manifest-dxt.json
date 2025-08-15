@@ -8,11 +8,8 @@
     "email": "geoff@geoffdavis.com"
   },
   "server": {
-    "type": "stdio",
-    "run": {
-      "command": "node",
-      "args": ["${__dirname}/server/index.js"]
-    }
+    "type": "node",
+    "main": "server/index.js"
   },
   "tools": [
     {
