@@ -10,15 +10,15 @@
   "server": {
     "type": "stdio",
     "run": {
-      "command": "osascript",
-      "args": ["-e", "on run\n  return \"OmniFocus extension loaded\"\nend run"]
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"]
     }
   },
   "tools": [
     {
       "name": "add_task",
       "description": "Add a new task to OmniFocus inbox or specific project",
-      "parameters": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "name": {
@@ -49,7 +49,7 @@
     {
       "name": "list_inbox",
       "description": "List all tasks currently in the OmniFocus inbox",
-      "parameters": {
+      "inputSchema": {
         "type": "object",
         "properties": {}
       }
@@ -57,7 +57,7 @@
     {
       "name": "today_tasks",
       "description": "List all tasks due today",
-      "parameters": {
+      "inputSchema": {
         "type": "object",
         "properties": {}
       }
@@ -65,7 +65,7 @@
     {
       "name": "complete_task",
       "description": "Mark a task as complete by searching for it by name",
-      "parameters": {
+      "inputSchema": {
         "type": "object",
         "properties": {
           "task_name": {
@@ -79,7 +79,7 @@
     {
       "name": "weekly_review",
       "description": "Get a comprehensive weekly review summary",
-      "parameters": {
+      "inputSchema": {
         "type": "object",
         "properties": {}
       }
