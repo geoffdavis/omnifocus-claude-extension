@@ -1,0 +1,32 @@
+{
+  "name": "add_task",
+  "description": "Add a new task to OmniFocus inbox or specific project",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "The task name/title"
+      },
+      "note": {
+        "type": "string",
+        "description": "Optional note or description for the task"
+      },
+      "project": {
+        "type": "string",
+        "description": "Optional project name to add the task to"
+      },
+      "due_date": {
+        "type": "string",
+        "description": "Optional due date (e.g., 'tomorrow', 'next week', 'Friday')"
+      },
+      "flagged": {
+        "type": "boolean",
+        "description": "Whether to flag this task as important",
+        "default": false
+      }
+    },
+    "required": ["name"]
+  },
+  "script": "add_task.applescript"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "weekly_review",
+  "description": "Get a comprehensive weekly review summary",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  },
+  "script": "weekly_review.applescript"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "omnifocus-gtd",
+  "name": "OmniFocus GTD",
+  "version": "1.0.0",
+  "description": "Complete OmniFocus task management integration for Claude Desktop. Add tasks, manage projects, process inbox, conduct reviews, and implement GTD methodology.",
+  "author": "Community Contributors",
+  "license": "MIT",
+  "readme": "# OmniFocus GTD Extension\n\nA comprehensive OmniFocus integration for Claude Desktop that enables natural language task management.\n\n## Features\n- Add tasks with natural language parsing\n- View and process inbox\n- List today's tasks and upcoming due dates\n- Complete tasks by name\n- Create and manage projects\n- Search across all tasks\n- Weekly and daily reviews\n- GTD methodology support",
+  "config": {
+    "enabled": true
+  }
+}

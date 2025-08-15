@@ -2,9 +2,14 @@
   "name": "omnifocus-claude-extension",
   "version": "1.0.0",
   "description": "OmniFocus GTD integration for Claude Desktop",
-  "main": "omnifocus-gtd.dxt",
+  "main": "build.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build.js",
+    "clean": "rm -rf dist build",
+    "rebuild": "npm run clean && npm run build",
+    "test": "node test.js",
+    "watch": "node build.js --watch",
+    "release": "npm run build && npm run create-release"
   },
   "keywords": [
     "omnifocus",
@@ -25,5 +30,13 @@
   "bugs": {
     "url": "https://github.com/yourusername/omnifocus-claude-extension/issues"
   },
-  "homepage": "https://github.com/yourusername/omnifocus-claude-extension#readme"
+  "homepage": "https://github.com/yourusername/omnifocus-claude-extension#readme",
+  "devDependencies": {
+    "archiver": "^6.0.1",
+    "chalk": "^5.3.0",
+    "chokidar": "^3.5.3"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }

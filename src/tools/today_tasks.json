@@ -1,0 +1,9 @@
+{
+  "name": "today_tasks",
+  "description": "List all tasks due today",
+  "parameters": {
+    "type": "object",
+    "properties": {}
+  },
+  "script": "today_tasks.applescript"
+}
