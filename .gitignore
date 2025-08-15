@@ -34,6 +34,8 @@ jspm_packages/
 # Build directories
 dist/
 build/
+build-temp/
+build-temp-*/
 
 # npm/yarn
 .npm

@@ -1,0 +1,88 @@
+{
+  "dxt_version": "0.1",
+  "name": "OmniFocus GTD",
+  "version": "1.0.0",
+  "description": "Complete OmniFocus task management integration for Claude Desktop",
+  "author": {
+    "name": "Geoff Davis",
+    "email": "geoff@geoffdavis.com"
+  },
+  "server": {
+    "type": "stdio",
+    "run": {
+      "command": "osascript",
+      "args": ["-e", "on run\n  return \"OmniFocus extension loaded\"\nend run"]
+    }
+  },
+  "tools": [
+    {
+      "name": "add_task",
+      "description": "Add a new task to OmniFocus inbox or specific project",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The task name/title"
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional note or description for the task"
+          },
+          "project": {
+            "type": "string",
+            "description": "Optional project name to add the task to"
+          },
+          "due_date": {
+            "type": "string",
+            "description": "Optional due date (e.g., 'tomorrow', 'next week', 'Friday')"
+          },
+          "flagged": {
+            "type": "boolean",
+            "description": "Whether to flag this task as important",
+            "default": false
+          }
+        },
+        "required": ["name"]
+      }
+    },
+    {
+      "name": "list_inbox",
+      "description": "List all tasks currently in the OmniFocus inbox",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "today_tasks",
+      "description": "List all tasks due today",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "complete_task",
+      "description": "Mark a task as complete by searching for it by name",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_name": {
+            "type": "string",
+            "description": "Name or partial name of the task to complete"
+          }
+        },
+        "required": ["task_name"]
+      }
+    },
+    {
+      "name": "weekly_review",
+      "description": "Get a comprehensive weekly review summary",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}

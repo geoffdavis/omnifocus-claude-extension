@@ -156,13 +156,29 @@ function loadTools() {
 }
 
 /**
- * Create the .dxt archive
+ * Create the .dxt file as a plain JSON (not zipped)
+ * Claude Desktop appears to expect plain JSON, not a zip archive
+ */
+async function createExtensionFile(extension) {
+    const outputPath = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
+    
+    // Write the extension directly as JSON
+    fs.writeFileSync(outputPath, JSON.stringify(extension, null, 2));
+    
+    return {
+        path: outputPath,
+        size: fs.statSync(outputPath).size
+    };
+}
+
+/**
+ * Create the .dxt archive (alternative method using zip)
  */
 async function createArchive(extension) {
-    const outputPath = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
-    const tempJsonPath = path.join(BUILD_DIR, 'extension.json');
+    const outputPath = path.join(DIST_DIR, 'omnifocus-gtd.dxt.zip');
+    const tempJsonPath = path.join(BUILD_DIR, 'manifest.json');
     
-    // Write the extension JSON
+    // Write the extension JSON with proper name
     fs.writeFileSync(tempJsonPath, JSON.stringify(extension, null, 2));
     
     return new Promise((resolve, reject) => {
@@ -172,8 +188,11 @@ async function createArchive(extension) {
         });
         
         output.on('close', () => {
+            // Rename to .dxt
+            const finalPath = outputPath.replace('.zip', '');
+            fs.renameSync(outputPath, finalPath);
             resolve({
-                path: outputPath,
+                path: finalPath,
                 size: archive.pointer()
             });
         });
@@ -184,8 +203,8 @@ async function createArchive(extension) {
         
         archive.pipe(output);
         
-        // Add the extension.json file
-        archive.file(tempJsonPath, { name: 'extension.json' });
+        // Add the manifest.json file (not extension.json)
+        archive.file(tempJsonPath, { name: 'manifest.json' });
         
         archive.finalize();
     });
@@ -227,11 +246,16 @@ async function build() {
             tools: tools
         };
         
-        // Create the archive
-        log.header('📦 Creating extension archive:');
-        log.info('Compressing to .dxt format...');
+        // Create the extension file
+        log.header('📦 Creating extension file:');
+        log.info('Writing .dxt file...');
         
-        const result = await createArchive(extension);
+        // Try plain JSON first (seems to be what Claude expects)
+        const result = await createExtensionFile(extension);
+        
+        // Also create a zipped version for testing
+        log.info('Creating zipped version for testing...');
+        await createArchive(extension);
         
         // Clean up
         cleanBuildDir();
@@ -246,6 +270,7 @@ async function build() {
         log.success(`Output: ${result.path}`);
         log.success(`Size: ${sizeKB} KB`);
         log.success(`Time: ${buildTime}ms`);
+        log.info('Also created: dist/omnifocus-gtd.dxt.zip (for testing)');
         
         if (isWatchMode) {
             log.header('👁  Watching for changes...');
@@ -254,6 +279,7 @@ async function build() {
         
     } catch (error) {
         log.error(`Build failed: ${error.message}`);
+        console.error(error);
         process.exit(1);
     }
 }
