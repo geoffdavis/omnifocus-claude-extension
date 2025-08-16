@@ -8,9 +8,12 @@
     "email": "geoff@geoffdavis.com"
   },
   "server": {
-    "type": "binary",
-    "command": "server/run.sh",
-    "args": []
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"]
+    }
   },
   "tools": [
     {

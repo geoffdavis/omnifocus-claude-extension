@@ -1,0 +1,11 @@
+{
+  "dxt_version": "0.1",
+  "name": "OmniFocus GTD",
+  "version": "1.0.0",
+  "description": "Complete OmniFocus task management integration for Claude Desktop",
+  "server": {
+    "type": "node",
+    "command": "node",
+    "args": ["server/index.js"]
+  }
+}
