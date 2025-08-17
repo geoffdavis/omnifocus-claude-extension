@@ -41,7 +41,6 @@ build-temp-*/
 # npm/yarn
 .npm
 .yarn
-package-lock.json
 yarn.lock
 
 # Optional eslint cache
