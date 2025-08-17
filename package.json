@@ -10,7 +10,7 @@
     "rebuild": "npm run clean && npm run build",
     "test": "node test.js",
     "validate": "node validate-dxt.js",
-    "dev": "node build-dxt-new.js && npm run validate",
+    "dev": "npm run build && npm run validate",
     "release": "npm run clean && npm run build && npm run validate"
   },
   "keywords": [

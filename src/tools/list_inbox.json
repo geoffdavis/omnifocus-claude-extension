@@ -1,9 +1,0 @@
-{
-  "name": "list_inbox",
-  "description": "List all tasks currently in the OmniFocus inbox",
-  "parameters": {
-    "type": "object",
-    "properties": {}
-  },
-  "script": "list_inbox.applescript"
-}
