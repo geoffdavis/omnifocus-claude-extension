@@ -3,8 +3,32 @@ on run argv
   
   tell application "OmniFocus"
     tell default document
+      -- First check inbox tasks separately
+      set foundInInbox to false
+      set inboxTask to missing value
+      
+      repeat with aTask in (every inbox task)
+        if name of aTask contains searchName and completed of aTask is false then
+          if foundInInbox then
+            -- Multiple matches, need to check all tasks
+            set foundInInbox to false
+            exit repeat
+          else
+            set foundInInbox to true
+            set inboxTask to aTask
+          end if
+        end if
+      end repeat
+      
+      -- If we found exactly one inbox task, complete it
+      if foundInInbox and inboxTask is not missing value then
+        set taskName to name of inboxTask
+        mark complete inboxTask
+        return "✅ Completed: " & taskName
+      end if
+      
+      -- Otherwise, search all tasks to show options or find in projects
       try
-        -- Get all matching incomplete tasks (includes inbox tasks)
         set foundTasks to every flattened task whose name contains searchName and completed is false
         
         if (count of foundTasks) = 0 then
@@ -12,7 +36,15 @@ on run argv
         else if (count of foundTasks) = 1 then
           set targetTask to item 1 of foundTasks
           set taskName to name of targetTask
-          set completed of targetTask to true
+          
+          -- Try to mark complete (works for project tasks)
+          try
+            set completed of targetTask to true
+          on error
+            -- If that fails, use mark complete (works for inbox tasks)
+            mark complete targetTask
+          end try
+          
           return "✅ Completed: " & taskName
         else
           -- Multiple matches - show them
@@ -24,7 +56,7 @@ on run argv
           return taskList
         end if
       on error errMsg
-        return "❌ Error searching for task: " & errMsg
+        return "❌ Error: " & errMsg
       end try
     end tell
   end tell
