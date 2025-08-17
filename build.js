@@ -43,14 +43,22 @@ const BUILD_DIR = path.join(__dirname, 'extension-build');
 const DIST_DIR = path.join(__dirname, 'dist');
 const OUTPUT_FILE = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
 
-// Unified manifest for the extension
+// Correct manifest format for Claude Desktop Extension
 const MANIFEST = {
+    dxt_version: '0.1.0',  // Required DXT version
     id: 'omnifocus-gtd',
     name: 'OmniFocus GTD',
     version: '2.0.0',
     description: 'Complete OmniFocus task management with search, batch operations, recurring tasks, and comprehensive GTD features.',
-    author: 'Community Contributors',
+    author: {
+        name: 'Community Contributors',
+        email: 'support@example.com'
+    },
     license: 'MIT',
+    server: {
+        command: 'node',
+        args: ['server/index.js']
+    },
     readme: `# OmniFocus GTD Extension v2.0
 
 Complete OmniFocus integration for Claude Desktop with advanced task management features.
@@ -231,6 +239,7 @@ function createBuildReport(scriptCounts, fileSize) {
     
     const report = {
         version: MANIFEST.version,
+        dxt_version: MANIFEST.dxt_version,
         buildDate: new Date().toISOString(),
         features: {
             core: ['add_task', 'list_inbox', 'today_tasks', 'complete_task', 'weekly_review'],
