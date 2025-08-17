@@ -2,7 +2,7 @@
 
 /**
  * Build Script for OmniFocus Claude Extension v2.0
- * Creates a single unified DXT package with all features
+ * Creates a DXT package following the official specification
  */
 
 const fs = require('fs');
@@ -43,69 +43,25 @@ const BUILD_DIR = path.join(__dirname, 'extension-build');
 const DIST_DIR = path.join(__dirname, 'dist');
 const OUTPUT_FILE = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
 
-// Correct manifest format for Claude Desktop Extension
+// Official DXT manifest format based on documentation
 const MANIFEST = {
-    dxt_version: '0.1.0',  // Required DXT version
-    id: 'omnifocus-gtd',
+    dxt_version: '0.1',  // Official version from docs (not 0.1.0 or 0.0.1)
     name: 'OmniFocus GTD',
     version: '2.0.0',
     description: 'Complete OmniFocus task management with search, batch operations, recurring tasks, and comprehensive GTD features.',
     author: {
-        name: 'Community Contributors',
-        email: 'support@example.com'
+        name: 'Community Contributors'
+        // email is optional, not required
     },
-    license: 'MIT',
     server: {
-        command: 'node',
-        args: ['server/index.js']
-    },
-    readme: `# OmniFocus GTD Extension v2.0
-
-Complete OmniFocus integration for Claude Desktop with advanced task management features.
-
-## Features
-
-### Task Management
-- **Add Tasks** - Create tasks with notes, projects, due/defer dates, flags, and time estimates
-- **Search Tasks** - Search across all projects and contexts
-- **Edit Tasks** - Modify any property of existing tasks
-- **Batch Operations** - Create multiple tasks with subtasks in one command
-- **Recurring Tasks** - Set up tasks with repeat patterns
-- **Complete Tasks** - Mark tasks as done by name
-
-### Views & Reviews
-- **Inbox** - Process unorganized tasks
-- **Today** - Tasks due today
-- **Projects** - All active projects with statistics
-- **Deferred** - Tasks not yet available
-- **Flagged** - Priority tasks
-- **Overdue** - Past due tasks
-- **Weekly Review** - Comprehensive GTD review
-
-## Usage Examples
-
-### Single Task
-"Add task 'Review budget' due Friday to Finance project"
-
-### Batch Tasks
-"Create tasks: Research|-Analysis|-Report|Review"
-
-### Search
-"Search for tasks about 'meeting'"
-
-### Edit
-"Change due date of 'Presentation' to tomorrow"
-
-### Recurring
-"Create weekly recurring 'Team meeting' on Mondays"
-
-## Requirements
-- macOS 10.15+
-- OmniFocus 3+
-- Claude Desktop`,
-    config: {
-        enabled: true
+        type: 'node',  // Added type field
+        entry_point: 'server/index.js',  // Changed from nested mcp_config
+        mcp_config: {
+            command: 'node',
+            args: ['${__dirname}/server/index.js']  // Use template literal
+        }
     }
+    // Removed all optional fields to focus on required ones
 };
 
 // Clean build directory
@@ -184,6 +140,8 @@ function createManifest() {
     const manifestPath = path.join(BUILD_DIR, 'manifest.json');
     fs.writeFileSync(manifestPath, JSON.stringify(MANIFEST, null, 2));
     log.green('✓ Manifest created');
+    log.gray('Manifest content:');
+    console.log(JSON.stringify(MANIFEST, null, 2));
 }
 
 // Create the DXT archive
@@ -230,6 +188,21 @@ function validateArchive() {
     }
     
     log.green('✓ Archive validated');
+    
+    // Verify manifest in archive
+    try {
+        const { execSync } = require('child_process');
+        const manifestInZip = execSync(`unzip -p "${OUTPUT_FILE}" manifest.json`, { 
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'ignore'] // Suppress stderr
+        });
+        log.gray('\nManifest in archive:');
+        const manifest = JSON.parse(manifestInZip);
+        console.log(JSON.stringify(manifest, null, 2));
+    } catch (e) {
+        log.yellow('Could not verify manifest in archive (unzip not available)');
+    }
+    
     return stats.size;
 }
 
