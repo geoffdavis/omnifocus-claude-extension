@@ -195,12 +195,13 @@ function executeEmbeddedScript(scriptName, args = []) {
             script = `
                 tell application "OmniFocus"
                     tell default document
-                        set inboxTasks to every inbox task
-                        if (count of inboxTasks) = 0 then
+                        set incompleteTasks to every inbox task whose completed is false
+                        
+                        if (count of incompleteTasks) = 0 then
                             return "📥 Inbox is empty"
                         else
-                            set taskList to "📥 Inbox (" & (count of inboxTasks) & " items):"
-                            repeat with aTask in inboxTasks
+                            set taskList to "📥 Inbox (" & (count of incompleteTasks) & " items):"
+                            repeat with aTask in incompleteTasks
                                 set taskName to name of aTask
                                 if flagged of aTask then
                                     set taskList to taskList & return & "• " & taskName & " 🚩"
