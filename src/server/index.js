@@ -11,10 +11,17 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// Read version from package.json
-const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
-const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const VERSION = packageJson.version;
+// Read version - try from package.json if available, otherwise use fallback
+let VERSION = '2.0.1'; // Fallback version
+try {
+    const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+        VERSION = packageJson.version;
+    }
+} catch (error) {
+    // Use fallback version if package.json not found (e.g., when running from DXT)
+}
 
 // Initialize stdio interface
 const rl = readline.createInterface({
@@ -623,9 +630,11 @@ async function handleRequest(request) {
                 initialized = true;
                 
                 const initResult = {
-                    protocolVersion: '2025-06-18',
+                    protocolVersion: '2024-11-05',
                     capabilities: {
-                        tools: {}
+                        tools: {
+                            listChanged: true
+                        }
                     },
                     serverInfo: {
                         name: 'omnifocus-gtd',

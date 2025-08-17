@@ -93,11 +93,15 @@ function copySourceFiles() {
     fs.mkdirSync(path.join(BUILD_DIR, 'scripts'), { recursive: true });
     fs.mkdirSync(path.join(BUILD_DIR, 'scripts', 'enhanced'), { recursive: true });
     
-    // Copy server
-    fs.copyFileSync(
-        path.join(__dirname, 'src', 'server', 'index.js'),
-        path.join(BUILD_DIR, 'server', 'index.js')
-    );
+    // Copy server with version replacement
+    const serverSrc = path.join(__dirname, 'src', 'server', 'index.js');
+    const serverDest = path.join(BUILD_DIR, 'server', 'index.js');
+    
+    // Read server file and replace fallback version
+    let serverContent = fs.readFileSync(serverSrc, 'utf8');
+    serverContent = serverContent.replace(/let VERSION = '[^']+'; \/\/ Fallback version/, `let VERSION = '${VERSION}'; // Fallback version`);
+    fs.writeFileSync(serverDest, serverContent);
+    
     log.green('✓ Copied server');
     
     // Copy original scripts
