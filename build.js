@@ -1,323 +1,263 @@
 #!/usr/bin/env node
 
 /**
- * Build script for OmniFocus Claude Extension
- * Generates a .dxt file from source files
+ * Build Script for OmniFocus Claude Extension v2.0
+ * Creates a single unified DXT package with all features
  */
 
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
+const chalk = require('chalk');
 
-// ANSI color codes for terminal output
-const colors = {
-    reset: '\x1b[0m',
-    bright: '\x1b[1m',
-    dim: '\x1b[2m',
-    red: '\x1b[31m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    blue: '\x1b[34m',
-    magenta: '\x1b[35m',
-    cyan: '\x1b[36m'
+// Configuration
+const BUILD_DIR = path.join(__dirname, 'extension-build');
+const DIST_DIR = path.join(__dirname, 'dist');
+const OUTPUT_FILE = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
+
+// Unified manifest for the extension
+const MANIFEST = {
+    id: 'omnifocus-gtd',
+    name: 'OmniFocus GTD',
+    version: '2.0.0',
+    description: 'Complete OmniFocus task management with search, batch operations, recurring tasks, and comprehensive GTD features.',
+    author: 'Community Contributors',
+    license: 'MIT',
+    readme: `# OmniFocus GTD Extension v2.0
+
+Complete OmniFocus integration for Claude Desktop with advanced task management features.
+
+## Features
+
+### Task Management
+- **Add Tasks** - Create tasks with notes, projects, due/defer dates, flags, and time estimates
+- **Search Tasks** - Search across all projects and contexts
+- **Edit Tasks** - Modify any property of existing tasks
+- **Batch Operations** - Create multiple tasks with subtasks in one command
+- **Recurring Tasks** - Set up tasks with repeat patterns
+- **Complete Tasks** - Mark tasks as done by name
+
+### Views & Reviews
+- **Inbox** - Process unorganized tasks
+- **Today** - Tasks due today
+- **Projects** - All active projects with statistics
+- **Deferred** - Tasks not yet available
+- **Flagged** - Priority tasks
+- **Overdue** - Past due tasks
+- **Weekly Review** - Comprehensive GTD review
+
+## Usage Examples
+
+### Single Task
+"Add task 'Review budget' due Friday to Finance project"
+
+### Batch Tasks
+"Create tasks: Research|-Analysis|-Report|Review"
+
+### Search
+"Search for tasks about 'meeting'"
+
+### Edit
+"Change due date of 'Presentation' to tomorrow"
+
+### Recurring
+"Create weekly recurring 'Team meeting' on Mondays"
+
+## Requirements
+- macOS 10.15+
+- OmniFocus 3+
+- Claude Desktop`,
+    config: {
+        enabled: true
+    }
 };
 
-// Helper functions for colored output
-const log = {
-    info: (msg) => console.log(`${colors.blue}ℹ${colors.reset}  ${msg}`),
-    success: (msg) => console.log(`${colors.green}✓${colors.reset}  ${msg}`),
-    warning: (msg) => console.log(`${colors.yellow}⚠${colors.reset}  ${msg}`),
-    error: (msg) => console.log(`${colors.red}✗${colors.reset}  ${msg}`),
-    header: (msg) => console.log(`\n${colors.bright}${colors.cyan}${msg}${colors.reset}`),
-    item: (msg) => console.log(`  ${colors.dim}•${colors.reset} ${msg}`)
-};
+// Clean build directory
+function cleanBuildDir() {
+    console.log(chalk.blue('🧹 Cleaning build directory...'));
+    if (fs.existsSync(BUILD_DIR)) {
+        fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+    }
+    fs.mkdirSync(BUILD_DIR, { recursive: true });
+}
 
-// Paths
-const BASE_DIR = __dirname;
-const SRC_DIR = path.join(BASE_DIR, 'src');
-const DIST_DIR = path.join(BASE_DIR, 'dist');
-const BUILD_DIR = path.join(BASE_DIR, 'build');
+// Create dist directory
+function ensureDistDir() {
+    if (!fs.existsSync(DIST_DIR)) {
+        fs.mkdirSync(DIST_DIR, { recursive: true });
+    }
+}
 
-// Watch mode flag
-const isWatchMode = process.argv.includes('--watch');
-
-/**
- * Ensure required directories exist
- */
-function ensureDirectories() {
-    [DIST_DIR, BUILD_DIR].forEach(dir => {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-            log.info(`Created directory: ${path.basename(dir)}/`);
+// Copy source files to build directory
+function copySourceFiles() {
+    console.log(chalk.blue('📁 Copying source files...'));
+    
+    // Create directory structure
+    fs.mkdirSync(path.join(BUILD_DIR, 'server'), { recursive: true });
+    fs.mkdirSync(path.join(BUILD_DIR, 'scripts'), { recursive: true });
+    fs.mkdirSync(path.join(BUILD_DIR, 'scripts', 'enhanced'), { recursive: true });
+    
+    // Copy server
+    fs.copyFileSync(
+        path.join(__dirname, 'src', 'server', 'index.js'),
+        path.join(BUILD_DIR, 'server', 'index.js')
+    );
+    console.log(chalk.green('✓ Copied server'));
+    
+    // Copy original scripts
+    const scriptsDir = path.join(__dirname, 'src', 'scripts');
+    const scripts = fs.readdirSync(scriptsDir);
+    let originalCount = 0;
+    
+    scripts.forEach(script => {
+        const scriptPath = path.join(scriptsDir, script);
+        if (fs.statSync(scriptPath).isFile() && script.endsWith('.applescript')) {
+            fs.copyFileSync(
+                scriptPath,
+                path.join(BUILD_DIR, 'scripts', script)
+            );
+            originalCount++;
         }
     });
-}
-
-/**
- * Load and validate manifest
- */
-function loadManifest() {
-    const manifestPath = path.join(SRC_DIR, 'manifest.json');
+    console.log(chalk.green(`✓ Copied ${originalCount} original scripts`));
     
-    if (!fs.existsSync(manifestPath)) {
-        throw new Error(`Manifest not found: ${manifestPath}`);
-    }
+    // Copy enhanced scripts
+    const enhancedScriptsDir = path.join(scriptsDir, 'enhanced');
+    let enhancedCount = 0;
     
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    
-    // Validate required fields
-    const required = ['id', 'name', 'version', 'description'];
-    for (const field of required) {
-        if (!manifest[field]) {
-            throw new Error(`Missing required field in manifest: ${field}`);
-        }
-    }
-    
-    return manifest;
-}
-
-/**
- * Load a tool definition and its script
- */
-function loadTool(toolFile) {
-    const toolPath = path.join(SRC_DIR, 'tools', toolFile);
-    const tool = JSON.parse(fs.readFileSync(toolPath, 'utf8'));
-    
-    // Load the corresponding AppleScript
-    const scriptPath = path.join(SRC_DIR, 'scripts', tool.script);
-    
-    if (!fs.existsSync(scriptPath)) {
-        log.warning(`Script not found for ${tool.name}: ${tool.script}`);
-        return null;
-    }
-    
-    const script = fs.readFileSync(scriptPath, 'utf8');
-    
-    // Build the tool object for the extension
-    const extensionTool = {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters || { type: 'object', properties: {} },
-        command: 'osascript',
-        arguments: ['-e', script]
-    };
-    
-    // Add parameter placeholders to arguments
-    if (tool.parameters && tool.parameters.properties) {
-        const params = Object.keys(tool.parameters.properties);
-        if (tool.parameters.required) {
-            // Add required params first
-            for (const param of tool.parameters.required) {
-                extensionTool.arguments.push(`{{${param}}}`);
+    if (fs.existsSync(enhancedScriptsDir)) {
+        const enhancedScripts = fs.readdirSync(enhancedScriptsDir);
+        enhancedScripts.forEach(script => {
+            if (script.endsWith('.applescript')) {
+                fs.copyFileSync(
+                    path.join(enhancedScriptsDir, script),
+                    path.join(BUILD_DIR, 'scripts', 'enhanced', script)
+                );
+                enhancedCount++;
             }
-            // Then optional params
-            for (const param of params) {
-                if (!tool.parameters.required.includes(param)) {
-                    extensionTool.arguments.push(`{{${param}}}`);
-                }
-            }
-        } else {
-            // Add all params if no required array specified
-            for (const param of params) {
-                extensionTool.arguments.push(`{{${param}}}`);
-            }
-        }
+        });
+        console.log(chalk.green(`✓ Copied ${enhancedCount} enhanced scripts`));
     }
     
-    return extensionTool;
+    return { originalCount, enhancedCount };
 }
 
-/**
- * Load all tools from the tools directory
- */
-function loadTools() {
-    const toolsDir = path.join(SRC_DIR, 'tools');
-    
-    if (!fs.existsSync(toolsDir)) {
-        log.warning('No tools directory found');
-        return [];
-    }
-    
-    const tools = [];
-    const toolFiles = fs.readdirSync(toolsDir).filter(f => f.endsWith('.json'));
-    
-    log.header('Processing tools:');
-    
-    for (const toolFile of toolFiles) {
-        log.item(`Loading ${toolFile}`);
-        const tool = loadTool(toolFile);
-        if (tool) {
-            tools.push(tool);
-            log.success(`  Loaded ${tool.name}`);
-        }
-    }
-    
-    return tools;
+// Create manifest file
+function createManifest() {
+    console.log(chalk.blue('📝 Creating manifest...'));
+    const manifestPath = path.join(BUILD_DIR, 'manifest.json');
+    fs.writeFileSync(manifestPath, JSON.stringify(MANIFEST, null, 2));
+    console.log(chalk.green('✓ Manifest created'));
 }
 
-/**
- * Create the .dxt file as a plain JSON (not zipped)
- * Claude Desktop appears to expect plain JSON, not a zip archive
- */
-async function createExtensionFile(extension) {
-    const outputPath = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
-    
-    // Write the extension directly as JSON
-    fs.writeFileSync(outputPath, JSON.stringify(extension, null, 2));
-    
-    return {
-        path: outputPath,
-        size: fs.statSync(outputPath).size
-    };
-}
-
-/**
- * Create the .dxt archive (alternative method using zip)
- */
-async function createArchive(extension) {
-    const outputPath = path.join(DIST_DIR, 'omnifocus-gtd.dxt.zip');
-    const tempJsonPath = path.join(BUILD_DIR, 'manifest.json');
-    
-    // Write the extension JSON with proper name
-    fs.writeFileSync(tempJsonPath, JSON.stringify(extension, null, 2));
+// Create the DXT archive
+async function createArchive() {
+    console.log(chalk.blue('📦 Creating DXT archive...'));
     
     return new Promise((resolve, reject) => {
-        const output = fs.createWriteStream(outputPath);
+        const output = fs.createWriteStream(OUTPUT_FILE);
         const archive = archiver('zip', {
-            zlib: { level: 9 } // Maximum compression
+            zlib: { level: 9 }
         });
         
         output.on('close', () => {
-            // Rename to .dxt
-            const finalPath = outputPath.replace('.zip', '');
-            fs.renameSync(outputPath, finalPath);
-            resolve({
-                path: finalPath,
-                size: archive.pointer()
-            });
+            const size = (archive.pointer() / 1024).toFixed(2);
+            console.log(chalk.green(`✓ Archive created: ${size} KB`));
+            resolve();
         });
         
         archive.on('error', (err) => {
+            console.error(chalk.red('✗ Archive error:'), err);
             reject(err);
         });
         
         archive.pipe(output);
         
-        // Add the manifest.json file (not extension.json)
-        archive.file(tempJsonPath, { name: 'manifest.json' });
+        // Add all files from build directory
+        archive.directory(BUILD_DIR, false);
         
         archive.finalize();
     });
 }
 
-/**
- * Clean build directory
- */
-function cleanBuildDir() {
-    if (fs.existsSync(BUILD_DIR)) {
-        fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+// Validate the created archive
+function validateArchive() {
+    console.log(chalk.blue('🔍 Validating archive...'));
+    
+    if (!fs.existsSync(OUTPUT_FILE)) {
+        throw new Error('Output file not created');
     }
+    
+    const stats = fs.statSync(OUTPUT_FILE);
+    if (stats.size < 1000) {
+        throw new Error('Archive too small, likely corrupted');
+    }
+    
+    console.log(chalk.green('✓ Archive validated'));
+    return stats.size;
 }
 
-/**
- * Main build function
- */
-async function build() {
-    const startTime = Date.now();
+// Create build report
+function createBuildReport(scriptCounts, fileSize) {
+    console.log(chalk.blue('📊 Creating build report...'));
     
-    log.header('🔨 Building OmniFocus Claude Extension');
+    const report = {
+        version: MANIFEST.version,
+        buildDate: new Date().toISOString(),
+        features: {
+            core: ['add_task', 'list_inbox', 'today_tasks', 'complete_task', 'weekly_review'],
+            advanced: ['search_tasks', 'edit_task', 'batch_add_tasks', 'create_recurring_task'],
+            views: ['list_projects', 'list_deferred_tasks', 'list_flagged_tasks', 'list_overdue_tasks']
+        },
+        scripts: {
+            original: scriptCounts.originalCount,
+            enhanced: scriptCounts.enhancedCount,
+            total: scriptCounts.originalCount + scriptCounts.enhancedCount
+        },
+        outputFile: OUTPUT_FILE,
+        fileSize: fileSize
+    };
+    
+    fs.writeFileSync(
+        path.join(DIST_DIR, 'build-report.json'),
+        JSON.stringify(report, null, 2)
+    );
+    
+    console.log(chalk.green('✓ Build report created'));
+    return report;
+}
+
+// Main build process
+async function build() {
+    console.log(chalk.cyan.bold('\n🔧 Building OmniFocus GTD Extension v2.0\n'));
     
     try {
-        // Ensure directories exist
-        ensureDirectories();
-        
-        // Load manifest
-        log.info('Loading manifest...');
-        const manifest = loadManifest();
-        log.success(`Extension: ${manifest.name} v${manifest.version}`);
-        
-        // Load tools
-        const tools = loadTools();
-        log.success(`Loaded ${tools.length} tools`);
-        
-        // Build the extension object
-        const extension = {
-            ...manifest,
-            tools: tools
-        };
-        
-        // Create the extension file
-        log.header('📦 Creating extension file:');
-        log.info('Writing .dxt file...');
-        
-        // Try plain JSON first (seems to be what Claude expects)
-        const result = await createExtensionFile(extension);
-        
-        // Also create a zipped version for testing
-        log.info('Creating zipped version for testing...');
-        await createArchive(extension);
-        
-        // Clean up
         cleanBuildDir();
+        ensureDistDir();
+        const scriptCounts = copySourceFiles();
+        createManifest();
+        await createArchive();
+        const fileSize = validateArchive();
+        const report = createBuildReport(scriptCounts, fileSize);
         
-        // Output summary
-        const buildTime = Date.now() - startTime;
-        const sizeKB = (result.size / 1024).toFixed(2);
+        // Clean up build directory
+        fs.rmSync(BUILD_DIR, { recursive: true, force: true });
         
-        log.header('✨ Build Complete!');
-        log.success(`Extension: ${manifest.name} v${manifest.version}`);
-        log.success(`Tools: ${tools.length}`);
-        log.success(`Output: ${result.path}`);
-        log.success(`Size: ${sizeKB} KB`);
-        log.success(`Time: ${buildTime}ms`);
-        log.info('Also created: dist/omnifocus-gtd.dxt.zip (for testing)');
-        
-        if (isWatchMode) {
-            log.header('👁  Watching for changes...');
-            watchFiles();
-        }
+        console.log(chalk.green.bold('\n✅ Build completed successfully!\n'));
+        console.log(chalk.white('📦 Output:'), chalk.yellow(OUTPUT_FILE));
+        console.log(chalk.white('📊 Features:'), 
+            chalk.cyan(`${report.features.core.length} core, ${report.features.advanced.length} advanced, ${report.features.views.length} views`));
+        console.log(chalk.white('📝 Scripts:'), 
+            chalk.cyan(`${report.scripts.total} total (${report.scripts.original} original + ${report.scripts.enhanced} enhanced)`));
+        console.log(chalk.white('📏 Size:'), chalk.cyan(`${(fileSize / 1024).toFixed(2)} KB`));
+        console.log(chalk.gray('\nInstall by dragging the .dxt file to Claude Desktop'));
         
     } catch (error) {
-        log.error(`Build failed: ${error.message}`);
-        console.error(error);
+        console.error(chalk.red.bold('\n❌ Build failed!\n'));
+        console.error(chalk.red(error.message));
         process.exit(1);
     }
-}
-
-/**
- * Watch for file changes
- */
-function watchFiles() {
-    const chokidar = require('chokidar');
-    
-    const watcher = chokidar.watch([
-        path.join(SRC_DIR, '**/*.json'),
-        path.join(SRC_DIR, '**/*.applescript')
-    ], {
-        ignored: /(^|[\/\\])\../, // ignore dotfiles
-        persistent: true
-    });
-    
-    let buildTimeout;
-    
-    watcher.on('change', (filepath) => {
-        log.info(`File changed: ${path.basename(filepath)}`);
-        
-        // Debounce builds
-        clearTimeout(buildTimeout);
-        buildTimeout = setTimeout(() => {
-            log.header('🔄 Rebuilding...');
-            build();
-        }, 500);
-    });
 }
 
 // Run the build
-if (require.main === module) {
-    build().catch(error => {
-        log.error(error.message);
-        process.exit(1);
-    });
-}
-
-module.exports = { build, loadManifest, loadTools };
+build();

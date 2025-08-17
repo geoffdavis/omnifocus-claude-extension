@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * OmniFocus MCP Server
- * A minimal MCP server implementation for OmniFocus integration
+ * OmniFocus MCP Server v2.0
+ * Complete MCP server implementation with advanced OmniFocus features
  * Compatible with Claude Desktop Extension format
  */
 
@@ -57,8 +57,9 @@ function sendNotification(method, params) {
     console.log(JSON.stringify(notification));
 }
 
-// Tool definitions
+// Complete tool definitions - includes both original and enhanced tools
 const tools = [
+    // Core tools
     {
         name: 'add_task',
         description: 'Add a new task to OmniFocus inbox or specific project',
@@ -81,10 +82,18 @@ const tools = [
                     type: 'string',
                     description: 'Optional due date (e.g., "tomorrow", "next week", "Friday")'
                 },
+                defer_date: {
+                    type: 'string',
+                    description: 'Optional defer date (when the task becomes available)'
+                },
                 flagged: {
                     type: 'boolean',
                     description: 'Whether to flag this task as important',
                     default: false
+                },
+                estimated_minutes: {
+                    type: 'number',
+                    description: 'Estimated time in minutes to complete the task'
                 }
             },
             required: ['name']
@@ -127,13 +136,161 @@ const tools = [
             type: 'object',
             properties: {}
         }
+    },
+    
+    // Advanced tools
+    {
+        name: 'search_tasks',
+        description: 'Search for tasks across all projects and contexts',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'Search term to find in task names and notes'
+                },
+                filter: {
+                    type: 'string',
+                    enum: ['all', 'available', 'remaining'],
+                    description: 'Filter for task availability status',
+                    default: 'all'
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of results to return',
+                    default: 50
+                }
+            },
+            required: ['query']
+        }
+    },
+    {
+        name: 'edit_task',
+        description: 'Edit properties of an existing task',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                task_name: {
+                    type: 'string',
+                    description: 'Name or partial name of the task to edit'
+                },
+                property: {
+                    type: 'string',
+                    enum: ['name', 'note', 'due_date', 'defer_date', 'flagged', 'project', 'estimated_minutes'],
+                    description: 'Property to modify'
+                },
+                value: {
+                    type: 'string',
+                    description: 'New value for the property'
+                }
+            },
+            required: ['task_name', 'property', 'value']
+        }
+    },
+    {
+        name: 'batch_add_tasks',
+        description: 'Create multiple tasks at once, optionally with subtasks',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                tasks: {
+                    type: 'string',
+                    description: 'Pipe-separated list of tasks (use - prefix for subtasks, e.g., "Task 1|-Subtask 1|-Subtask 2|Task 2")'
+                },
+                project: {
+                    type: 'string',
+                    description: 'Optional project to add all tasks to'
+                },
+                due_date: {
+                    type: 'string',
+                    description: 'Optional due date for all tasks'
+                },
+                flagged: {
+                    type: 'boolean',
+                    description: 'Whether to flag all tasks',
+                    default: false
+                }
+            },
+            required: ['tasks']
+        }
+    },
+    {
+        name: 'create_recurring_task',
+        description: 'Create a task with recurrence/repeat settings',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'Task name'
+                },
+                repeat_rule: {
+                    type: 'string',
+                    description: 'Repeat pattern (e.g., "daily", "weekly", "monthly", "3 days", "2 weeks")',
+                    default: 'weekly'
+                },
+                project: {
+                    type: 'string',
+                    description: 'Optional project name'
+                },
+                initial_due_date: {
+                    type: 'string',
+                    description: 'First due date for the recurring task'
+                }
+            },
+            required: ['name']
+        }
+    },
+    {
+        name: 'list_projects',
+        description: 'List all active projects in OmniFocus',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                include_stats: {
+                    type: 'boolean',
+                    description: 'Include task count statistics for each project',
+                    default: false
+                }
+            }
+        }
+    },
+    {
+        name: 'list_deferred_tasks',
+        description: 'List tasks that are currently deferred (not yet available)',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
+        name: 'list_flagged_tasks',
+        description: 'List all flagged tasks across all projects',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
+        name: 'list_overdue_tasks',
+        description: 'List all overdue tasks',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
     }
 ];
 
 // Execute AppleScript file with arguments
 function executeAppleScriptFile(scriptName, args = []) {
     try {
-        const scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
+        // Try enhanced scripts first
+        let scriptPath = path.join(__dirname, '..', 'scripts', 'enhanced', `${scriptName}.applescript`);
+        
+        // Fall back to regular scripts if enhanced version doesn't exist
+        if (!fs.existsSync(scriptPath)) {
+            scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
+        }
         
         // Check if script file exists
         if (!fs.existsSync(scriptPath)) {
@@ -143,7 +300,6 @@ function executeAppleScriptFile(scriptName, args = []) {
         }
         
         // Build the osascript command with arguments
-        // For osascript, arguments after the script path are passed to the script
         const scriptArgs = args.map(arg => {
             // Escape quotes and special characters for shell
             const escaped = String(arg)
@@ -158,7 +314,7 @@ function executeAppleScriptFile(scriptName, args = []) {
         
         const result = execSync(command, {
             encoding: 'utf8',
-            maxBuffer: 1024 * 1024
+            maxBuffer: 1024 * 1024 * 10 // Increased buffer for search results
         });
         
         return result.trim();
@@ -179,12 +335,17 @@ function executeEmbeddedScript(scriptName, args = []) {
             const projectName = args[2] || '';
             const dueDate = args[3] || '';
             const isFlagged = args[4] === 'true' || args[4] === true;
+            const deferDate = args[5] || '';
+            const estimatedMinutes = args[6] || '0';
             
-            // Build AppleScript directly
             script = `
                 tell application "OmniFocus"
                     tell default document
                         set newTask to make new inbox task with properties {name:"${taskName.replace(/"/g, '\\"')}"${taskNote ? `, note:"${taskNote.replace(/"/g, '\\"')}"` : ''}${isFlagged ? ', flagged:true' : ''}}
+                        
+                        ${estimatedMinutes !== '0' ? `set estimated minutes of newTask to ${estimatedMinutes}` : ''}
+                        ${deferDate ? `set defer date of newTask to date "${deferDate}"` : ''}
+                        
                         return "✅ Added: " & name of newTask
                     end tell
                 end tell
@@ -258,61 +419,24 @@ function executeEmbeddedScript(scriptName, args = []) {
             script = `
                 tell application "OmniFocus"
                     tell default document
-                        -- First check inbox tasks separately
                         set searchTerm to "${searchTerm.replace(/"/g, '\\"')}"
-                        set foundInInbox to false
-                        set inboxTask to missing value
+                        set foundTasks to every flattened task whose name contains searchTerm and completed is false
                         
-                        repeat with aTask in (every inbox task)
-                            if name of aTask contains searchTerm and completed of aTask is false then
-                                if foundInInbox then
-                                    -- Multiple matches, need to check all
-                                    set foundInInbox to false
-                                    exit repeat
-                                else
-                                    set foundInInbox to true
-                                    set inboxTask to aTask
-                                end if
-                            end if
-                        end repeat
-                        
-                        -- If we found exactly one inbox task, complete it
-                        if foundInInbox and inboxTask is not missing value then
-                            set taskName to name of inboxTask
-                            mark complete inboxTask
+                        if (count of foundTasks) = 0 then
+                            return "❌ No matching tasks found for: " & searchTerm
+                        else if (count of foundTasks) = 1 then
+                            set targetTask to item 1 of foundTasks
+                            set taskName to name of targetTask
+                            set completed of targetTask to true
                             return "✅ Completed: " & taskName
+                        else
+                            set taskList to "🔍 Multiple tasks found (" & (count of foundTasks) & "):" & return
+                            repeat with aTask in foundTasks
+                                set taskList to taskList & "• " & name of aTask & return
+                            end repeat
+                            set taskList to taskList & return & "Please be more specific."
+                            return taskList
                         end if
-                        
-                        -- Otherwise, search all tasks
-                        try
-                            set foundTasks to every flattened task whose name contains searchTerm and completed is false
-                            
-                            if (count of foundTasks) = 0 then
-                                return "❌ No matching tasks found for: " & searchTerm
-                            else if (count of foundTasks) = 1 then
-                                set targetTask to item 1 of foundTasks
-                                set taskName to name of targetTask
-                                
-                                -- Try both completion methods
-                                try
-                                    set completed of targetTask to true
-                                on error
-                                    mark complete targetTask
-                                end try
-                                
-                                return "✅ Completed: " & taskName
-                            else
-                                -- Multiple matches - show them
-                                set taskList to "🔍 Multiple tasks found (" & (count of foundTasks) & "):" & return
-                                repeat with aTask in foundTasks
-                                    set taskList to taskList & "• " & name of aTask & return
-                                end repeat
-                                set taskList to taskList & return & "Please be more specific."
-                                return taskList
-                            end if
-                        on error errMsg
-                            return "❌ Error: " & errMsg
-                        end try
                     end tell
                 end tell
             `;
@@ -392,9 +516,51 @@ async function executeTool(name, args) {
                     args.note || '',
                     args.project || '',
                     args.due_date || '',
-                    String(args.flagged || false)
+                    String(args.flagged || false),
+                    args.defer_date || '',
+                    String(args.estimated_minutes || 0)
                 ];
                 result = executeAppleScriptFile('add_task', taskArgs);
+                break;
+                
+            case 'search_tasks':
+                result = executeAppleScriptFile('search_tasks', [
+                    args.query || '',
+                    args.filter || 'all',
+                    String(args.limit || 50)
+                ]);
+                break;
+                
+            case 'edit_task':
+                result = executeAppleScriptFile('edit_task', [
+                    args.task_name || '',
+                    args.property || '',
+                    args.value || ''
+                ]);
+                break;
+                
+            case 'batch_add_tasks':
+                result = executeAppleScriptFile('batch_add_tasks', [
+                    args.tasks || '',
+                    args.project || '',
+                    args.due_date || '',
+                    String(args.flagged || false)
+                ]);
+                break;
+                
+            case 'create_recurring_task':
+                result = executeAppleScriptFile('create_recurring_task', [
+                    args.name || '',
+                    args.repeat_rule || 'weekly',
+                    args.project || '',
+                    args.initial_due_date || ''
+                ]);
+                break;
+                
+            case 'list_projects':
+                result = executeAppleScriptFile('list_projects', [
+                    String(args.include_stats || false)
+                ]);
                 break;
                 
             case 'complete_task':
@@ -404,6 +570,9 @@ async function executeTool(name, args) {
             case 'list_inbox':
             case 'today_tasks':
             case 'weekly_review':
+            case 'list_deferred_tasks':
+            case 'list_flagged_tasks':
+            case 'list_overdue_tasks':
                 result = executeAppleScriptFile(name, []);
                 break;
                 
@@ -455,7 +624,7 @@ async function handleRequest(request) {
                     },
                     serverInfo: {
                         name: 'omnifocus-gtd',
-                        version: '1.0.0'
+                        version: '2.0.0'
                     }
                 };
                 
@@ -512,7 +681,7 @@ async function handleRequest(request) {
 }
 
 // Main server loop
-log('Starting OmniFocus MCP Server...');
+log('Starting OmniFocus MCP Server v2.0...');
 
 let buffer = '';
 

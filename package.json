@@ -4,10 +4,8 @@
   "description": "Enhanced OmniFocus GTD integration for Claude Desktop with advanced features",
   "main": "build.js",
   "scripts": {
-    "build": "node build-dxt-enhanced.js",
-    "build:dxt": "node build-dxt-enhanced.js",
-    "build:enhanced": "node build-dxt-enhanced.js",
-    "build:legacy": "node build-dxt.js",
+    "build": "node build.js",
+    "build:dxt": "node build.js",
     "clean": "rm -rf dist build build-temp* extension-build",
     "rebuild": "npm run clean && npm run build",
     "test": "node test.js",
