@@ -130,36 +130,33 @@ const tools = [
     }
 ];
 
-// Load AppleScript files
-function loadScript(scriptName) {
+// Execute AppleScript file with arguments
+function executeAppleScriptFile(scriptName, args = []) {
     try {
         const scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
-        if (fs.existsSync(scriptPath)) {
-            return fs.readFileSync(scriptPath, 'utf8');
-        }
-        log(`Script not found: ${scriptPath}`);
-        return null;
-    } catch (error) {
-        log(`Error loading script ${scriptName}:`, error.message);
-        return null;
-    }
-}
-
-// Execute AppleScript
-function executeAppleScript(script, args = {}) {
-    try {
-        // Replace template variables in script
-        let processedScript = script;
-        for (const [key, value] of Object.entries(args)) {
-            // Escape values for AppleScript
-            const escapedValue = String(value)
-                .replace(/\\/g, '\\\\')
-                .replace(/"/g, '\\"');
-            processedScript = processedScript.replace(new RegExp(`\\$\\{${key}\\}`, 'g'), escapedValue);
+        
+        // Check if script file exists
+        if (!fs.existsSync(scriptPath)) {
+            log(`Script file not found: ${scriptPath}`);
+            // Fall back to embedded implementation
+            return executeEmbeddedScript(scriptName, args);
         }
         
-        // Execute the script
-        const result = execSync(`osascript -e '${processedScript.replace(/'/g, "'\"'\"'")}'`, {
+        // Build the osascript command with arguments
+        // For osascript, arguments after the script path are passed to the script
+        const scriptArgs = args.map(arg => {
+            // Escape quotes and special characters for shell
+            const escaped = String(arg)
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/'/g, "'\\''");
+            return `"${escaped}"`;
+        });
+        
+        const command = `osascript "${scriptPath}" ${scriptArgs.join(' ')}`;
+        log(`Executing: ${command}`);
+        
+        const result = execSync(command, {
             encoding: 'utf8',
             maxBuffer: 1024 * 1024
         });
@@ -171,58 +168,24 @@ function executeAppleScript(script, args = {}) {
     }
 }
 
-// Handle tool execution
-async function executeTool(name, args) {
-    log(`Executing tool: ${name} with args:`, args);
-    
-    const tool = tools.find(t => t.name === name);
-    if (!tool) {
-        throw new Error(`Unknown tool: ${name}`);
-    }
-    
-    // Load the corresponding AppleScript
-    const script = loadScript(name);
-    if (!script) {
-        // Fallback to a simple implementation
-        return executeSimpleTool(name, args);
-    }
-    
-    try {
-        const result = executeAppleScript(script, args || {});
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: result
-                }
-            ]
-        };
-    } catch (error) {
-        return {
-            content: [
-                {
-                    type: 'text',
-                    text: `Error: ${error.message}`
-                }
-            ],
-            isError: true
-        };
-    }
-}
-
-// Simple fallback implementations
-function executeSimpleTool(name, args) {
+// Embedded fallback implementations
+function executeEmbeddedScript(scriptName, args = []) {
     let script = '';
     
-    switch (name) {
+    switch (scriptName) {
         case 'add_task':
+            const taskName = args[0] || 'New Task';
+            const taskNote = args[1] || '';
+            const projectName = args[2] || '';
+            const dueDate = args[3] || '';
+            const isFlagged = args[4] === 'true' || args[4] === true;
+            
+            // Build AppleScript directly
             script = `
                 tell application "OmniFocus"
                     tell default document
-                        set newTask to make new inbox task with properties {name:"${args.name || 'New Task'}"}
-                        ${args.note ? `set note of newTask to "${args.note}"` : ''}
-                        ${args.flagged ? 'set flagged of newTask to true' : ''}
-                        return "Task added: " & name of newTask
+                        set newTask to make new inbox task with properties {name:"${taskName.replace(/"/g, '\\"')}"${taskNote ? `, note:"${taskNote.replace(/"/g, '\\"')}"` : ''}${isFlagged ? ', flagged:true' : ''}}
+                        return "✅ Added: " & name of newTask
                     end tell
                 end tell
             `;
@@ -234,13 +197,18 @@ function executeSimpleTool(name, args) {
                     tell default document
                         set inboxTasks to every inbox task
                         if (count of inboxTasks) = 0 then
-                            return "Inbox is empty"
+                            return "📥 Inbox is empty"
                         else
-                            set taskList to ""
+                            set taskList to "📥 Inbox (" & (count of inboxTasks) & " items):"
                             repeat with aTask in inboxTasks
-                                set taskList to taskList & "• " & name of aTask & return
+                                set taskName to name of aTask
+                                if flagged of aTask then
+                                    set taskList to taskList & return & "• " & taskName & " 🚩"
+                                else
+                                    set taskList to taskList & return & "• " & taskName
+                                end if
                             end repeat
-                            return "Inbox tasks:" & return & taskList
+                            return taskList
                         end if
                     end tell
                 end tell
@@ -258,16 +226,22 @@ function executeSimpleTool(name, args) {
                         
                         set todayEnd to todayStart + (1 * days)
                         
-                        set todayTasks to every flattened task whose due date ≥ todayStart and due date < todayEnd
+                        set todayTasks to every flattened task whose due date ≥ todayStart and due date < todayEnd and completed is false
                         
                         if (count of todayTasks) = 0 then
-                            return "No tasks due today"
+                            return "📅 No tasks due today"
                         else
-                            set taskList to ""
+                            set taskList to "📅 Today's Tasks (" & (count of todayTasks) & "):"
                             repeat with aTask in todayTasks
-                                set taskList to taskList & "• " & name of aTask & return
+                                set taskName to name of aTask
+                                try
+                                    set projName to name of containing project of aTask
+                                    set taskList to taskList & return & "• " & taskName & " (" & projName & ")"
+                                on error
+                                    set taskList to taskList & return & "• " & taskName
+                                end try
                             end repeat
-                            return "Tasks due today:" & return & taskList
+                            return taskList
                         end if
                     end tell
                 end tell
@@ -275,23 +249,31 @@ function executeSimpleTool(name, args) {
             break;
             
         case 'complete_task':
+            const searchTerm = args[0] || '';
+            if (!searchTerm) {
+                return "❌ Please provide a task name to complete";
+            }
+            
             script = `
                 tell application "OmniFocus"
                     tell default document
-                        set searchTerm to "${args.task_name || ''}"
+                        set searchTerm to "${searchTerm.replace(/"/g, '\\"')}"
                         set foundTasks to every flattened task whose name contains searchTerm and completed is false
                         
                         if (count of foundTasks) = 0 then
-                            return "No matching tasks found"
+                            return "❌ No matching tasks found for: " & searchTerm
                         else if (count of foundTasks) = 1 then
-                            set completed of item 1 of foundTasks to true
-                            return "Completed: " & name of item 1 of foundTasks
+                            set targetTask to item 1 of foundTasks
+                            set taskName to name of targetTask
+                            set completed of targetTask to true
+                            return "✅ Completed: " & taskName
                         else
-                            set taskList to ""
+                            set taskList to "🔍 Multiple tasks found:"
                             repeat with aTask in foundTasks
-                                set taskList to taskList & "• " & name of aTask & return
+                                set taskList to taskList & return & "• " & name of aTask
                             end repeat
-                            return "Multiple tasks found:" & return & taskList & return & "Please be more specific"
+                            set taskList to taskList & return & return & "Please be more specific."
+                            return taskList
                         end if
                     end tell
                 end tell
@@ -302,27 +284,95 @@ function executeSimpleTool(name, args) {
             script = `
                 tell application "OmniFocus"
                     tell default document
-                        set completedCount to count of (every flattened task whose completed is true and completion date > (current date) - 7 * days)
+                        set weekAgo to (current date) - 7 * days
+                        set completedCount to count of (every flattened task whose completed is true and completion date > weekAgo)
                         set inboxCount to count of every inbox task
                         set overdueCount to count of (every flattened task whose due date < (current date) and completed is false)
                         set flaggedCount to count of (every flattened task whose flagged is true and completed is false)
+                        set weekFromNow to (current date) + 7 * days
+                        set dueThisWeek to count of (every flattened task whose due date ≤ weekFromNow and completed is false)
                         
-                        return "Weekly Review Summary:" & return & ¬
-                            "• Completed this week: " & completedCount & return & ¬
-                            "• Items in inbox: " & inboxCount & return & ¬
-                            "• Overdue tasks: " & overdueCount & return & ¬
-                            "• Flagged tasks: " & flaggedCount
+                        set activeProjects to every project whose status is active
+                        set projectCount to count of activeProjects
+                        
+                        set reviewText to "📊 WEEKLY REVIEW SUMMARY" & return
+                        set reviewText to reviewText & "════════════════════════" & return & return
+                        
+                        set reviewText to reviewText & "📥 Inbox: " & inboxCount & " items" & return
+                        set reviewText to reviewText & "🚩 Flagged: " & flaggedCount & " tasks" & return
+                        set reviewText to reviewText & "⚠️  Overdue: " & overdueCount & " tasks" & return
+                        set reviewText to reviewText & "📅 Due this week: " & dueThisWeek & " tasks" & return
+                        set reviewText to reviewText & "📁 Active projects: " & projectCount & " of " & (count of every project) & return
+                        
+                        if inboxCount > 0 then
+                            set reviewText to reviewText & return & "💡 Action: Process " & inboxCount & " inbox items"
+                        end if
+                        
+                        if overdueCount > 0 then
+                            set reviewText to reviewText & return & "💡 Action: Review " & overdueCount & " overdue tasks"
+                        end if
+                        
+                        return reviewText
                     end tell
                 end tell
             `;
             break;
             
         default:
-            throw new Error(`Tool ${name} not implemented`);
+            throw new Error(`Unknown script: ${scriptName}`);
     }
     
     try {
-        const result = executeAppleScript(script, {});
+        const result = execSync(`osascript -e '${script.replace(/'/g, "'\"'\"'")}'`, {
+            encoding: 'utf8',
+            maxBuffer: 1024 * 1024
+        });
+        return result.trim();
+    } catch (error) {
+        log('Embedded script execution error:', error.message);
+        throw new Error(`Script execution failed: ${error.message}`);
+    }
+}
+
+// Handle tool execution
+async function executeTool(name, args) {
+    log(`Executing tool: ${name} with args:`, args);
+    
+    const tool = tools.find(t => t.name === name);
+    if (!tool) {
+        throw new Error(`Unknown tool: ${name}`);
+    }
+    
+    try {
+        let result;
+        
+        // Prepare arguments based on tool
+        switch (name) {
+            case 'add_task':
+                const taskArgs = [
+                    args.name || 'New Task',
+                    args.note || '',
+                    args.project || '',
+                    args.due_date || '',
+                    String(args.flagged || false)
+                ];
+                result = executeAppleScriptFile('add_task', taskArgs);
+                break;
+                
+            case 'complete_task':
+                result = executeAppleScriptFile('complete_task', [args.task_name || '']);
+                break;
+                
+            case 'list_inbox':
+            case 'today_tasks':
+            case 'weekly_review':
+                result = executeAppleScriptFile(name, []);
+                break;
+                
+            default:
+                throw new Error(`Tool ${name} not implemented`);
+        }
+        
         return {
             content: [
                 {
