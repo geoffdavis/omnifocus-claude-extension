@@ -1,15 +1,7 @@
 module.exports = {
     ...require('./jest.config.js'),
     reporters: [
-        'default',
-        ['jest-junit', {
-            outputDirectory: './test-results',
-            outputName: 'junit.xml',
-            suiteName: 'OmniFocus Extension Tests',
-            usePathForSuiteName: true,
-            classNameTemplate: '{classname}',
-            titleTemplate: '{title}'
-        }]
+        'default'
     ],
     coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
     collectCoverageFrom: [
