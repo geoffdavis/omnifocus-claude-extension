@@ -8,7 +8,35 @@
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
-const chalk = require('chalk');
+
+// Simple console colors using ANSI codes
+const colors = {
+    reset: '\x1b[0m',
+    bold: '\x1b[1m',
+    blue: '\x1b[34m',
+    green: '\x1b[32m',
+    red: '\x1b[31m',
+    yellow: '\x1b[33m',
+    cyan: '\x1b[36m',
+    white: '\x1b[37m',
+    gray: '\x1b[90m'
+};
+
+// Helper functions for colored output
+const log = {
+    blue: (msg) => console.log(colors.blue + msg + colors.reset),
+    green: (msg) => console.log(colors.green + msg + colors.reset),
+    red: (msg) => console.log(colors.red + msg + colors.reset),
+    yellow: (msg) => console.log(colors.yellow + msg + colors.reset),
+    cyan: (msg) => console.log(colors.cyan + msg + colors.reset),
+    white: (msg) => console.log(colors.white + msg + colors.reset),
+    gray: (msg) => console.log(colors.gray + msg + colors.reset),
+    bold: {
+        cyan: (msg) => console.log(colors.bold + colors.cyan + msg + colors.reset),
+        green: (msg) => console.log(colors.bold + colors.green + msg + colors.reset),
+        red: (msg) => console.log(colors.bold + colors.red + msg + colors.reset)
+    }
+};
 
 // Configuration
 const BUILD_DIR = path.join(__dirname, 'extension-build');
@@ -74,7 +102,7 @@ Complete OmniFocus integration for Claude Desktop with advanced task management 
 
 // Clean build directory
 function cleanBuildDir() {
-    console.log(chalk.blue('🧹 Cleaning build directory...'));
+    log.blue('🧹 Cleaning build directory...');
     if (fs.existsSync(BUILD_DIR)) {
         fs.rmSync(BUILD_DIR, { recursive: true, force: true });
     }
@@ -90,7 +118,7 @@ function ensureDistDir() {
 
 // Copy source files to build directory
 function copySourceFiles() {
-    console.log(chalk.blue('📁 Copying source files...'));
+    log.blue('📁 Copying source files...');
     
     // Create directory structure
     fs.mkdirSync(path.join(BUILD_DIR, 'server'), { recursive: true });
@@ -102,7 +130,7 @@ function copySourceFiles() {
         path.join(__dirname, 'src', 'server', 'index.js'),
         path.join(BUILD_DIR, 'server', 'index.js')
     );
-    console.log(chalk.green('✓ Copied server'));
+    log.green('✓ Copied server');
     
     // Copy original scripts
     const scriptsDir = path.join(__dirname, 'src', 'scripts');
@@ -119,7 +147,7 @@ function copySourceFiles() {
             originalCount++;
         }
     });
-    console.log(chalk.green(`✓ Copied ${originalCount} original scripts`));
+    log.green(`✓ Copied ${originalCount} original scripts`);
     
     // Copy enhanced scripts
     const enhancedScriptsDir = path.join(scriptsDir, 'enhanced');
@@ -136,7 +164,7 @@ function copySourceFiles() {
                 enhancedCount++;
             }
         });
-        console.log(chalk.green(`✓ Copied ${enhancedCount} enhanced scripts`));
+        log.green(`✓ Copied ${enhancedCount} enhanced scripts`);
     }
     
     return { originalCount, enhancedCount };
@@ -144,15 +172,15 @@ function copySourceFiles() {
 
 // Create manifest file
 function createManifest() {
-    console.log(chalk.blue('📝 Creating manifest...'));
+    log.blue('📝 Creating manifest...');
     const manifestPath = path.join(BUILD_DIR, 'manifest.json');
     fs.writeFileSync(manifestPath, JSON.stringify(MANIFEST, null, 2));
-    console.log(chalk.green('✓ Manifest created'));
+    log.green('✓ Manifest created');
 }
 
 // Create the DXT archive
 async function createArchive() {
-    console.log(chalk.blue('📦 Creating DXT archive...'));
+    log.blue('📦 Creating DXT archive...');
     
     return new Promise((resolve, reject) => {
         const output = fs.createWriteStream(OUTPUT_FILE);
@@ -162,12 +190,12 @@ async function createArchive() {
         
         output.on('close', () => {
             const size = (archive.pointer() / 1024).toFixed(2);
-            console.log(chalk.green(`✓ Archive created: ${size} KB`));
+            log.green(`✓ Archive created: ${size} KB`);
             resolve();
         });
         
         archive.on('error', (err) => {
-            console.error(chalk.red('✗ Archive error:'), err);
+            console.error(colors.red + '✗ Archive error:' + colors.reset, err);
             reject(err);
         });
         
@@ -182,7 +210,7 @@ async function createArchive() {
 
 // Validate the created archive
 function validateArchive() {
-    console.log(chalk.blue('🔍 Validating archive...'));
+    log.blue('🔍 Validating archive...');
     
     if (!fs.existsSync(OUTPUT_FILE)) {
         throw new Error('Output file not created');
@@ -193,13 +221,13 @@ function validateArchive() {
         throw new Error('Archive too small, likely corrupted');
     }
     
-    console.log(chalk.green('✓ Archive validated'));
+    log.green('✓ Archive validated');
     return stats.size;
 }
 
 // Create build report
 function createBuildReport(scriptCounts, fileSize) {
-    console.log(chalk.blue('📊 Creating build report...'));
+    log.blue('📊 Creating build report...');
     
     const report = {
         version: MANIFEST.version,
@@ -223,13 +251,13 @@ function createBuildReport(scriptCounts, fileSize) {
         JSON.stringify(report, null, 2)
     );
     
-    console.log(chalk.green('✓ Build report created'));
+    log.green('✓ Build report created');
     return report;
 }
 
 // Main build process
 async function build() {
-    console.log(chalk.cyan.bold('\n🔧 Building OmniFocus GTD Extension v2.0\n'));
+    log.bold.cyan('\n🔧 Building OmniFocus GTD Extension v2.0\n');
     
     try {
         cleanBuildDir();
@@ -243,18 +271,20 @@ async function build() {
         // Clean up build directory
         fs.rmSync(BUILD_DIR, { recursive: true, force: true });
         
-        console.log(chalk.green.bold('\n✅ Build completed successfully!\n'));
-        console.log(chalk.white('📦 Output:'), chalk.yellow(OUTPUT_FILE));
-        console.log(chalk.white('📊 Features:'), 
-            chalk.cyan(`${report.features.core.length} core, ${report.features.advanced.length} advanced, ${report.features.views.length} views`));
-        console.log(chalk.white('📝 Scripts:'), 
-            chalk.cyan(`${report.scripts.total} total (${report.scripts.original} original + ${report.scripts.enhanced} enhanced)`));
-        console.log(chalk.white('📏 Size:'), chalk.cyan(`${(fileSize / 1024).toFixed(2)} KB`));
-        console.log(chalk.gray('\nInstall by dragging the .dxt file to Claude Desktop'));
+        log.bold.green('\n✅ Build completed successfully!\n');
+        log.white('📦 Output: ' + colors.yellow + OUTPUT_FILE + colors.reset);
+        log.white('📊 Features: ' + colors.cyan + 
+            `${report.features.core.length} core, ${report.features.advanced.length} advanced, ${report.features.views.length} views` + 
+            colors.reset);
+        log.white('📝 Scripts: ' + colors.cyan + 
+            `${report.scripts.total} total (${report.scripts.original} original + ${report.scripts.enhanced} enhanced)` + 
+            colors.reset);
+        log.white('📏 Size: ' + colors.cyan + `${(fileSize / 1024).toFixed(2)} KB` + colors.reset);
+        log.gray('\nInstall by dragging the .dxt file to Claude Desktop');
         
     } catch (error) {
-        console.error(chalk.red.bold('\n❌ Build failed!\n'));
-        console.error(chalk.red(error.message));
+        log.bold.red('\n❌ Build failed!\n');
+        log.red(error.message);
         process.exit(1);
     }
 }
