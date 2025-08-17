@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * OmniFocus MCP Server v2.0
+ * OmniFocus MCP Server
  * Complete MCP server implementation with advanced OmniFocus features
  * Compatible with Claude Desktop Extension format
  */
@@ -10,6 +10,11 @@ const readline = require('readline');
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+
+// Read version from package.json
+const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+const VERSION = packageJson.version;
 
 // Initialize stdio interface
 const rl = readline.createInterface({
@@ -624,7 +629,7 @@ async function handleRequest(request) {
                     },
                     serverInfo: {
                         name: 'omnifocus-gtd',
-                        version: '2.0.0'
+                        version: VERSION
                     }
                 };
                 

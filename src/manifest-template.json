@@ -1,7 +1,7 @@
 {
   "dxt_version": "0.1",
   "name": "OmniFocus GTD",
-  "version": "2.0.0",
+  "version": "{{VERSION}}",
   "description": "Complete OmniFocus task management with search, batch operations, recurring tasks, and comprehensive GTD features.",
   "author": {
     "name": "Community Contributors"

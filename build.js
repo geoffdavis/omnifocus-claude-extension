@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * Build Script for OmniFocus Claude Extension v2.0
+ * Build Script for OmniFocus Claude Extension
  * Creates a DXT package following the official specification
  */
 
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
+
+// Read version from package.json - single source of truth
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+const VERSION = packageJson.version;
 
 // Simple console colors using ANSI codes
 const colors = {
@@ -47,7 +51,7 @@ const OUTPUT_FILE = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
 const MANIFEST = {
     dxt_version: '0.1',  // Official version from docs (not 0.1.0 or 0.0.1)
     name: 'OmniFocus GTD',
-    version: '2.0.0',
+    version: VERSION,  // Read from package.json
     description: 'Complete OmniFocus task management with search, batch operations, recurring tasks, and comprehensive GTD features.',
     author: {
         name: 'Community Contributors'
@@ -239,7 +243,7 @@ function createBuildReport(scriptCounts, fileSize) {
 
 // Main build process
 async function build() {
-    log.bold.cyan('\n🔧 Building OmniFocus GTD Extension v2.0\n');
+    log.bold.cyan(`\n🔧 Building OmniFocus GTD Extension v${VERSION}\n`);
     
     try {
         cleanBuildDir();
