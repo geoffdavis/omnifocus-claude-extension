@@ -8,7 +8,10 @@
     "build:dxt": "node build.js",
     "clean": "rm -rf dist build build-temp* extension-build",
     "rebuild": "npm run clean && npm run build",
-    "test": "node test.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:legacy": "node test.js",
     "validate": "node validate-dxt.js",
     "dev": "npm run build && npm run validate",
     "release": "npm run clean && npm run build && npm run validate"
@@ -34,9 +37,11 @@
   },
   "homepage": "https://github.com/yourusername/omnifocus-claude-extension#readme",
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "archiver": "^6.0.1",
     "chalk": "^5.3.0",
-    "chokidar": "^3.5.3"
+    "chokidar": "^3.5.3",
+    "jest": "^30.0.5"
   },
   "engines": {
     "node": ">=14.0.0"
