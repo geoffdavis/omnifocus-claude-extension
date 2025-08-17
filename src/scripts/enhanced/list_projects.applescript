@@ -10,9 +10,9 @@ on run argv
     
     tell application "OmniFocus"
         tell default document
-            set activeProjects to every project whose status is active
-            set onHoldProjects to every project whose status is on hold
-            set droppedProjects to every project whose status is dropped
+            set activeProjects to every flattened project where its status is active status
+            set onHoldProjects to every flattened project where its status is on hold status
+            set droppedProjects to every flattened project where its status is dropped status
             
             set totalActive to count of activeProjects
             set totalOnHold to count of onHoldProjects
@@ -36,7 +36,11 @@ on run argv
                     -- Count various task states
                     set allTasks to tasks of aProject
                     set remainingCount to count of (tasks of aProject whose completed is false)
-                    set availableCount to count of (available tasks of aProject)
+                    try
+                        set availableCount to count of (available tasks of aProject)
+                    on error
+                        set availableCount to 0
+                    end try
                     set flaggedCount to count of (tasks of aProject whose flagged is true and completed is false)
                     
                     -- Check for due soon tasks (next 7 days)
@@ -62,8 +66,10 @@ on run argv
                     
                     -- Add project note preview if exists
                     if projectNote is not "" then
-                        set notePreview to text 1 thru (minimum of 50 for length of projectNote) of projectNote
-                        if length of projectNote > 50 then set notePreview to notePreview & "..."
+                        set noteLength to length of projectNote
+                        set previewLength to my minValue(50, noteLength)
+                        set notePreview to text 1 thru previewLength of projectNote
+                        if noteLength > 50 then set notePreview to notePreview & "..."
                         set projectList to projectList & return & "  💬 " & notePreview
                     end if
                 else
@@ -78,9 +84,19 @@ on run argv
                 set projectList to projectList & return & "📊 Summary Statistics:" & return
                 
                 -- Calculate totals across all active projects
-                set totalRemaining to count of (every flattened task whose completed is false and containing project's status is active)
-                set totalAvailable to count of (every available task of every project whose status is active)
-                set totalFlagged to count of (every flattened task whose flagged is true and completed is false and containing project's status is active)
+                set totalRemaining to 0
+                set totalAvailable to 0
+                set totalFlagged to 0
+                
+                repeat with aProject in activeProjects
+                    set totalRemaining to totalRemaining + (count of (tasks of aProject whose completed is false))
+                    try
+                        set totalAvailable to totalAvailable + (count of (available tasks of aProject))
+                    on error
+                        -- Skip projects that don't support available tasks
+                    end try
+                    set totalFlagged to totalFlagged + (count of (tasks of aProject whose flagged is true and completed is false))
+                end repeat
                 
                 set projectList to projectList & "• Total remaining tasks: " & totalRemaining & return
                 set projectList to projectList & "• Total available tasks: " & totalAvailable & return
@@ -92,10 +108,10 @@ on run argv
     end tell
 end run
 
-on minimum of x for y
+on minValue(x, y)
     if x < y then
         return x
     else
         return y
     end if
-end minimum
+end minValue
