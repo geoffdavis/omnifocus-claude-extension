@@ -7,20 +7,6 @@ describe('Build System', () => {
     const packageJsonPath = path.join(__dirname, '..', 'package.json');
     const distDir = path.join(__dirname, '..', 'dist');
     
-    beforeAll(() => {
-        // Clean up any existing build artifacts
-        if (fs.existsSync(distDir)) {
-            fs.rmSync(distDir, { recursive: true, force: true });
-        }
-    });
-    
-    afterAll(() => {
-        // Clean up test artifacts
-        if (fs.existsSync(distDir)) {
-            fs.rmSync(distDir, { recursive: true, force: true });
-        }
-    });
-    
     describe('Build Script', () => {
         test('build script exists', () => {
             expect(fs.existsSync(buildScript)).toBe(true);
@@ -75,23 +61,18 @@ describe('Build System', () => {
     });
     
     describe('Manifest Generation', () => {
-        test('manifest has correct format', () => {
-            const manifestSrcPath = path.join(__dirname, '..', 'src', 'manifest.json');
-            
-            if (!fs.existsSync(manifestSrcPath)) {
-                // Skip if using different manifest structure
-                return;
-            }
-            
+        test('manifest template has correct format', () => {
+            const manifestSrcPath = path.join(__dirname, '..', 'src', 'manifest-template.json');
+
+            expect(fs.existsSync(manifestSrcPath)).toBe(true);
+
             const manifest = JSON.parse(fs.readFileSync(manifestSrcPath, 'utf8'));
-            
-            expect(manifest.dxt_version).toBe('0.1');
+
+            expect(manifest.manifest_version).toBe('0.3');
             expect(manifest.name).toBeDefined();
-            expect(manifest.version).toBeDefined();
             expect(manifest.server).toBeDefined();
-            expect(manifest.server.command).toBeDefined();
-            expect(manifest.server.args).toBeDefined();
-            expect(Array.isArray(manifest.server.args)).toBe(true);
+            expect(manifest.server.type).toBe('node');
+            expect(manifest.server.entry_point).toBeDefined();
         });
     });
     

@@ -67,7 +67,8 @@ function validateJsonStructure(filePath) {
         // Check for required fields (different formats might have different requirements)
         const possibleRequiredFields = [
             ['name', 'version', 'tools'],  // Standard format
-            ['dxt_version', 'name', 'version'],  // DXT format
+            ['manifest_version', 'name', 'version'],  // MCPB format
+            ['dxt_version', 'name', 'version'],  // Legacy DXT format
             ['id', 'name', 'version', 'tools']  // Alternative format
         ];
         
@@ -105,7 +106,7 @@ function validateJsonStructure(filePath) {
         return {
             valid: issues.length === 0,
             issues,
-            format: data.dxt_version ? 'DXT' : (data.id ? 'Extension' : 'Standard'),
+            format: data.manifest_version ? 'MCPB' : (data.dxt_version ? 'DXT' : (data.id ? 'Extension' : 'Standard')),
             toolCount: data.tools ? data.tools.length : 0
         };
     } catch (error) {
