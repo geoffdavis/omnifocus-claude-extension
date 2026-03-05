@@ -36,7 +36,7 @@ const tests = [
             id: 1,
             method: 'initialize',
             params: {
-                protocolVersion: '2024-11-05',
+                protocolVersion: '2025-11-25',
                 capabilities: {},
                 clientInfo: {
                     name: 'test-client',
@@ -45,8 +45,8 @@ const tests = [
             }
         },
         validate: (response) => {
-            return response.result && 
-                   response.result.protocolVersion === '2024-11-05' &&
+            return response.result &&
+                   response.result.protocolVersion === '2025-11-25' &&
                    response.result.serverInfo.name === 'omnifocus-gtd';
         }
     },
