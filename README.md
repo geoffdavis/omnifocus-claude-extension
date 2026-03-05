@@ -77,11 +77,12 @@ Set up tasks with repeat patterns:
 
 ### Quick Install
 
-1. Download the latest `omnifocus-gtd-enhanced.dxt` from the [Releases](https://github.com/yourusername/omnifocus-claude-extension/releases) page
+1. Download the latest `omnifocus-gtd.dxt` from the [Releases](https://github.com/yourusername/omnifocus-claude-extension/releases) page
 2. Open Claude Desktop
 3. Navigate to Extensions settings
 4. Drag and drop the `.dxt` file onto the Claude Desktop window
-5. The extension will be installed and available immediately
+5. Restart Claude Desktop
+6. The first time you use an OmniFocus tool, macOS will prompt you to grant `node` permission to control OmniFocus - click **Allow**
 
 ### Build from Source
 
@@ -217,26 +218,40 @@ The enhanced extension uses an improved Model Context Protocol (MCP) server that
 
 ## Troubleshooting
 
+### "Not authorized to send Apple events to OmniFocus" (error -1743)
+
+This is the most common issue. Claude Desktop runs the extension via `node`, which needs macOS Automation permission for OmniFocus.
+
+**First install**: macOS should show a permission dialog the first time you use an OmniFocus tool. Click **Allow**.
+
+**If the dialog doesn't appear** or you accidentally denied it:
+
+1. Reset Apple Events permissions:
+   ```bash
+   tccutil reset AppleEvents
+   ```
+2. Restart Claude Desktop
+3. Use any OmniFocus tool - the permission dialog should appear
+4. Click **Allow**
+
+You can verify the permission in **System Settings > Privacy & Security > Automation** - look for `node` with OmniFocus enabled.
+
 ### Extension Not Loading
 
 1. Check Claude Desktop logs: `~/Library/Logs/Claude/`
 2. Ensure OmniFocus is installed and running
-3. Verify macOS permissions for automation
-4. Try reinstalling the extension
+3. Try reinstalling the extension
 
 ### Tasks Not Appearing
 
 1. Ensure OmniFocus default document is open
 2. Check that you're not in a filtered view
-3. Verify AppleScript automation is enabled:
-   - System Preferences → Security & Privacy → Privacy → Automation
-   - Ensure Claude Desktop can control OmniFocus
 
 ### Common Issues and Solutions
 
 | Issue | Solution |
 |-------|----------|
-| "Script Error" | Enable automation permissions for Claude Desktop |
+| "Not authorized" (-1743) | Run `tccutil reset AppleEvents` and restart Claude Desktop |
 | "OmniFocus not found" | Ensure OmniFocus is in /Applications |
 | "No tasks found" | Check search terms and task availability |
 | "Multiple matches" | Be more specific in task names |
