@@ -56,12 +56,12 @@ node validate-dxt.js     # Validate DXT package
 
 3. **Build System** (`build.js`, `build-dxt-new.js`)
    - Creates DXT package following official specification
-   - Handles manifest generation with proper format (dxt_version: "0.1")
+   - Handles manifest generation with proper MCPB format (manifest_version: "0.3")
    - Archives extension with correct structure
    - Generates checksums and build reports
 
-4. **Extension Manifest** (`src/manifest.json`)
-   - Must follow exact DXT specification format
+4. **Extension Manifest** (`src/manifest-template.json`)
+   - Must follow MCPB v0.3 specification format
    - Server entry point configuration
    - Tool definitions and metadata
 
@@ -76,7 +76,7 @@ node validate-dxt.js     # Validate DXT package
 
 1. **AppleScript Escaping**: Always properly escape special characters in AppleScript strings
 2. **OmniFocus Permissions**: Extension requires automation permissions for OmniFocus
-3. **Manifest Format**: Must use exact format - `dxt_version: "0.1"` (not 0.1.0 or 0.0.1)
+3. **Manifest Format**: Must use MCPB v0.3 format - `manifest_version: "0.3"` with `name` as machine-readable identifier
 4. **Build Output**: Extension files go to `dist/` directory as `.dxt` files
 5. **Error Messages**: Provide clear, actionable error messages from AppleScripts
 6. **Task Matching**: Be careful with task name matching - handle multiple matches gracefully

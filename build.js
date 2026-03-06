@@ -47,25 +47,24 @@ const BUILD_DIR = path.join(__dirname, 'extension-build');
 const DIST_DIR = path.join(__dirname, 'dist');
 const OUTPUT_FILE = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
 
-// Official DXT manifest format based on documentation
+// MCPB manifest format (v0.3 spec)
 const MANIFEST = {
-    dxt_version: '0.1',  // Official version from docs (not 0.1.0 or 0.0.1)
-    name: 'OmniFocus GTD',
+    manifest_version: '0.3',
+    name: 'omnifocus-gtd',
+    display_name: 'OmniFocus GTD',
     version: VERSION,  // Read from package.json
     description: 'Complete OmniFocus task management with search, batch operations, recurring tasks, and comprehensive GTD features.',
     author: {
         name: 'Community Contributors'
-        // email is optional, not required
     },
     server: {
-        type: 'node',  // Added type field
-        entry_point: 'server/index.js',  // Changed from nested mcp_config
+        type: 'node',
+        entry_point: 'server/index.js',
         mcp_config: {
             command: 'node',
-            args: ['${__dirname}/server/index.js']  // Use template literal
+            args: ['${__dirname}/server/index.js']
         }
     }
-    // Removed all optional fields to focus on required ones
 };
 
 // Clean build directory
@@ -220,7 +219,7 @@ function createBuildReport(scriptCounts, fileSize) {
     
     const report = {
         version: MANIFEST.version,
-        dxt_version: MANIFEST.dxt_version,
+        manifest_version: MANIFEST.manifest_version,
         buildDate: new Date().toISOString(),
         features: {
             core: ['add_task', 'list_inbox', 'today_tasks', 'complete_task', 'weekly_review'],

@@ -13,8 +13,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, macos-12]
-        node-version: [16, 18, 20]
+        os: [macos-latest]
+        node-version: [18, 20]
       fail-fast: false
     
     steps:

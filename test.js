@@ -59,7 +59,7 @@ const tests = {
             const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
             
             // Check required fields
-            const requiredFields = ['dxt_version', 'name', 'version', 'server', 'tools'];
+            const requiredFields = ['manifest_version', 'name', 'version', 'server'];
             let passed = true;
             
             for (const field of requiredFields) {

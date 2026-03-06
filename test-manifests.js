@@ -9,7 +9,7 @@ async function buildMinimal() {
         {
             name: 'test1-node-basic.dxt',
             manifest: {
-                "dxt_version": "0.1",
+                "manifest_version": "0.3",
                 "name": "Test1",
                 "version": "1.0.0",
                 "description": "Test",
@@ -21,7 +21,7 @@ async function buildMinimal() {
         {
             name: 'test2-node-command.dxt',
             manifest: {
-                "dxt_version": "0.1",
+                "manifest_version": "0.3",
                 "name": "Test2",
                 "version": "1.0.0",
                 "description": "Test",
@@ -34,7 +34,7 @@ async function buildMinimal() {
         {
             name: 'test3-node-command-args.dxt',
             manifest: {
-                "dxt_version": "0.1",
+                "manifest_version": "0.3",
                 "name": "Test3",
                 "version": "1.0.0",
                 "description": "Test",
@@ -48,7 +48,7 @@ async function buildMinimal() {
         {
             name: 'test4-python-basic.dxt',
             manifest: {
-                "dxt_version": "0.1",
+                "manifest_version": "0.3",
                 "name": "Test4",
                 "version": "1.0.0",
                 "description": "Test",
@@ -60,7 +60,7 @@ async function buildMinimal() {
         {
             name: 'test5-python-command.dxt',
             manifest: {
-                "dxt_version": "0.1",
+                "manifest_version": "0.3",
                 "name": "Test5",
                 "version": "1.0.0",
                 "description": "Test",
@@ -73,7 +73,7 @@ async function buildMinimal() {
         {
             name: 'test6-binary-basic.dxt',
             manifest: {
-                "dxt_version": "0.1",
+                "manifest_version": "0.3",
                 "name": "Test6",
                 "version": "1.0.0",
                 "description": "Test",
@@ -85,7 +85,7 @@ async function buildMinimal() {
         {
             name: 'test7-binary-command.dxt',
             manifest: {
-                "dxt_version": "0.1",
+                "manifest_version": "0.3",
                 "name": "Test7",
                 "version": "1.0.0",
                 "description": "Test",
