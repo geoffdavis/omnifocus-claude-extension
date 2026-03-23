@@ -38,8 +38,8 @@ describe('Build System', () => {
             expect(fs.existsSync(distDir)).toBe(true);
         });
         
-        test('build creates DXT file', () => {
-            const dxtFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.dxt'));
+        test('build creates MCPB file', () => {
+            const dxtFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.mcpb'));
             expect(dxtFiles.length).toBeGreaterThan(0);
             
             const dxtFile = path.join(distDir, dxtFiles[0]);
@@ -49,11 +49,11 @@ describe('Build System', () => {
             expect(stats.size).toBeGreaterThan(0);
         });
         
-        test('DXT file has correct structure', () => {
-            const dxtFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.dxt'));
+        test('MCPB file has correct structure', () => {
+            const dxtFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.mcpb'));
             const dxtFile = path.join(distDir, dxtFiles[0]);
             
-            // DXT files are archives, we can verify they exist and have content
+            // MCPB files are archives, we can verify they exist and have content
             const stats = fs.statSync(dxtFile);
             expect(stats.isFile()).toBe(true);
             expect(stats.size).toBeGreaterThan(1000); // Should be at least 1KB

@@ -67,8 +67,8 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: omnifocus-gtd-dxt
-        path: dist/omnifocus-gtd.dxt
+        name: omnifocus-gtd-mcpb
+        path: dist/omnifocus-gtd.mcpb
         retention-days: 30
     
     - name: Upload build report
@@ -104,7 +104,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          dist/omnifocus-gtd.dxt
+          dist/omnifocus-gtd.mcpb
           dist/build-report.json
         generate_release_notes: true
         draft: false

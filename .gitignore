@@ -59,6 +59,7 @@ yarn.lock
 
 # Built extension files
 *.dxt
+*.mcpb
 
 # Temporary files
 *.tmp

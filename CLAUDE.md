@@ -13,7 +13,7 @@ This is an OmniFocus Claude Desktop Extension that enables advanced task managem
 # Install dependencies
 npm install
 
-# Build the DXT extension file
+# Build the MCPB extension file
 npm run build
 
 # Validate the built extension
@@ -37,7 +37,7 @@ npm test
 # Test specific components
 node test-server.js      # Test MCP server
 node test-manifests.js   # Test manifest generation
-node validate-dxt.js     # Validate DXT package
+node validate-mcpb.js    # Validate MCPB package
 ```
 
 ## Architecture
@@ -54,8 +54,8 @@ node validate-dxt.js     # Validate DXT package
    - Original scripts: `add_task.applescript`, `complete_task.applescript`, `list_inbox.applescript`, `today_tasks.applescript`, `weekly_review.applescript`
    - Enhanced scripts in `enhanced/`: `search_tasks.applescript`, `edit_task.applescript`, `batch_add_tasks.applescript`, `create_recurring_task.applescript`, plus list views
 
-3. **Build System** (`build.js`, `build-dxt-new.js`)
-   - Creates DXT package following official specification
+3. **Build System** (`build.js`)
+   - Creates MCPB package following official specification
    - Handles manifest generation with proper MCPB format (manifest_version: "0.3")
    - Archives extension with correct structure
    - Generates checksums and build reports
@@ -77,7 +77,7 @@ node validate-dxt.js     # Validate DXT package
 1. **AppleScript Escaping**: Always properly escape special characters in AppleScript strings
 2. **OmniFocus Permissions**: Extension requires automation permissions for OmniFocus
 3. **Manifest Format**: Must use MCPB v0.3 format - `manifest_version: "0.3"` with `name` as machine-readable identifier
-4. **Build Output**: Extension files go to `dist/` directory as `.dxt` files
+4. **Build Output**: Extension files go to `dist/` directory as `.mcpb` files
 5. **Error Messages**: Provide clear, actionable error messages from AppleScripts
 6. **Task Matching**: Be careful with task name matching - handle multiple matches gracefully
 
@@ -94,7 +94,7 @@ node validate-dxt.js     # Validate DXT package
 1. Check Claude Desktop logs: `~/Library/Logs/Claude/`
 2. Test AppleScript directly: `osascript src/scripts/[script_name].applescript`
 3. Verify MCP server: `node src/server/index.js` (send test JSON-RPC)
-4. Validate DXT package: `npm run validate`
+4. Validate MCPB package: `npm run validate`
 
 ### Testing AppleScript Changes
 ```bash

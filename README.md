@@ -34,10 +34,10 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 
 ### Quick Install
 
-1. Download the latest `omnifocus-gtd.dxt` from the [Releases](https://github.com/geoffdavis/omnifocus-claude-extension/releases) page
+1. Download the latest `omnifocus-gtd.mcpb` from the [Releases](https://github.com/geoffdavis/omnifocus-claude-extension/releases) page
 2. Open Claude Desktop
 3. Navigate to Extensions settings
-4. Drag and drop the `.dxt` file onto the Claude Desktop window
+4. Drag and drop the `.mcpb` file onto the Claude Desktop window
 5. Restart Claude Desktop
 6. The first time you use an OmniFocus tool, macOS will prompt you to grant `node` permission to control OmniFocus - click **Allow**
 
@@ -54,7 +54,7 @@ npm install
 # Build the extension
 npm run build
 
-# The extension will be created at dist/omnifocus-gtd.dxt
+# The extension will be created at dist/omnifocus-gtd.mcpb
 ```
 
 ## Usage Examples
@@ -133,14 +133,14 @@ omnifocus-claude-extension/
 │   └── manifest-template.json      # MCPB v0.3 manifest template
 ├── build.js                        # Build script
 ├── dist/
-│   └── omnifocus-gtd.dxt           # Built extension
+│   └── omnifocus-gtd.mcpb           # Built extension
 └── tests/
 ```
 
 ### Building
 
 ```bash
-# Build the DXT extension
+# Build the MCPB extension
 npm run build
 
 # Clean and rebuild

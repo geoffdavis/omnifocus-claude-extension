@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Validate DXT files for OmniFocus Claude Extension
- * Checks the structure and format of generated .dxt files
+ * Validate MCPB files for OmniFocus Claude Extension
+ * Checks the structure and format of generated .mcpb files
  */
 
 const fs = require('fs');
@@ -120,9 +120,9 @@ function validateJsonStructure(filePath) {
 }
 
 /**
- * Validate a DXT file
+ * Validate an MCPB file
  */
-function validateDxtFile(filePath) {
+function validateMcpbFile(filePath) {
     const fileName = path.basename(filePath);
     const fileSize = fs.statSync(filePath).size;
     const sizeKB = (fileSize / 1024).toFixed(2);
@@ -162,7 +162,7 @@ function validateDxtFile(filePath) {
  * Main validation function
  */
 function validateAll() {
-    log.header('🔍 DXT File Validation');
+    log.header('🔍 MCPB File Validation');
     
     if (!fs.existsSync(DIST_DIR)) {
         log.error('dist/ directory not found. Run build first.');
@@ -170,21 +170,21 @@ function validateAll() {
     }
     
     const dxtFiles = fs.readdirSync(DIST_DIR)
-        .filter(f => f.endsWith('.dxt'))
+        .filter(f => f.endsWith('.mcpb'))
         .map(f => path.join(DIST_DIR, f));
     
     if (dxtFiles.length === 0) {
-        log.warning('No .dxt files found in dist/');
+        log.warning('No .mcpb files found in dist/');
         process.exit(1);
     }
     
-    log.info(`Found ${dxtFiles.length} DXT files to validate`);
+    log.info(`Found ${dxtFiles.length} MCPB files to validate`);
     
     let allValid = true;
     const results = [];
     
     for (const dxtFile of dxtFiles) {
-        const isValid = validateDxtFile(dxtFile);
+        const isValid = validateMcpbFile(dxtFile);
         results.push({
             file: path.basename(dxtFile),
             valid: isValid
@@ -207,7 +207,7 @@ function validateAll() {
     }
     
     if (allValid) {
-        log.header('✨ All DXT files are valid!');
+        log.header('✨ All MCPB files are valid!');
     } else {
         log.header('⚠️  Some files have validation issues');
         log.info('Review the issues above and rebuild if necessary');
@@ -221,4 +221,4 @@ if (require.main === module) {
     validateAll();
 }
 
-module.exports = { validateDxtFile, isZipFile, isJsonFile };
+module.exports = { validateMcpbFile, isZipFile, isJsonFile };

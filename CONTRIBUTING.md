@@ -43,14 +43,14 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 1. **Test your changes** with OmniFocus and Claude Desktop
 2. **Update the README** if you've added new commands or changed existing ones
-3. **Update the version number** in omnifocus-gtd.dxt and package.json if appropriate
+3. **Update the version number** in package.json if appropriate
 4. **Write clear commit messages** that explain what changed and why
 
 ## Adding New Commands
 
 When adding a new command to the extension:
 
-1. Add the command definition to the `tools` array in `omnifocus-gtd.dxt`
+1. Add the command definition to the `tools` array in `src/server/index.js`
 2. Ensure the AppleScript is properly formatted and escaped
 3. Test the command thoroughly with various inputs
 4. Add documentation to the README.md

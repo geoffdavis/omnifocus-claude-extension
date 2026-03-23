@@ -14,7 +14,7 @@ Triggers on:
 
 Jobs:
 1. **Test**: Runs Jest unit tests with coverage
-2. **Build**: Creates DXT extension package
+2. **Build**: Creates MCPB extension package
 3. **Release**: Creates GitHub release for version tags
 
 ### Test Suite (`test.yml`)
@@ -73,7 +73,7 @@ No additional secrets required. Uses default GITHUB_TOKEN for releases.
 
 Each workflow run produces:
 - **Test Results**: JSON test output and coverage reports
-- **Build Artifacts**: DXT extension file
+- **Build Artifacts**: MCPB extension file
 - **Build Report**: JSON build metadata
 
 ## Status Badges
