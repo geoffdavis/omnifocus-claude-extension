@@ -52,12 +52,17 @@ describe('AppleScript Integration', () => {
 
     describe('Script Syntax', () => {
         test('all AppleScript files compile without syntax errors', () => {
-            // Check if osacompile is available (macOS only)
+            // Check if osacompile is available (macOS only) AND OmniFocus is
+            // installed. Scripts use OmniFocus-specific dictionary terms
+            // (e.g. `tell default document`) that cause osacompile to fail
+            // with "Expected end of line but found class name" when OmniFocus
+            // is not installed on the machine running the test.
             let osacompileAvailable = false;
             try {
                 execSync('which osacompile', { stdio: 'pipe' });
+                execSync('test -d "/Applications/OmniFocus.app"', { stdio: 'pipe' });
                 osacompileAvailable = true;
-            } catch { /* not in this environment */ }
+            } catch { /* not in this environment or OmniFocus not installed */ }
 
             const scriptFiles = fs.readdirSync(scriptsDir)
                 .filter(f => f.endsWith('.applescript'))
