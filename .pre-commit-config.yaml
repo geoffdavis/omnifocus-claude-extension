@@ -1,0 +1,26 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.applescript$'
+      - id: end-of-file-fixer
+        exclude: '\.applescript$'
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+        exclude: '\.applescript$'
+
+  - repo: local
+    hooks:
+      - id: node-syntax-check
+        name: Node.js syntax check
+        language: system
+        entry: bash -c 'for f in "$@"; do node -c "$f" || exit 1; done' --
+        types: [javascript]
+        exclude: 'node_modules/'
