@@ -92,10 +92,11 @@ describe('AppleScript Integration', () => {
                     }
                 });
             } else {
-                // Fallback: verify non-empty and contain structural keywords
+                // Fallback: verify non-empty and have basic AppleScript structure
                 scriptFiles.forEach(scriptPath => {
                     const content = fs.readFileSync(scriptPath, 'utf8');
                     expect(content.length).toBeGreaterThan(0);
+                    expect(content).toMatch(/on run|tell application/i);
                 });
             }
         });
@@ -194,11 +195,11 @@ describe('AppleScript Integration', () => {
         test('every tool in server index.js has a matching .applescript file', () => {
             const serverContent = fs.readFileSync(serverPath, 'utf8');
 
-            // Extract tool names: 8-space-indented "name: 'xxx'," lines inside const tools = [...]
-            const toolsStart = serverContent.indexOf('const tools = [');
-            const toolsEnd = serverContent.indexOf('\n];', toolsStart);
-            const toolsSection = serverContent.slice(toolsStart, toolsEnd);
-            const toolNames = [...toolsSection.matchAll(/^        name:\s*'([^']+)',/gm)].map(m => m[1]);
+            // Extract tool names from the const tools = [...] block
+            const toolsBlockMatch = serverContent.match(/const tools\s*=\s*\[(.*?)\n\];/s);
+            expect(toolsBlockMatch).not.toBeNull();
+            const toolsSection = toolsBlockMatch[1];
+            const toolNames = [...toolsSection.matchAll(/\bname:\s*'([^']+)'/g)].map(m => m[1]);
 
             expect(toolNames.length).toBeGreaterThan(0);
 
@@ -213,11 +214,11 @@ describe('AppleScript Integration', () => {
         test('every tool name in the tools array has a case in executeTool switch', () => {
             const serverContent = fs.readFileSync(serverPath, 'utf8');
 
-            // Extract tool names from const tools = [...]
-            const toolsStart = serverContent.indexOf('const tools = [');
-            const toolsEnd = serverContent.indexOf('\n];', toolsStart);
-            const toolsSection = serverContent.slice(toolsStart, toolsEnd);
-            const toolNames = [...toolsSection.matchAll(/^        name:\s*'([^']+)',/gm)].map(m => m[1]);
+            // Extract tool names from the const tools = [...] block
+            const toolsBlockMatch = serverContent.match(/const tools\s*=\s*\[(.*?)\n\];/s);
+            expect(toolsBlockMatch).not.toBeNull();
+            const toolsSection = toolsBlockMatch[1];
+            const toolNames = [...toolsSection.matchAll(/\bname:\s*'([^']+)'/g)].map(m => m[1]);
 
             // Extract case labels from the switch(name) in executeTool
             const caseNames = [...serverContent.matchAll(/case\s+'([^']+)':/g)].map(m => m[1]);

@@ -80,11 +80,21 @@ describe('MCP Server', () => {
         });
 
         test('responds to tools/list request', async () => {
-            const serverProcess = spawn('node', [serverPath]);
+            serverProcess = spawn('node', [serverPath]);
             let responseData = '';
+            let secondRequestSent = false;
 
             await new Promise((resolve, reject) => {
-                serverProcess.stdout.on('data', (data) => { responseData += data.toString(); });
+                serverProcess.stdout.on('data', (data) => {
+                    responseData += data.toString();
+                    // Send tools/list once we have the initialize response (id:1)
+                    if (!secondRequestSent && responseData.includes('"id":1')) {
+                        secondRequestSent = true;
+                        const toolsRequest = { jsonrpc: '2.0', method: 'tools/list', params: {}, id: 2 };
+                        serverProcess.stdin.write(JSON.stringify(toolsRequest) + '\n');
+                        serverProcess.stdin.end();
+                    }
+                });
                 serverProcess.on('close', resolve);
                 serverProcess.on('error', reject);
 
@@ -93,12 +103,6 @@ describe('MCP Server', () => {
                     params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1
                 };
                 serverProcess.stdin.write(JSON.stringify(initRequest) + '\n');
-
-                setTimeout(() => {
-                    const toolsRequest = { jsonrpc: '2.0', method: 'tools/list', params: {}, id: 2 };
-                    serverProcess.stdin.write(JSON.stringify(toolsRequest) + '\n');
-                    serverProcess.stdin.end();
-                }, 50);
             });
 
             const lines = responseData.split('\n').filter(l => l.trim());
@@ -119,11 +123,25 @@ describe('MCP Server', () => {
         });
 
         test('tools/call returns valid content shape even when OmniFocus is unavailable', async () => {
-            const serverProcess = spawn('node', [serverPath]);
+            serverProcess = spawn('node', [serverPath]);
             let responseData = '';
+            let secondRequestSent = false;
 
             await new Promise((resolve, reject) => {
-                serverProcess.stdout.on('data', (data) => { responseData += data.toString(); });
+                serverProcess.stdout.on('data', (data) => {
+                    responseData += data.toString();
+                    // Send tools/call once we have the initialize response (id:1).
+                    // Use list_inbox (read-only) to avoid creating tasks in OmniFocus.
+                    if (!secondRequestSent && responseData.includes('"id":1')) {
+                        secondRequestSent = true;
+                        const callRequest = {
+                            jsonrpc: '2.0', method: 'tools/call',
+                            params: { name: 'list_inbox', arguments: {} }, id: 3
+                        };
+                        serverProcess.stdin.write(JSON.stringify(callRequest) + '\n');
+                        serverProcess.stdin.end();
+                    }
+                });
                 serverProcess.on('close', resolve);
                 serverProcess.on('error', reject);
 
@@ -132,15 +150,6 @@ describe('MCP Server', () => {
                     params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1
                 };
                 serverProcess.stdin.write(JSON.stringify(initRequest) + '\n');
-
-                setTimeout(() => {
-                    const callRequest = {
-                        jsonrpc: '2.0', method: 'tools/call',
-                        params: { name: 'add_task', arguments: { name: 'Test task' } }, id: 3
-                    };
-                    serverProcess.stdin.write(JSON.stringify(callRequest) + '\n');
-                    serverProcess.stdin.end();
-                }, 50);
             });
 
             const lines = responseData.split('\n').filter(l => l.trim());
@@ -156,11 +165,24 @@ describe('MCP Server', () => {
         });
 
         test('tools/call returns error for unknown tool', async () => {
-            const serverProcess = spawn('node', [serverPath]);
+            serverProcess = spawn('node', [serverPath]);
             let responseData = '';
+            let secondRequestSent = false;
 
             await new Promise((resolve, reject) => {
-                serverProcess.stdout.on('data', (data) => { responseData += data.toString(); });
+                serverProcess.stdout.on('data', (data) => {
+                    responseData += data.toString();
+                    // Send tools/call once we have the initialize response (id:1)
+                    if (!secondRequestSent && responseData.includes('"id":1')) {
+                        secondRequestSent = true;
+                        const callRequest = {
+                            jsonrpc: '2.0', method: 'tools/call',
+                            params: { name: 'nonexistent_tool', arguments: {} }, id: 4
+                        };
+                        serverProcess.stdin.write(JSON.stringify(callRequest) + '\n');
+                        serverProcess.stdin.end();
+                    }
+                });
                 serverProcess.on('close', resolve);
                 serverProcess.on('error', reject);
 
@@ -169,15 +191,6 @@ describe('MCP Server', () => {
                     params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1
                 };
                 serverProcess.stdin.write(JSON.stringify(initRequest) + '\n');
-
-                setTimeout(() => {
-                    const callRequest = {
-                        jsonrpc: '2.0', method: 'tools/call',
-                        params: { name: 'nonexistent_tool', arguments: {} }, id: 4
-                    };
-                    serverProcess.stdin.write(JSON.stringify(callRequest) + '\n');
-                    serverProcess.stdin.end();
-                }, 50);
             });
 
             const lines = responseData.split('\n').filter(l => l.trim());
@@ -242,11 +255,11 @@ describe('MCP Server', () => {
         test('every tool in the tools array has a corresponding switch case in executeTool', () => {
             const serverContent = fs.readFileSync(serverPath, 'utf8');
 
-            // Extract tool names (8-space-indented name: 'xxx', inside const tools = [...])
-            const toolsStart = serverContent.indexOf('const tools = [');
-            const toolsEnd = serverContent.indexOf('\n];', toolsStart);
-            const toolsSection = serverContent.slice(toolsStart, toolsEnd);
-            const toolNames = [...toolsSection.matchAll(/^        name:\s*'([^']+)',/gm)].map(m => m[1]);
+            // Extract tool names from the const tools = [...] block in a format-agnostic way
+            const toolsBlockMatch = serverContent.match(/const tools\s*=\s*\[(.*?)\n\];/s);
+            expect(toolsBlockMatch).not.toBeNull();
+            const toolsSection = toolsBlockMatch[1];
+            const toolNames = [...toolsSection.matchAll(/\bname:\s*'([^']+)'/g)].map(m => m[1]);
 
             expect(toolNames.length).toBeGreaterThan(0);
 
