@@ -169,24 +169,24 @@ function validateAll() {
         process.exit(1);
     }
     
-    const dxtFiles = fs.readdirSync(DIST_DIR)
+    const mcpbFiles = fs.readdirSync(DIST_DIR)
         .filter(f => f.endsWith('.mcpb'))
         .map(f => path.join(DIST_DIR, f));
     
-    if (dxtFiles.length === 0) {
+    if (mcpbFiles.length === 0) {
         log.warning('No .mcpb files found in dist/');
         process.exit(1);
     }
     
-    log.info(`Found ${dxtFiles.length} MCPB files to validate`);
+    log.info(`Found ${mcpbFiles.length} MCPB files to validate`);
     
     let allValid = true;
     const results = [];
     
-    for (const dxtFile of dxtFiles) {
-        const isValid = validateMcpbFile(dxtFile);
+    for (const mcpbFile of mcpbFiles) {
+        const isValid = validateMcpbFile(mcpbFile);
         results.push({
-            file: path.basename(dxtFile),
+            file: path.basename(mcpbFile),
             valid: isValid
         });
         if (!isValid) {

@@ -39,22 +39,22 @@ describe('Build System', () => {
         });
         
         test('build creates MCPB file', () => {
-            const dxtFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.mcpb'));
-            expect(dxtFiles.length).toBeGreaterThan(0);
+            const mcpbFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.mcpb'));
+            expect(mcpbFiles.length).toBeGreaterThan(0);
             
-            const dxtFile = path.join(distDir, dxtFiles[0]);
-            expect(fs.existsSync(dxtFile)).toBe(true);
+            const mcpbFile = path.join(distDir, mcpbFiles[0]);
+            expect(fs.existsSync(mcpbFile)).toBe(true);
             
-            const stats = fs.statSync(dxtFile);
+            const stats = fs.statSync(mcpbFile);
             expect(stats.size).toBeGreaterThan(0);
         });
         
         test('MCPB file has correct structure', () => {
-            const dxtFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.mcpb'));
-            const dxtFile = path.join(distDir, dxtFiles[0]);
+            const mcpbFiles = fs.readdirSync(distDir).filter(f => f.endsWith('.mcpb'));
+            const mcpbFile = path.join(distDir, mcpbFiles[0]);
             
             // MCPB files are archives, we can verify they exist and have content
-            const stats = fs.statSync(dxtFile);
+            const stats = fs.statSync(mcpbFile);
             expect(stats.isFile()).toBe(true);
             expect(stats.size).toBeGreaterThan(1000); // Should be at least 1KB
         });

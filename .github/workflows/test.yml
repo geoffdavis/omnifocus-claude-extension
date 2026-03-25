@@ -119,7 +119,7 @@ jobs:
     
     - name: Check JavaScript syntax
       run: |
-        for file in src/**/*.js build.js validate-dxt.js; do
+        for file in src/**/*.js build.js validate-mcpb.js; do
           if [ -f "$file" ]; then
             node -c "$file" || exit 1
           fi
