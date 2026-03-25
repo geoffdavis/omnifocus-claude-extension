@@ -28,14 +28,24 @@
     "task-management",
     "macos"
   ],
-  "author": "Geoff Davis",
+  "author": "Community Contributors",
   "license": "MIT",
-  "devDependencies": {
-    "jest": "^29.7.0"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/omnifocus-claude-extension.git"
   },
-  "jest": {
-    "testEnvironment": "node",
-    "testTimeout": 30000,
-    "testPathPattern": "tests/.*\\.test\\.js$"
+  "bugs": {
+    "url": "https://github.com/yourusername/omnifocus-claude-extension/issues"
+  },
+  "homepage": "https://github.com/yourusername/omnifocus-claude-extension#readme",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "archiver": "^6.0.1",
+    "chalk": "^5.3.0",
+    "chokidar": "^3.5.3",
+    "jest": "^30.0.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
