@@ -1,4 +1,5 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
 
@@ -32,30 +33,37 @@ describe('AppleScript Integration', () => {
 
         test('enhanced scripts exist', () => {
             const enhancedScripts = [
-                'search_tasks.applescript',
-                'edit_task.applescript',
                 'batch_add_tasks.applescript',
                 'create_recurring_task.applescript',
+                'edit_task.applescript',
+                'list_deferred_tasks.applescript',
+                'list_flagged_tasks.applescript',
+                'list_overdue_tasks.applescript',
                 'list_projects.applescript',
-                'list_contexts.applescript',
-                'list_flagged.applescript',
-                'list_due_soon.applescript',
-                'list_completed_today.applescript'
+                'search_tasks.applescript'
             ];
 
-            const existingScripts = enhancedScripts.filter(script => {
+            enhancedScripts.forEach(script => {
                 const scriptPath = path.join(enhancedScriptsDir, script);
-                return fs.existsSync(scriptPath);
+                expect(fs.existsSync(scriptPath)).toBe(true);
             });
-
-            // At least some enhanced scripts should exist
-            expect(existingScripts.length).toBeGreaterThan(0);
         });
     });
 
     describe('Script Syntax', () => {
-        test('all scripts have valid AppleScript syntax', () => {
-            // Get all .applescript files
+        test('all AppleScript files compile without syntax errors', () => {
+            // Check if osacompile is available (macOS only) AND OmniFocus is
+            // installed. Scripts use OmniFocus-specific dictionary terms
+            // (e.g. `tell default document`) that cause osacompile to fail
+            // with "Expected end of line but found class name" when OmniFocus
+            // is not installed on the machine running the test.
+            let osacompileAvailable = false;
+            try {
+                execSync('which osacompile', { stdio: 'pipe' });
+                execSync('test -d "/Applications/OmniFocus.app"', { stdio: 'pipe' });
+                osacompileAvailable = true;
+            } catch { /* not in this environment or OmniFocus not installed */ }
+
             const scriptFiles = fs.readdirSync(scriptsDir)
                 .filter(f => f.endsWith('.applescript'))
                 .map(f => path.join(scriptsDir, f));
@@ -67,24 +75,30 @@ describe('AppleScript Integration', () => {
                 scriptFiles.push(...enhancedFiles);
             }
 
-            scriptFiles.forEach(scriptPath => {
-                // Check if script compiles without errors
-                // Note: This only checks syntax, not runtime errors
-                try {
-                    execSync(`osascript -c 'return "test"'`, { stdio: 'pipe' });
-                    // If osascript works, test the actual script syntax
-                    const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-
-                    // Basic syntax checks
-                    expect(scriptContent).toContain('tell application "OmniFocus"');
-                    expect(scriptContent).toContain('end tell');
-                } catch (error) {
-                    // osascript might not be available in CI environment
-                    // Still check basic file validity
+            if (osacompileAvailable) {
+                // Compile each script to a temp file to catch syntax errors
+                scriptFiles.forEach(scriptPath => {
+                    const outFile = path.join(
+                        os.tmpdir(),
+                        `osatest-${Date.now()}-${Math.random().toString(36).slice(2)}.scpt`
+                    );
+                    try {
+                        execSync(`osacompile -o "${outFile}" "${scriptPath}"`, { stdio: 'pipe' });
+                    } catch (error) {
+                        const stderr = error.stderr ? error.stderr.toString() : error.message;
+                        throw new Error(`Syntax error in ${path.basename(scriptPath)}: ${stderr}`);
+                    } finally {
+                        if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
+                    }
+                });
+            } else {
+                // Fallback: verify non-empty and have basic AppleScript structure
+                scriptFiles.forEach(scriptPath => {
                     const content = fs.readFileSync(scriptPath, 'utf8');
                     expect(content.length).toBeGreaterThan(0);
-                }
-            });
+                    expect(content).toMatch(/on run|tell application/i);
+                });
+            }
         });
 
         test('scripts have proper structure', () => {
@@ -171,6 +185,46 @@ describe('AppleScript Integration', () => {
                     // Ensure proper document handling
                     expect(content).toMatch(/tell\s+(front document|default document)/);
                 }
+            });
+        });
+    });
+
+    describe('Tool-Script Coverage', () => {
+        const serverPath = path.join(__dirname, '..', 'src', 'server', 'index.js');
+
+        test('every tool in server index.js has a matching .applescript file', () => {
+            const serverContent = fs.readFileSync(serverPath, 'utf8');
+
+            // Extract tool names from the const tools = [...] block
+            const toolsBlockMatch = serverContent.match(/const tools\s*=\s*\[(.*?)\n\];/s);
+            expect(toolsBlockMatch).not.toBeNull();
+            const toolsSection = toolsBlockMatch[1];
+            const toolNames = [...toolsSection.matchAll(/\bname:\s*'([^']+)'/g)].map(m => m[1]);
+
+            expect(toolNames.length).toBeGreaterThan(0);
+
+            toolNames.forEach(toolName => {
+                const enhancedPath = path.join(enhancedScriptsDir, `${toolName}.applescript`);
+                const corePath = path.join(scriptsDir, `${toolName}.applescript`);
+                const found = fs.existsSync(enhancedPath) || fs.existsSync(corePath);
+                expect(found).toBe(true);
+            });
+        });
+
+        test('every tool name in the tools array has a case in executeTool switch', () => {
+            const serverContent = fs.readFileSync(serverPath, 'utf8');
+
+            // Extract tool names from the const tools = [...] block
+            const toolsBlockMatch = serverContent.match(/const tools\s*=\s*\[(.*?)\n\];/s);
+            expect(toolsBlockMatch).not.toBeNull();
+            const toolsSection = toolsBlockMatch[1];
+            const toolNames = [...toolsSection.matchAll(/\bname:\s*'([^']+)'/g)].map(m => m[1]);
+
+            // Extract case labels from the switch(name) in executeTool
+            const caseNames = [...serverContent.matchAll(/case\s+'([^']+)':/g)].map(m => m[1]);
+
+            toolNames.forEach(toolName => {
+                expect(caseNames).toContain(toolName);
             });
         });
     });

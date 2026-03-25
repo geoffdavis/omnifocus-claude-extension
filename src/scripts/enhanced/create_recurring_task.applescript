@@ -49,22 +49,18 @@ on run argv
                 set due date of newTask to (current date) + 1 * days
             end if
             
-            -- Configure repetition
-            tell newTask
-                try
-                    set repetition rule to my parseRepeatRule(repeatRule)
-                    
-                    -- Set the repetition method (fixed or due)
-                    if repeatRule contains "fixed" then
-                        set repetition method to fixed repetition
-                    else
-                        set repetition method to due after completion
-                    end if
-                    
-                on error errMsg
-                    return "⚠️ Created task but couldn't set repeat: " & errMsg
-                end try
-            end tell
+            -- Configure repetition (set properties directly on task to avoid class/property ambiguity)
+            try
+                set repInterval to my parseRepeatRule(repeatRule)
+                set repetition interval of newTask to repInterval
+                if repeatRule contains "fixed" then
+                    set repetition method of newTask to fixed repetition
+                else
+                    set repetition method of newTask to due after completion
+                end if
+            on error errMsg
+                return "⚠️ Created task but couldn't set repeat: " & errMsg
+            end try
             
             -- Return confirmation
             set resultText to "🔄 Created recurring task: " & taskName
