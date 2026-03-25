@@ -95,7 +95,7 @@ on parseDate(dateString)
     on error
       return missing value
     end try
-  else if trimmed contains "day" then
+  else if trimmed ends with " day" or trimmed ends with " days" then
     try
       set dayCount to word 1 of trimmed as integer
       return todayDate + dayCount * days
