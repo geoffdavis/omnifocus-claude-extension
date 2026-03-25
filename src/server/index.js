@@ -7,7 +7,7 @@
  */
 
 const readline = require('readline');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -310,20 +310,10 @@ function executeAppleScriptFile(scriptName, args = []) {
     }
 
     try {
-        // Build the osascript command with arguments
-        const scriptArgs = args.map(arg => {
-            // Escape quotes and special characters for shell
-            const escaped = String(arg)
-                .replace(/\\/g, '\\\\')
-                .replace(/"/g, '\\"')
-                .replace(/'/g, "'\\''");
-            return `"${escaped}"`;
-        });
+        const scriptArgs = args.map(arg => String(arg));
+        log(`Executing: osascript ${scriptPath} ${scriptArgs.join(' ')}`);
 
-        const command = `osascript "${scriptPath}" ${scriptArgs.join(' ')}`;
-        log(`Executing: ${command}`);
-
-        const result = execSync(command, {
+        const result = execFileSync('osascript', [scriptPath, ...scriptArgs], {
             encoding: 'utf8',
             maxBuffer: 1024 * 1024 * 10 // Increased buffer for search results
         });
