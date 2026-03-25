@@ -7,7 +7,7 @@
  */
 
 const readline = require('readline');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -46,13 +46,13 @@ function sendResponse(id, result, error = null) {
         jsonrpc: '2.0',
         id
     };
-    
+
     if (error) {
         response.error = error;
     } else {
         response.result = result;
     }
-    
+
     const responseStr = JSON.stringify(response);
     console.log(responseStr);
     log('Response:', responseStr);
@@ -65,7 +65,7 @@ function sendNotification(method, params) {
         method,
         params
     };
-    
+
     console.log(JSON.stringify(notification));
 }
 
@@ -149,7 +149,7 @@ const tools = [
             properties: {}
         }
     },
-    
+
     // Advanced tools
     {
         name: 'search_tasks',
@@ -295,40 +295,30 @@ const tools = [
 
 // Execute AppleScript file with arguments
 function executeAppleScriptFile(scriptName, args = []) {
+    // Try enhanced scripts first
+    let scriptPath = path.join(__dirname, '..', 'scripts', 'enhanced', `${scriptName}.applescript`);
+
+    // Fall back to regular scripts if enhanced version doesn't exist
+    if (!fs.existsSync(scriptPath)) {
+        scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
+    }
+
+    // Check if script file exists — throw before the try so the message isn't
+    // wrapped by the generic "AppleScript execution failed:" catch below.
+    if (!fs.existsSync(scriptPath)) {
+        throw new Error(`Script file not found: ${scriptName}.applescript (looked in ${scriptPath})`);
+    }
+
     try {
-        // Try enhanced scripts first
-        let scriptPath = path.join(__dirname, '..', 'scripts', 'enhanced', `${scriptName}.applescript`);
-        
-        // Fall back to regular scripts if enhanced version doesn't exist
-        if (!fs.existsSync(scriptPath)) {
-            scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
-        }
-        
-        // Check if script file exists
-        if (!fs.existsSync(scriptPath)) {
-            log(`Script file not found: ${scriptPath}`);
-            // Fall back to embedded implementation
-            return executeEmbeddedScript(scriptName, args);
-        }
-        
-        // Build the osascript command with arguments
-        const scriptArgs = args.map(arg => {
-            // Escape quotes and special characters for shell
-            const escaped = String(arg)
-                .replace(/\\/g, '\\\\')
-                .replace(/"/g, '\\"')
-                .replace(/'/g, "'\\''");
-            return `"${escaped}"`;
-        });
-        
-        const command = `osascript "${scriptPath}" ${scriptArgs.join(' ')}`;
-        log(`Executing: ${command}`);
-        
-        const result = execSync(command, {
+        const scriptArgs = args.map(arg => String(arg));
+        const argv = [scriptPath, ...scriptArgs];
+        log(`Executing: osascript ${JSON.stringify(argv)}`);
+
+        const result = execFileSync('osascript', argv, {
             encoding: 'utf8',
             maxBuffer: 1024 * 1024 * 10 // Increased buffer for search results
         });
-        
+
         return result.trim();
     } catch (error) {
         log('AppleScript execution error:', error.message);
@@ -336,190 +326,18 @@ function executeAppleScriptFile(scriptName, args = []) {
     }
 }
 
-// Embedded fallback implementations
-function executeEmbeddedScript(scriptName, args = []) {
-    let script = '';
-    
-    switch (scriptName) {
-        case 'add_task':
-            const taskName = args[0] || 'New Task';
-            const taskNote = args[1] || '';
-            const projectName = args[2] || '';
-            const dueDate = args[3] || '';
-            const isFlagged = args[4] === 'true' || args[4] === true;
-            const deferDate = args[5] || '';
-            const estimatedMinutes = args[6] || '0';
-            
-            script = `
-                tell application "OmniFocus"
-                    tell default document
-                        set newTask to make new inbox task with properties {name:"${taskName.replace(/"/g, '\\"')}"${taskNote ? `, note:"${taskNote.replace(/"/g, '\\"')}"` : ''}${isFlagged ? ', flagged:true' : ''}}
-                        
-                        ${estimatedMinutes !== '0' ? `set estimated minutes of newTask to ${estimatedMinutes}` : ''}
-                        ${deferDate ? `set defer date of newTask to date "${deferDate}"` : ''}
-                        
-                        return "✅ Added: " & name of newTask
-                    end tell
-                end tell
-            `;
-            break;
-            
-        case 'list_inbox':
-            script = `
-                tell application "OmniFocus"
-                    tell default document
-                        set incompleteTasks to every inbox task whose completed is false
-                        
-                        if (count of incompleteTasks) = 0 then
-                            return "📥 Inbox is empty"
-                        else
-                            set taskList to "📥 Inbox (" & (count of incompleteTasks) & " items):"
-                            repeat with aTask in incompleteTasks
-                                set taskName to name of aTask
-                                if flagged of aTask then
-                                    set taskList to taskList & return & "• " & taskName & " 🚩"
-                                else
-                                    set taskList to taskList & return & "• " & taskName
-                                end if
-                            end repeat
-                            return taskList
-                        end if
-                    end tell
-                end tell
-            `;
-            break;
-            
-        case 'today_tasks':
-            script = `
-                tell application "OmniFocus"
-                    tell default document
-                        set todayStart to current date
-                        set hours of todayStart to 0
-                        set minutes of todayStart to 0
-                        set seconds of todayStart to 0
-                        
-                        set todayEnd to todayStart + (1 * days)
-                        
-                        set todayTasks to every flattened task whose due date ≥ todayStart and due date < todayEnd and completed is false
-                        
-                        if (count of todayTasks) = 0 then
-                            return "📅 No tasks due today"
-                        else
-                            set taskList to "📅 Today's Tasks (" & (count of todayTasks) & "):"
-                            repeat with aTask in todayTasks
-                                set taskName to name of aTask
-                                try
-                                    set projName to name of containing project of aTask
-                                    set taskList to taskList & return & "• " & taskName & " (" & projName & ")"
-                                on error
-                                    set taskList to taskList & return & "• " & taskName
-                                end try
-                            end repeat
-                            return taskList
-                        end if
-                    end tell
-                end tell
-            `;
-            break;
-            
-        case 'complete_task':
-            const searchTerm = args[0] || '';
-            if (!searchTerm) {
-                return "❌ Please provide a task name to complete";
-            }
-            
-            script = `
-                tell application "OmniFocus"
-                    tell default document
-                        set searchTerm to "${searchTerm.replace(/"/g, '\\"')}"
-                        set foundTasks to every flattened task whose name contains searchTerm and completed is false
-                        
-                        if (count of foundTasks) = 0 then
-                            return "❌ No matching tasks found for: " & searchTerm
-                        else if (count of foundTasks) = 1 then
-                            set targetTask to item 1 of foundTasks
-                            set taskName to name of targetTask
-                            set completed of targetTask to true
-                            return "✅ Completed: " & taskName
-                        else
-                            set taskList to "🔍 Multiple tasks found (" & (count of foundTasks) & "):" & return
-                            repeat with aTask in foundTasks
-                                set taskList to taskList & "• " & name of aTask & return
-                            end repeat
-                            set taskList to taskList & return & "Please be more specific."
-                            return taskList
-                        end if
-                    end tell
-                end tell
-            `;
-            break;
-            
-        case 'weekly_review':
-            script = `
-                tell application "OmniFocus"
-                    tell default document
-                        set weekAgo to (current date) - 7 * days
-                        set completedCount to count of (every flattened task whose completed is true and completion date > weekAgo)
-                        set inboxCount to count of every inbox task
-                        set overdueCount to count of (every flattened task whose due date < (current date) and completed is false)
-                        set flaggedCount to count of (every flattened task whose flagged is true and completed is false)
-                        set weekFromNow to (current date) + 7 * days
-                        set dueThisWeek to count of (every flattened task whose due date ≤ weekFromNow and completed is false)
-                        
-                        set activeProjects to every project whose status is active
-                        set projectCount to count of activeProjects
-                        
-                        set reviewText to "📊 WEEKLY REVIEW SUMMARY" & return
-                        set reviewText to reviewText & "════════════════════════" & return & return
-                        
-                        set reviewText to reviewText & "📥 Inbox: " & inboxCount & " items" & return
-                        set reviewText to reviewText & "🚩 Flagged: " & flaggedCount & " tasks" & return
-                        set reviewText to reviewText & "⚠️  Overdue: " & overdueCount & " tasks" & return
-                        set reviewText to reviewText & "📅 Due this week: " & dueThisWeek & " tasks" & return
-                        set reviewText to reviewText & "📁 Active projects: " & projectCount & " of " & (count of every project) & return
-                        
-                        if inboxCount > 0 then
-                            set reviewText to reviewText & return & "💡 Action: Process " & inboxCount & " inbox items"
-                        end if
-                        
-                        if overdueCount > 0 then
-                            set reviewText to reviewText & return & "💡 Action: Review " & overdueCount & " overdue tasks"
-                        end if
-                        
-                        return reviewText
-                    end tell
-                end tell
-            `;
-            break;
-            
-        default:
-            throw new Error(`Unknown script: ${scriptName}`);
-    }
-    
-    try {
-        const result = execSync(`osascript -e '${script.replace(/'/g, "'\"'\"'")}'`, {
-            encoding: 'utf8',
-            maxBuffer: 1024 * 1024
-        });
-        return result.trim();
-    } catch (error) {
-        log('Embedded script execution error:', error.message);
-        throw new Error(`Script execution failed: ${error.message}`);
-    }
-}
-
 // Handle tool execution
 async function executeTool(name, args) {
     log(`Executing tool: ${name} with args:`, args);
-    
+
     const tool = tools.find(t => t.name === name);
     if (!tool) {
         throw new Error(`Unknown tool: ${name}`);
     }
-    
+
     try {
         let result;
-        
+
         // Prepare arguments based on tool
         switch (name) {
             case 'add_task':
@@ -534,7 +352,7 @@ async function executeTool(name, args) {
                 ];
                 result = executeAppleScriptFile('add_task', taskArgs);
                 break;
-                
+
             case 'search_tasks':
                 result = executeAppleScriptFile('search_tasks', [
                     args.query || '',
@@ -542,7 +360,7 @@ async function executeTool(name, args) {
                     String(args.limit || 50)
                 ]);
                 break;
-                
+
             case 'edit_task':
                 result = executeAppleScriptFile('edit_task', [
                     args.task_name || '',
@@ -550,7 +368,7 @@ async function executeTool(name, args) {
                     args.value || ''
                 ]);
                 break;
-                
+
             case 'batch_add_tasks':
                 result = executeAppleScriptFile('batch_add_tasks', [
                     args.tasks || '',
@@ -559,7 +377,7 @@ async function executeTool(name, args) {
                     String(args.flagged || false)
                 ]);
                 break;
-                
+
             case 'create_recurring_task':
                 result = executeAppleScriptFile('create_recurring_task', [
                     args.name || '',
@@ -568,17 +386,17 @@ async function executeTool(name, args) {
                     args.initial_due_date || ''
                 ]);
                 break;
-                
+
             case 'list_projects':
                 result = executeAppleScriptFile('list_projects', [
                     String(args.include_stats || false)
                 ]);
                 break;
-                
+
             case 'complete_task':
                 result = executeAppleScriptFile('complete_task', [args.task_name || '']);
                 break;
-                
+
             case 'list_inbox':
             case 'today_tasks':
             case 'weekly_review':
@@ -587,11 +405,11 @@ async function executeTool(name, args) {
             case 'list_overdue_tasks':
                 result = executeAppleScriptFile(name, []);
                 break;
-                
+
             default:
                 throw new Error(`Tool ${name} not implemented`);
         }
-        
+
         return {
             content: [
                 {
@@ -616,19 +434,19 @@ async function executeTool(name, args) {
 // Handle JSON-RPC requests
 async function handleRequest(request) {
     const { method, params, id } = request;
-    
+
     log(`Handling request: ${method}`);
-    
+
     try {
         switch (method) {
             case 'initialize':
                 if (initialized) {
                     throw new Error('Server already initialized');
                 }
-                
+
                 clientCapabilities = params.capabilities || {};
                 initialized = true;
-                
+
                 const initResult = {
                     protocolVersion: '2025-11-25',
                     capabilities: {
@@ -641,20 +459,20 @@ async function handleRequest(request) {
                         version: VERSION
                     }
                 };
-                
+
                 sendResponse(id, initResult);
                 break;
-                
+
             case 'initialized':
                 // Client confirms initialization
                 log('Client confirmed initialization');
                 break;
-                
+
             case 'tools/list':
                 if (!initialized) {
                     throw new Error('Server not initialized');
                 }
-                
+
                 sendResponse(id, {
                     tools: tools.map(tool => ({
                         name: tool.name,
@@ -663,22 +481,22 @@ async function handleRequest(request) {
                     }))
                 });
                 break;
-                
+
             case 'tools/call':
                 if (!initialized) {
                     throw new Error('Server not initialized');
                 }
-                
+
                 const { name, arguments: toolArgs } = params;
                 const result = await executeTool(name, toolArgs);
                 sendResponse(id, result);
                 break;
-                
+
             case 'shutdown':
                 sendResponse(id, null);
                 process.exit(0);
                 break;
-                
+
             default:
                 sendResponse(id, null, {
                     code: -32601,
@@ -703,12 +521,12 @@ rl.on('line', (line) => {
     try {
         const request = JSON.parse(line);
         log('Received:', line);
-        
+
         if (request.jsonrpc !== '2.0') {
             log('Invalid JSON-RPC version:', request.jsonrpc);
             return;
         }
-        
+
         handleRequest(request);
     } catch (error) {
         log('Parse error:', error.message);
