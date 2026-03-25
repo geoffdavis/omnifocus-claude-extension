@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node build.js",
     "build:mcpb": "node build.js",
+    "build:dxt": "npm run build:mcpb",
     "clean": "rm -rf dist build build-temp* extension-build",
     "rebuild": "npm run clean && npm run build",
     "test": "jest",

@@ -86,7 +86,7 @@ jobs:
     - name: Test manifest generation
       run: node test-manifests.js
     
-    - name: Validate DXT build
+    - name: Validate MCPB build
       run: |
         npm run build
         npm run validate
