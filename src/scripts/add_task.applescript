@@ -29,6 +29,8 @@ on run argv
     if minutesString is not "" and minutesString is not "0" then
       try
         set estimatedMinutes to minutesString as integer
+      on error
+        return "❌ Invalid estimated_minutes value: " & minutesString & " (must be a whole number)"
       end try
     end if
   end if
@@ -63,24 +65,24 @@ end run
 
 on parseDate(dateString)
   set todayDate to current date
-  if dateString is "today" then
+  if dateString contains "today" then
     return todayDate
-  else if dateString is "tomorrow" then
+  else if dateString contains "tomorrow" then
     return todayDate + 1 * days
-  else if dateString is "next week" then
+  else if dateString contains "week" then
     return todayDate + 7 * days
   else if dateString contains "days" then
     try
       set dayCount to word 1 of dateString as integer
       return todayDate + dayCount * days
     on error
-      return todayDate
+      return missing value
     end try
   else
     try
       return date dateString
     on error
-      return todayDate
+      return missing value
     end try
   end if
 end parseDate
