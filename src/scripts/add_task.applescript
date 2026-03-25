@@ -13,6 +13,9 @@ on run argv
     set dueDateString to item 4 of argv
     if dueDateString is not "" then
       set dueDate to my parseDate(dueDateString)
+      if dueDate is missing value then
+        return "❌ Could not parse due_date: " & dueDateString
+      end if
     end if
   end if
   if (count of argv) > 4 then
@@ -22,6 +25,9 @@ on run argv
     set deferDateString to item 6 of argv
     if deferDateString is not "" then
       set deferDate to my parseDate(deferDateString)
+      if deferDate is missing value then
+        return "❌ Could not parse defer_date: " & deferDateString
+      end if
     end if
   end if
   if (count of argv) > 6 then
@@ -32,6 +38,9 @@ on run argv
       on error
         return "❌ Invalid estimated_minutes value: " & minutesString & " (must be a whole number)"
       end try
+      if estimatedMinutes < 0 then
+        return "❌ Invalid estimated_minutes value: " & minutesString & " (must be 0 or greater)"
+      end if
     end if
   end if
 
@@ -69,8 +78,15 @@ on parseDate(dateString)
     return todayDate
   else if dateString contains "tomorrow" then
     return todayDate + 1 * days
-  else if dateString contains "week" then
+  else if dateString is "next week" then
     return todayDate + 7 * days
+  else if dateString ends with "week" or dateString ends with "weeks" then
+    try
+      set weekCount to word 1 of dateString as integer
+      return todayDate + weekCount * 7 * days
+    on error
+      return missing value
+    end try
   else if dateString contains "days" then
     try
       set dayCount to word 1 of dateString as integer
