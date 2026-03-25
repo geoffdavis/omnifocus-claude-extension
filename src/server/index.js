@@ -295,20 +295,21 @@ const tools = [
 
 // Execute AppleScript file with arguments
 function executeAppleScriptFile(scriptName, args = []) {
+    // Try enhanced scripts first
+    let scriptPath = path.join(__dirname, '..', 'scripts', 'enhanced', `${scriptName}.applescript`);
+
+    // Fall back to regular scripts if enhanced version doesn't exist
+    if (!fs.existsSync(scriptPath)) {
+        scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
+    }
+
+    // Check if script file exists — throw before the try so the message isn't
+    // wrapped by the generic "AppleScript execution failed:" catch below.
+    if (!fs.existsSync(scriptPath)) {
+        throw new Error(`Script file not found: ${scriptName}.applescript`);
+    }
+
     try {
-        // Try enhanced scripts first
-        let scriptPath = path.join(__dirname, '..', 'scripts', 'enhanced', `${scriptName}.applescript`);
-
-        // Fall back to regular scripts if enhanced version doesn't exist
-        if (!fs.existsSync(scriptPath)) {
-            scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
-        }
-
-        // Check if script file exists
-        if (!fs.existsSync(scriptPath)) {
-            throw new Error(`Script file not found: ${scriptName}.applescript`);
-        }
-
         // Build the osascript command with arguments
         const scriptArgs = args.map(arg => {
             // Escape quotes and special characters for shell
