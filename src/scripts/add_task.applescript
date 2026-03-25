@@ -9,12 +9,13 @@ on run argv
 
   if (count of argv) > 1 then set taskNote to item 2 of argv
   if (count of argv) > 2 then set projectName to item 3 of argv
+  set skippedDates to ""
   if (count of argv) > 3 then
     set dueDateString to item 4 of argv
     if dueDateString is not "" then
       set dueDate to my parseDate(dueDateString)
       if dueDate is missing value then
-        return "❌ Could not parse due_date: " & dueDateString
+        set skippedDates to skippedDates & " due_date"
       end if
     end if
   end if
@@ -26,7 +27,7 @@ on run argv
     if deferDateString is not "" then
       set deferDate to my parseDate(deferDateString)
       if deferDate is missing value then
-        return "❌ Could not parse defer_date: " & deferDateString
+        set skippedDates to skippedDates & " defer_date"
       end if
     end if
   end if
@@ -67,6 +68,9 @@ on run argv
         set estimated minutes of newTask to estimatedMinutes
       end if
 
+      if skippedDates is not "" then
+        return "✅ Added: " & taskName & " (⚠️ could not parse:" & skippedDates & ")"
+      end if
       return "✅ Added: " & taskName
     end tell
   end tell
@@ -74,31 +78,48 @@ end run
 
 on parseDate(dateString)
   set todayDate to current date
-  if dateString contains "today" then
+  set trimmed to my trimText(dateString)
+  if trimmed is "today" then
     return todayDate
-  else if dateString contains "tomorrow" then
+  else if trimmed is "tomorrow" then
     return todayDate + 1 * days
-  else if dateString is "next week" then
+  else if trimmed is "next week" then
     return todayDate + 7 * days
-  else if dateString ends with "week" or dateString ends with "weeks" then
+  else if trimmed ends with "week" or trimmed ends with "weeks" then
     try
-      set weekCount to word 1 of dateString as integer
+      set weekCount to word 1 of trimmed as integer
       return todayDate + weekCount * 7 * days
     on error
       return missing value
     end try
-  else if dateString contains "days" then
+  else if trimmed contains "days" then
     try
-      set dayCount to word 1 of dateString as integer
+      set dayCount to word 1 of trimmed as integer
       return todayDate + dayCount * days
     on error
       return missing value
     end try
   else
     try
-      return date dateString
+      return date trimmed
     on error
       return missing value
     end try
   end if
 end parseDate
+
+on trimText(theText)
+  set whitespaceChars to {" ", tab, return, linefeed}
+  set textLength to length of theText
+  if textLength is 0 then return ""
+  set textStart to 1
+  repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
+    set textStart to textStart + 1
+  end repeat
+  if textStart > textLength then return ""
+  set textEnd to textLength
+  repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
+    set textEnd to textEnd - 1
+  end repeat
+  return text textStart thru textEnd of theText
+end trimText

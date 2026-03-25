@@ -5,16 +5,16 @@ const { execSync } = require('child_process');
 describe('AppleScript Integration', () => {
     const scriptsDir = path.join(__dirname, '..', 'src', 'scripts');
     const enhancedScriptsDir = path.join(scriptsDir, 'enhanced');
-    
+
     describe('Script Files', () => {
         test('scripts directory exists', () => {
             expect(fs.existsSync(scriptsDir)).toBe(true);
         });
-        
+
         test('enhanced scripts directory exists', () => {
             expect(fs.existsSync(enhancedScriptsDir)).toBe(true);
         });
-        
+
         test('core scripts exist', () => {
             const coreScripts = [
                 'add_task.applescript',
@@ -23,13 +23,13 @@ describe('AppleScript Integration', () => {
                 'today_tasks.applescript',
                 'weekly_review.applescript'
             ];
-            
+
             coreScripts.forEach(script => {
                 const scriptPath = path.join(scriptsDir, script);
                 expect(fs.existsSync(scriptPath)).toBe(true);
             });
         });
-        
+
         test('enhanced scripts exist', () => {
             const enhancedScripts = [
                 'search_tasks.applescript',
@@ -42,31 +42,31 @@ describe('AppleScript Integration', () => {
                 'list_due_soon.applescript',
                 'list_completed_today.applescript'
             ];
-            
+
             const existingScripts = enhancedScripts.filter(script => {
                 const scriptPath = path.join(enhancedScriptsDir, script);
                 return fs.existsSync(scriptPath);
             });
-            
+
             // At least some enhanced scripts should exist
             expect(existingScripts.length).toBeGreaterThan(0);
         });
     });
-    
+
     describe('Script Syntax', () => {
         test('all scripts have valid AppleScript syntax', () => {
             // Get all .applescript files
             const scriptFiles = fs.readdirSync(scriptsDir)
                 .filter(f => f.endsWith('.applescript'))
                 .map(f => path.join(scriptsDir, f));
-            
+
             if (fs.existsSync(enhancedScriptsDir)) {
                 const enhancedFiles = fs.readdirSync(enhancedScriptsDir)
                     .filter(f => f.endsWith('.applescript'))
                     .map(f => path.join(enhancedScriptsDir, f));
                 scriptFiles.push(...enhancedFiles);
             }
-            
+
             scriptFiles.forEach(scriptPath => {
                 // Check if script compiles without errors
                 // Note: This only checks syntax, not runtime errors
@@ -74,7 +74,7 @@ describe('AppleScript Integration', () => {
                     execSync(`osascript -c 'return "test"'`, { stdio: 'pipe' });
                     // If osascript works, test the actual script syntax
                     const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-                    
+
                     // Basic syntax checks
                     expect(scriptContent).toContain('tell application "OmniFocus"');
                     expect(scriptContent).toContain('end tell');
@@ -86,12 +86,12 @@ describe('AppleScript Integration', () => {
                 }
             });
         });
-        
+
         test('scripts have proper structure', () => {
             const scriptFiles = fs.readdirSync(scriptsDir)
                 .filter(f => f.endsWith('.applescript'))
                 .map(f => path.join(scriptsDir, f));
-            
+
             scriptFiles.forEach(scriptPath => {
                 const content = fs.readFileSync(scriptPath, 'utf8');
                 // Check for basic AppleScript structure
@@ -99,8 +99,15 @@ describe('AppleScript Integration', () => {
             });
         });
     });
-    
+
     describe('Script Parameters', () => {
+        test('add_task.applescript parses all 7 arguments including defer_date and estimated_minutes', () => {
+            const scriptPath = path.join(scriptsDir, 'add_task.applescript');
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toContain('item 6 of argv');
+            expect(content).toContain('item 7 of argv');
+        });
+
         test('scripts handle input parameters correctly', () => {
             // Check that scripts that expect parameters have proper handling
             const parameterizedScripts = [
@@ -111,7 +118,7 @@ describe('AppleScript Integration', () => {
                 { file: 'enhanced/batch_add_tasks.applescript', expects: 'run argv' },
                 { file: 'enhanced/create_recurring_task.applescript', expects: 'run argv' }
             ];
-            
+
             parameterizedScripts.forEach(({ file, expects }) => {
                 const scriptPath = path.join(scriptsDir, file);
                 if (fs.existsSync(scriptPath)) {
@@ -121,7 +128,7 @@ describe('AppleScript Integration', () => {
             });
         });
     });
-    
+
     describe('Script Output', () => {
         test('scripts return structured output', () => {
             const scriptFiles = [
@@ -129,7 +136,7 @@ describe('AppleScript Integration', () => {
                 'today_tasks.applescript',
                 'weekly_review.applescript'
             ];
-            
+
             scriptFiles.forEach(file => {
                 const scriptPath = path.join(scriptsDir, file);
                 if (fs.existsSync(scriptPath)) {
@@ -140,24 +147,24 @@ describe('AppleScript Integration', () => {
             });
         });
     });
-    
+
     describe('OmniFocus Integration', () => {
         test('scripts use correct OmniFocus application identifier', () => {
             const scriptFiles = fs.readdirSync(scriptsDir)
                 .filter(f => f.endsWith('.applescript'))
                 .map(f => path.join(scriptsDir, f));
-            
+
             scriptFiles.forEach(scriptPath => {
                 const content = fs.readFileSync(scriptPath, 'utf8');
                 expect(content).toContain('tell application "OmniFocus"');
             });
         });
-        
+
         test('scripts handle default document correctly', () => {
             const scriptFiles = fs.readdirSync(scriptsDir)
                 .filter(f => f.endsWith('.applescript'))
                 .map(f => path.join(scriptsDir, f));
-            
+
             scriptFiles.forEach(scriptPath => {
                 const content = fs.readFileSync(scriptPath, 'utf8');
                 if (content.includes('default document')) {
