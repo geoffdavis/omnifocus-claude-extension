@@ -34,8 +34,9 @@ on run argv
   if (count of argv) > 6 then
     set minutesString to item 7 of argv
     if minutesString is not "" and minutesString is not "0" then
+      set minutesTrimmed to my trimText(minutesString)
       try
-        set estimatedMinutes to minutesString as integer
+        set estimatedMinutes to minutesTrimmed as integer
       on error
         return "❌ Invalid estimated_minutes value: " & minutesString & " (must be a whole number)"
       end try
@@ -85,6 +86,8 @@ on parseDate(dateString)
     return todayDate + 1 * days
   else if trimmed is "next week" then
     return todayDate + 7 * days
+  else if trimmed is "week" then
+    return todayDate + 7 * days
   else if trimmed ends with "week" or trimmed ends with "weeks" then
     try
       set weekCount to word 1 of trimmed as integer
@@ -92,10 +95,25 @@ on parseDate(dateString)
     on error
       return missing value
     end try
-  else if trimmed contains "days" then
+  else if trimmed contains "day" then
     try
       set dayCount to word 1 of trimmed as integer
       return todayDate + dayCount * days
+    on error
+      return missing value
+    end try
+  else if length of trimmed is 10 and character 5 of trimmed is "-" and character 8 of trimmed is "-" then
+    try
+      set yearNum to (text 1 thru 4 of trimmed) as integer
+      set monthNum to (text 6 thru 7 of trimmed) as integer
+      set dayNum to (text 9 thru 10 of trimmed) as integer
+      set isoDate to current date
+      set day of isoDate to 1
+      set month of isoDate to monthNum
+      set day of isoDate to dayNum
+      set year of isoDate to yearNum
+      set time of isoDate to 0
+      return isoDate
     on error
       return missing value
     end try
