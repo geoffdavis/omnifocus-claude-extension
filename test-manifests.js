@@ -7,7 +7,7 @@ const archiver = require('archiver');
 async function buildMinimal() {
     const configs = [
         {
-            name: 'test1-node-basic.dxt',
+            name: 'test1-node-basic.mcpb',
             manifest: {
                 "manifest_version": "0.3",
                 "name": "Test1",
@@ -19,7 +19,7 @@ async function buildMinimal() {
             }
         },
         {
-            name: 'test2-node-command.dxt',
+            name: 'test2-node-command.mcpb',
             manifest: {
                 "manifest_version": "0.3",
                 "name": "Test2",
@@ -32,7 +32,7 @@ async function buildMinimal() {
             }
         },
         {
-            name: 'test3-node-command-args.dxt',
+            name: 'test3-node-command-args.mcpb',
             manifest: {
                 "manifest_version": "0.3",
                 "name": "Test3",
@@ -46,7 +46,7 @@ async function buildMinimal() {
             }
         },
         {
-            name: 'test4-python-basic.dxt',
+            name: 'test4-python-basic.mcpb',
             manifest: {
                 "manifest_version": "0.3",
                 "name": "Test4",
@@ -58,7 +58,7 @@ async function buildMinimal() {
             }
         },
         {
-            name: 'test5-python-command.dxt',
+            name: 'test5-python-command.mcpb',
             manifest: {
                 "manifest_version": "0.3",
                 "name": "Test5",
@@ -71,7 +71,7 @@ async function buildMinimal() {
             }
         },
         {
-            name: 'test6-binary-basic.dxt',
+            name: 'test6-binary-basic.mcpb',
             manifest: {
                 "manifest_version": "0.3",
                 "name": "Test6",
@@ -83,7 +83,7 @@ async function buildMinimal() {
             }
         },
         {
-            name: 'test7-binary-command.dxt',
+            name: 'test7-binary-command.mcpb',
             manifest: {
                 "manifest_version": "0.3",
                 "name": "Test7",

@@ -20,7 +20,7 @@ try {
         VERSION = packageJson.version;
     }
 } catch (error) {
-    // Use fallback version if package.json not found (e.g., when running from DXT)
+    // Use fallback version if package.json not found (e.g., when running from MCPB package)
 }
 
 // Initialize stdio interface

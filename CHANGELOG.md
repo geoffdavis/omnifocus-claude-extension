@@ -5,6 +5,15 @@ All notable changes to the OmniFocus Claude Extension will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] - 2026-03-21
+
+### Changed
+- Renamed extension format from `.dxt` to `.mcpb` to match Anthropic's updated naming
+- Renamed `validate-dxt.js` to `validate-mcpb.js`
+- Updated npm script `build:dxt` to `build:mcpb`
+- Updated CI/CD pipeline artifact names
+- No changes to internal archive format (still ZIP with manifest.json)
+
 ## [2.0.0] - 2024-12-20
 
 ### Added
@@ -90,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 1. **Backup your OmniFocus database** before upgrading
 2. Uninstall the old extension from Claude Desktop
-3. Download and install `omnifocus-gtd-enhanced.dxt`
+3. Download and install `omnifocus-gtd.mcpb` (or `omnifocus-gtd.dxt` for versions before 2.0.3)
 4. All previous commands remain compatible
 5. New features are immediately available
 

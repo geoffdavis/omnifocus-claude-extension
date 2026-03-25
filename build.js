@@ -2,7 +2,7 @@
 
 /**
  * Build Script for OmniFocus Claude Extension
- * Creates a DXT package following the official specification
+ * Creates an MCPB package following the official specification
  */
 
 const fs = require('fs');
@@ -45,7 +45,7 @@ const log = {
 // Configuration
 const BUILD_DIR = path.join(__dirname, 'extension-build');
 const DIST_DIR = path.join(__dirname, 'dist');
-const OUTPUT_FILE = path.join(DIST_DIR, 'omnifocus-gtd.dxt');
+const OUTPUT_FILE = path.join(DIST_DIR, 'omnifocus-gtd.mcpb');
 
 // MCPB manifest format (v0.3 spec)
 const MANIFEST = {
@@ -151,9 +151,9 @@ function createManifest() {
     console.log(JSON.stringify(MANIFEST, null, 2));
 }
 
-// Create the DXT archive
+// Create the MCPB archive
 async function createArchive() {
-    log.blue('📦 Creating DXT archive...');
+    log.blue('📦 Creating MCPB archive...');
     
     return new Promise((resolve, reject) => {
         const output = fs.createWriteStream(OUTPUT_FILE);
@@ -269,7 +269,7 @@ async function build() {
             `${report.scripts.total} total (${report.scripts.original} original + ${report.scripts.enhanced} enhanced)` + 
             colors.reset);
         log.white('📏 Size: ' + colors.cyan + `${(fileSize / 1024).toFixed(2)} KB` + colors.reset);
-        log.gray('\nInstall by dragging the .dxt file to Claude Desktop');
+        log.gray('\nInstall by dragging the .mcpb file to Claude Desktop');
         
     } catch (error) {
         log.bold.red('\n❌ Build failed!\n');
