@@ -1,6 +1,6 @@
 {
   "name": "omnifocus-claude-extension",
-  "version": "2.0.3",
+  "version": "2.1.1",
   "description": "Enhanced OmniFocus GTD integration for Claude Desktop with advanced features",
   "main": "build.js",
   "scripts": {
@@ -28,24 +28,14 @@
     "task-management",
     "macos"
   ],
-  "author": "Community Contributors",
+  "author": "Geoff Davis",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/yourusername/omnifocus-claude-extension.git"
-  },
-  "bugs": {
-    "url": "https://github.com/yourusername/omnifocus-claude-extension/issues"
-  },
-  "homepage": "https://github.com/yourusername/omnifocus-claude-extension#readme",
   "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "archiver": "^6.0.1",
-    "chalk": "^5.3.0",
-    "chokidar": "^3.5.3",
-    "jest": "^30.0.5"
+    "jest": "^29.7.0"
   },
-  "engines": {
-    "node": ">=18.0.0"
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 30000,
+    "testPathPattern": "tests/.*\\.test\\.js$"
   }
 }
