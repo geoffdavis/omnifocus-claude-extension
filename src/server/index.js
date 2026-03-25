@@ -306,14 +306,15 @@ function executeAppleScriptFile(scriptName, args = []) {
     // Check if script file exists — throw before the try so the message isn't
     // wrapped by the generic "AppleScript execution failed:" catch below.
     if (!fs.existsSync(scriptPath)) {
-        throw new Error(`Script file not found: ${scriptName}.applescript`);
+        throw new Error(`Script file not found: ${scriptName}.applescript (looked in ${scriptPath})`);
     }
 
     try {
         const scriptArgs = args.map(arg => String(arg));
-        log(`Executing: osascript ${scriptPath} ${scriptArgs.join(' ')}`);
+        const argv = [scriptPath, ...scriptArgs];
+        log(`Executing: osascript ${JSON.stringify(argv)}`);
 
-        const result = execFileSync('osascript', [scriptPath, ...scriptArgs], {
+        const result = execFileSync('osascript', argv, {
             encoding: 'utf8',
             maxBuffer: 1024 * 1024 * 10 // Increased buffer for search results
         });
