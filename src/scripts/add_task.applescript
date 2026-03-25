@@ -77,6 +77,8 @@ on run argv
   end tell
 end run
 
+-- Try to parse dateString into a date. Returns missing value if the string
+-- cannot be recognized, so the caller can decide whether to skip or warn.
 on parseDate(dateString)
   set todayDate to current date
   set trimmed to my trimText(dateString)
@@ -112,7 +114,6 @@ on parseDate(dateString)
       set month of isoDate to monthNum
       set day of isoDate to dayNum
       set year of isoDate to yearNum
-      set time of isoDate to 0
       return isoDate
     on error
       return missing value
