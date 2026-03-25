@@ -99,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 1. **Backup your OmniFocus database** before upgrading
 2. Uninstall the old extension from Claude Desktop
-3. Download and install `omnifocus-gtd-enhanced.mcpb` (or `.dxt` for versions before 2.0.3)
+3. Download and install `omnifocus-gtd.mcpb` (or `omnifocus-gtd.dxt` for versions before 2.0.3)
 4. All previous commands remain compatible
 5. New features are immediately available
 
