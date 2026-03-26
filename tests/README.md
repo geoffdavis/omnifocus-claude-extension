@@ -28,6 +28,17 @@ Comprehensive unit tests for the OmniFocus Claude Extension using Jest.
 - **Script Output**: Validates return formats
 - **OmniFocus Integration**: Tests application integration
 
+### Manual Smoke Test (`omnifocus-mcp-smoke-test.md`)
+
+A comprehensive end-to-end smoke test designed to run as a single prompt in Claude Desktop. Covers all 18 MCP tools including edge cases, with automatic cleanup and a structured pass/fail report.
+
+**Prerequisites:**
+- OmniFocus is open on your Mac
+- OmniFocus MCP server is connected in Claude Desktop
+- A project named "Smoke Test" exists in OmniFocus
+
+See [omnifocus-mcp-smoke-test.md](omnifocus-mcp-smoke-test.md) for full instructions and the runnable prompt.
+
 ## Running Tests
 
 ```bash
