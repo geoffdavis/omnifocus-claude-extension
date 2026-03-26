@@ -85,39 +85,43 @@ end run
 
 on parseRepeatRule(ruleString)
     -- Create a repetition rule record based on the input string
-    set ruleRecord to {unit:week, steps:1}
-    
-    if ruleString is "daily" then
-        set ruleRecord to {unit:day, steps:1}
-    else if ruleString is "weekly" then
+    -- OmniFocus unit constants (day, week, month, year) must be resolved
+    -- inside a tell block so they are in scope.
+    tell application "OmniFocus"
         set ruleRecord to {unit:week, steps:1}
-    else if ruleString is "monthly" then
-        set ruleRecord to {unit:month, steps:1}
-    else if ruleString is "yearly" or ruleString is "annually" then
-        set ruleRecord to {unit:year, steps:1}
-    else if ruleString contains "day" then
-        try
-            set stepCount to word 1 of ruleString as integer
-            set ruleRecord to {unit:day, steps:stepCount}
-        end try
-    else if ruleString contains "week" then
-        try
-            set stepCount to word 1 of ruleString as integer
-            set ruleRecord to {unit:week, steps:stepCount}
-        end try
-    else if ruleString contains "month" then
-        try
-            set stepCount to word 1 of ruleString as integer
-            set ruleRecord to {unit:month, steps:stepCount}
-        end try
-    else if ruleString contains "year" then
-        try
-            set stepCount to word 1 of ruleString as integer
-            set ruleRecord to {unit:year, steps:stepCount}
-        end try
-    end if
-    
-    return ruleRecord
+        
+        if ruleString is "daily" then
+            set ruleRecord to {unit:day, steps:1}
+        else if ruleString is "weekly" then
+            set ruleRecord to {unit:week, steps:1}
+        else if ruleString is "monthly" then
+            set ruleRecord to {unit:month, steps:1}
+        else if ruleString is "yearly" or ruleString is "annually" then
+            set ruleRecord to {unit:year, steps:1}
+        else if ruleString contains "day" then
+            try
+                set stepCount to word 1 of ruleString as integer
+                set ruleRecord to {unit:day, steps:stepCount}
+            end try
+        else if ruleString contains "week" then
+            try
+                set stepCount to word 1 of ruleString as integer
+                set ruleRecord to {unit:week, steps:stepCount}
+            end try
+        else if ruleString contains "month" then
+            try
+                set stepCount to word 1 of ruleString as integer
+                set ruleRecord to {unit:month, steps:stepCount}
+            end try
+        else if ruleString contains "year" then
+            try
+                set stepCount to word 1 of ruleString as integer
+                set ruleRecord to {unit:year, steps:stepCount}
+            end try
+        end if
+        
+        return ruleRecord
+    end tell
 end parseRepeatRule
 
 on parseDate(dateString)
