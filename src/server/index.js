@@ -106,6 +106,10 @@ const tools = [
                 estimated_minutes: {
                     type: 'number',
                     description: 'Estimated time in minutes to complete the task'
+                },
+                tags: {
+                    type: 'string',
+                    description: 'Comma-separated list of tags to apply to the task (e.g., "work,urgent")'
                 }
             },
             required: ['name']
@@ -188,7 +192,7 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'due_date', 'defer_date', 'flagged', 'project', 'estimated_minutes'],
+                    enum: ['name', 'note', 'due_date', 'defer_date', 'flagged', 'project', 'estimated_minutes', 'tags'],
                     description: 'Property to modify'
                 },
                 value: {
@@ -290,6 +294,84 @@ const tools = [
             type: 'object',
             properties: {}
         }
+    },
+
+    // Tag management tools
+    {
+        name: 'list_tags',
+        description: 'List all tags in OmniFocus with task counts',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
+        name: 'create_tag',
+        description: 'Create a new tag in OmniFocus',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'Name of the new tag'
+                },
+                parent_tag: {
+                    type: 'string',
+                    description: 'Optional parent tag name to nest this tag under'
+                }
+            },
+            required: ['name']
+        }
+    },
+    {
+        name: 'delete_tag',
+        description: 'Delete a tag from OmniFocus',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'Name of the tag to delete'
+                }
+            },
+            required: ['name']
+        }
+    },
+    {
+        name: 'add_tag_to_task',
+        description: 'Add a tag to a task (creates the tag if it does not exist)',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                task_name: {
+                    type: 'string',
+                    description: 'Name or partial name of the task'
+                },
+                tag_name: {
+                    type: 'string',
+                    description: 'Name of the tag to add'
+                }
+            },
+            required: ['task_name', 'tag_name']
+        }
+    },
+    {
+        name: 'remove_tag_from_task',
+        description: 'Remove a tag from a task',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                task_name: {
+                    type: 'string',
+                    description: 'Name or partial name of the task'
+                },
+                tag_name: {
+                    type: 'string',
+                    description: 'Name of the tag to remove'
+                }
+            },
+            required: ['task_name', 'tag_name']
+        }
     }
 ];
 
@@ -348,7 +430,8 @@ async function executeTool(name, args) {
                     args.due_date || '',
                     String(args.flagged || false),
                     args.defer_date || '',
-                    String(args.estimated_minutes || 0)
+                    String(args.estimated_minutes || 0),
+                    args.tags || ''
                 ];
                 result = executeAppleScriptFile('add_task', taskArgs);
                 break;
@@ -403,7 +486,33 @@ async function executeTool(name, args) {
             case 'list_deferred_tasks':
             case 'list_flagged_tasks':
             case 'list_overdue_tasks':
+            case 'list_tags':
                 result = executeAppleScriptFile(name, []);
+                break;
+
+            case 'create_tag':
+                result = executeAppleScriptFile('create_tag', [
+                    args.name || '',
+                    args.parent_tag || ''
+                ]);
+                break;
+
+            case 'delete_tag':
+                result = executeAppleScriptFile('delete_tag', [args.name || '']);
+                break;
+
+            case 'add_tag_to_task':
+                result = executeAppleScriptFile('add_tag_to_task', [
+                    args.task_name || '',
+                    args.tag_name || ''
+                ]);
+                break;
+
+            case 'remove_tag_from_task':
+                result = executeAppleScriptFile('remove_tag_from_task', [
+                    args.task_name || '',
+                    args.tag_name || ''
+                ]);
                 break;
 
             default:

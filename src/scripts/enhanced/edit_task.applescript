@@ -1,7 +1,7 @@
 on run argv
     -- Edit an existing task
     -- Usage: edit_task.applescript "task name" "property" "new value"
-    -- Properties: name, note, due_date, defer_date, flagged, project, context, estimated_minutes
+    -- Properties: name, note, due_date, defer_date, flagged, project, context, estimated_minutes, tags
     
     set searchTerm to item 1 of argv
     set propertyName to item 2 of argv
@@ -84,9 +84,47 @@ on run argv
                 else if propertyName is "estimated_minutes" or propertyName is "estimate" then
                     set estimated minutes of targetTask to (newValue as integer)
                     return "⏱️ Set estimate to " & newValue & " minutes for: " & originalName
-                    
+
+                else if propertyName is "tags" then
+                    -- Replace all tags with the new comma-separated list
+                    -- Use "none" or "clear" to remove all tags
+                    if newValue is "none" or newValue is "clear" then
+                        repeat with existingTag in (tags of targetTask)
+                            remove existingTag from tags of targetTask
+                        end repeat
+                        return "🏷️ Cleared all tags for: " & originalName
+                    else
+                        -- Remove existing tags first
+                        repeat with existingTag in (tags of targetTask)
+                            remove existingTag from tags of targetTask
+                        end repeat
+                        -- Add new tags
+                        set AppleScript's text item delimiters to ","
+                        set tagList to text items of newValue
+                        set AppleScript's text item delimiters to ""
+                        set addedTags to ""
+                        repeat with tagItem in tagList
+                            set tagName to my trimItem(tagItem as string)
+                            if tagName is not "" then
+                                set matchingTags to every tag whose name is tagName
+                                if (count of matchingTags) = 0 then
+                                    set theTag to make new tag with properties {name:tagName}
+                                else
+                                    set theTag to item 1 of matchingTags
+                                end if
+                                add theTag to tags of targetTask
+                                if addedTags is "" then
+                                    set addedTags to tagName
+                                else
+                                    set addedTags to addedTags & ", " & tagName
+                                end if
+                            end if
+                        end repeat
+                        return "🏷️ Set tags to [" & addedTags & "] for: " & originalName
+                    end if
+
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, due_date, defer_date, flagged, project, estimated_minutes"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, due_date, defer_date, flagged, project, estimated_minutes, tags"
                 end if
                 
             on error errMsg
@@ -121,3 +159,19 @@ on parseDate(dateString)
         end try
     end if
 end parseDate
+
+on trimItem(theText)
+    set whitespaceChars to {" ", tab}
+    set textLength to length of theText
+    if textLength is 0 then return ""
+    set textStart to 1
+    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
+        set textStart to textStart + 1
+    end repeat
+    if textStart > textLength then return ""
+    set textEnd to textLength
+    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
+        set textEnd to textEnd - 1
+    end repeat
+    return text textStart thru textEnd of theText
+end trimItem
