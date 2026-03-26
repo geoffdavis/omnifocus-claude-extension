@@ -136,21 +136,30 @@ on buildRecurrenceString(ruleString)
 end buildRecurrenceString
 
 on replaceText(sourceText, searchText, replacementText)
-    set AppleScript's text item delimiters to searchText
-    set textItems to text items of sourceText
-    set AppleScript's text item delimiters to replacementText
-    set resultText to textItems as string
-    set AppleScript's text item delimiters to ""
-    return resultText
+    set oldDelims to AppleScript's text item delimiters
+    try
+        set AppleScript's text item delimiters to searchText
+        set textItems to text items of sourceText
+        set AppleScript's text item delimiters to replacementText
+        set resultText to textItems as string
+        set AppleScript's text item delimiters to oldDelims
+        return resultText
+    on error errMsg number errNum
+        set AppleScript's text item delimiters to oldDelims
+        error errMsg number errNum
+    end try
 end replaceText
 
 on trimText(sourceText)
-    -- Simple trim: remove leading/trailing spaces
+    -- Trim leading/trailing spaces, guarding against short/empty strings
+    if sourceText is "" then return ""
     set resultText to sourceText
     repeat while resultText starts with " "
+        if (length of resultText) ≤ 1 then return ""
         set resultText to text 2 thru -1 of resultText
     end repeat
     repeat while resultText ends with " "
+        if (length of resultText) ≤ 1 then return ""
         set resultText to text 1 thru -2 of resultText
     end repeat
     return resultText

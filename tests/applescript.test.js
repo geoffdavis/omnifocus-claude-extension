@@ -205,9 +205,8 @@ describe('AppleScript Integration', () => {
 
         test('uses repetition rule with ICS recurrence strings instead of repetition interval', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            // Should use the new approach
-            expect(content).toContain('repetition rule');
-            expect(content).toContain('FREQ=');
+            // Should set repetition rule on the task with a recurrence string
+            expect(content).toMatch(/set repetition rule of newTask to \{repetition method:.+, recurrence:/);
             // Should NOT use the old broken approach
             expect(content).not.toContain('repetition interval');
             expect(content).not.toContain('{unit:');
@@ -215,22 +214,23 @@ describe('AppleScript Integration', () => {
 
         test('buildRecurrenceString handles all standard repeat rules', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toContain('FREQ=DAILY');
-            expect(content).toContain('FREQ=WEEKLY');
-            expect(content).toContain('FREQ=MONTHLY');
-            expect(content).toContain('FREQ=YEARLY');
+            expect(content).toMatch(/return "FREQ=DAILY"/);
+            expect(content).toMatch(/return "FREQ=WEEKLY"/);
+            expect(content).toMatch(/return "FREQ=MONTHLY"/);
+            expect(content).toMatch(/return "FREQ=YEARLY"/);
         });
 
         test('buildRecurrenceString supports custom intervals with INTERVAL parameter', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            // Should build INTERVAL= strings for custom patterns like "3 days", "2 weeks"
-            expect(content).toContain('INTERVAL=');
+            // Should build FREQ=...;INTERVAL= strings for custom patterns like "3 days", "2 weeks"
+            expect(content).toMatch(/return "FREQ=DAILY;INTERVAL=" & stepCount/);
+            expect(content).toMatch(/return "FREQ=WEEKLY;INTERVAL=" & stepCount/);
         });
 
         test('supports both fixed and due-after-completion repetition methods', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toContain('fixed repetition');
-            expect(content).toContain('due after completion');
+            expect(content).toMatch(/repetition method:fixed repetition, recurrence:recurrenceString/);
+            expect(content).toMatch(/repetition method:due after completion, recurrence:recurrenceString/);
         });
     });
 
