@@ -16,7 +16,10 @@
     "test:legacy": "node test.js",
     "validate": "node validate-mcpb.js",
     "dev": "npm run build && npm run validate",
-    "release": "npm run clean && npm run build && npm run validate"
+    "release": "npm run clean && npm run build && npm run validate",
+    "release:patch": "npm version patch -m 'chore: release v%s' && git push && git push --tags",
+    "release:minor": "npm version minor -m 'chore: release v%s' && git push && git push --tags",
+    "release:major": "npm version major -m 'chore: release v%s' && git push && git push --tags"
   },
   "keywords": [
     "omnifocus",

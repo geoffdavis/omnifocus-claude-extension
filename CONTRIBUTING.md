@@ -106,6 +106,31 @@ Before submitting a PR:
 * Keep the README organized and scannable
 * Update the version history
 
+## Release Process
+
+Releases are triggered by pushing a `v*` git tag. The GitHub Actions workflow then builds the `.mcpb` extension and publishes a GitHub Release with it as a downloadable asset.
+
+### Releasing a New Version
+
+**Option A — Local (recommended for maintainers):**
+
+1. Update `CHANGELOG.md` with the changes for the new release.
+2. Run one of:
+   ```bash
+   npm run release:patch   # x.y.Z — bug fixes
+   npm run release:minor   # x.Y.0 — new features
+   npm run release:major   # X.0.0 — breaking changes
+   ```
+   This bumps `package.json`, creates a commit (`chore: release vX.Y.Z`), tags it `vX.Y.Z`, and pushes both to GitHub. The existing CI workflow picks up the tag and publishes the release.
+
+**Option B — GitHub UI (no local checkout needed):**
+
+1. Go to **Actions → Bump Version and Release** and click **Run workflow**.
+2. Select `patch`, `minor`, or `major`.
+3. The workflow runs tests, bumps the version in `package.json`, pushes the tag, builds the extension, and creates the GitHub Release — all in one step.
+
+> **Note:** Update `CHANGELOG.md` before triggering Option B (commit it to `main` first), or update it in a follow-up commit after the release.
+
 ## Questions?
 
 Feel free to open an issue with your question or reach out to the maintainers.
