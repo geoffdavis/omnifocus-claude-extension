@@ -104,6 +104,8 @@ on buildRecurrenceString(ruleString)
     else if cleanRule contains "day" then
         try
             set stepCount to word 1 of cleanRule as integer
+            if stepCount < 1 then set stepCount to 1
+            if stepCount is 1 then return "FREQ=DAILY"
             return "FREQ=DAILY;INTERVAL=" & stepCount
         on error
             return "FREQ=DAILY"
@@ -111,6 +113,8 @@ on buildRecurrenceString(ruleString)
     else if cleanRule contains "week" then
         try
             set stepCount to word 1 of cleanRule as integer
+            if stepCount < 1 then set stepCount to 1
+            if stepCount is 1 then return "FREQ=WEEKLY"
             return "FREQ=WEEKLY;INTERVAL=" & stepCount
         on error
             return "FREQ=WEEKLY"
@@ -118,6 +122,8 @@ on buildRecurrenceString(ruleString)
     else if cleanRule contains "month" then
         try
             set stepCount to word 1 of cleanRule as integer
+            if stepCount < 1 then set stepCount to 1
+            if stepCount is 1 then return "FREQ=MONTHLY"
             return "FREQ=MONTHLY;INTERVAL=" & stepCount
         on error
             return "FREQ=MONTHLY"
@@ -125,6 +131,8 @@ on buildRecurrenceString(ruleString)
     else if cleanRule contains "year" then
         try
             set stepCount to word 1 of cleanRule as integer
+            if stepCount < 1 then set stepCount to 1
+            if stepCount is 1 then return "FREQ=YEARLY"
             return "FREQ=YEARLY;INTERVAL=" & stepCount
         on error
             return "FREQ=YEARLY"
