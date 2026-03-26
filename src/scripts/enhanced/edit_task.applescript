@@ -1,7 +1,7 @@
 on run argv
     -- Edit an existing task
     -- Usage: edit_task.applescript "task name" "property" "new value"
-    -- Properties: name, note, due_date, defer_date, flagged, project, context, estimated_minutes, tags
+    -- Properties: name, note, due_date, defer_date, flagged, project, estimated_minutes, tags
     
     set searchTerm to item 1 of argv
     set propertyName to item 2 of argv
@@ -89,13 +89,15 @@ on run argv
                     -- Replace all tags with the new comma-separated list
                     -- Use "none" or "clear" to remove all tags
                     if newValue is "none" or newValue is "clear" then
-                        repeat with existingTag in (tags of targetTask)
+                        set existingTags to tags of targetTask
+                        repeat with existingTag in existingTags
                             remove existingTag from tags of targetTask
                         end repeat
                         return "🏷️ Cleared all tags for: " & originalName
                     else
                         -- Remove existing tags first
-                        repeat with existingTag in (tags of targetTask)
+                        set existingTags to tags of targetTask
+                        repeat with existingTag in existingTags
                             remove existingTag from tags of targetTask
                         end repeat
                         -- Add new tags
