@@ -200,6 +200,40 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Recurring Task Recurrence Strings', () => {
+        const scriptPath = path.join(enhancedScriptsDir, 'create_recurring_task.applescript');
+
+        test('uses repetition rule with ICS recurrence strings instead of repetition interval', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            // Should set repetition rule on the task with a recurrence string
+            expect(content).toMatch(/set repetition rule of newTask to \{repetition method:.+, recurrence:/);
+            // Should NOT use the old broken approach
+            expect(content).not.toContain('repetition interval');
+            expect(content).not.toContain('{unit:');
+        });
+
+        test('buildRecurrenceString handles all standard repeat rules', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toMatch(/return "FREQ=DAILY"/);
+            expect(content).toMatch(/return "FREQ=WEEKLY"/);
+            expect(content).toMatch(/return "FREQ=MONTHLY"/);
+            expect(content).toMatch(/return "FREQ=YEARLY"/);
+        });
+
+        test('buildRecurrenceString supports custom intervals with INTERVAL parameter', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            // Should build FREQ=...;INTERVAL= strings for custom patterns like "3 days", "2 weeks"
+            expect(content).toMatch(/return "FREQ=DAILY;INTERVAL=" & stepCount/);
+            expect(content).toMatch(/return "FREQ=WEEKLY;INTERVAL=" & stepCount/);
+        });
+
+        test('supports both fixed and due-after-completion repetition methods', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toMatch(/repetition method:fixed repetition, recurrence:recurrenceString/);
+            expect(content).toMatch(/repetition method:due after completion, recurrence:recurrenceString/);
+        });
+    });
+
     describe('Tool-Script Coverage', () => {
         const serverPath = path.join(__dirname, '..', 'src', 'server', 'index.js');
 
