@@ -76,4 +76,7 @@ coverage/
 *.lcov
 
 # TypeScript cache
-*.tsbuildinfo.claude/
+*.tsbuildinfo
+
+# Claude Code worktrees
+.claude/
