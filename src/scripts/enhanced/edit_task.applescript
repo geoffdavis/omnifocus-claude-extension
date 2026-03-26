@@ -101,9 +101,10 @@ on run argv
                             remove existingTag from tags of targetTask
                         end repeat
                         -- Add new tags
+                        set originalDelims to AppleScript's text item delimiters
                         set AppleScript's text item delimiters to ","
                         set tagList to text items of newValue
-                        set AppleScript's text item delimiters to ""
+                        set AppleScript's text item delimiters to originalDelims
                         set addedTags to ""
                         repeat with tagItem in tagList
                             set tagName to my trimItem(tagItem as string)

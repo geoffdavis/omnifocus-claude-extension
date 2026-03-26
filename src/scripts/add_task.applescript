@@ -75,9 +75,10 @@ on run argv
 
       -- Apply tags (comma-separated)
       if tagsString is not "" then
+        set oldDelims to AppleScript's text item delimiters
         set AppleScript's text item delimiters to ","
         set tagList to text items of tagsString
-        set AppleScript's text item delimiters to ""
+        set AppleScript's text item delimiters to oldDelims
         repeat with tagItem in tagList
           set tagName to my trimText(tagItem as string)
           if tagName is not "" then

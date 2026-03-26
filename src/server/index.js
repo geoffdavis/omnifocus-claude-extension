@@ -225,6 +225,10 @@ const tools = [
                     type: 'boolean',
                     description: 'Whether to flag all tasks',
                     default: false
+                },
+                tags: {
+                    type: 'string',
+                    description: 'Comma-separated tags to apply to all created tasks (e.g., "work,urgent")'
                 }
             },
             required: ['tasks']
@@ -299,10 +303,16 @@ const tools = [
     // Tag management tools
     {
         name: 'list_tags',
-        description: 'List all tags in OmniFocus with task counts',
+        description: 'List all tags in OmniFocus, optionally with per-tag task counts',
         inputSchema: {
             type: 'object',
-            properties: {}
+            properties: {
+                include_counts: {
+                    type: 'boolean',
+                    description: 'Include the number of active tasks per tag (slower on large databases)',
+                    default: false
+                }
+            }
         }
     },
     {
@@ -457,7 +467,8 @@ async function executeTool(name, args) {
                     args.tasks || '',
                     args.project || '',
                     args.due_date || '',
-                    String(args.flagged || false)
+                    String(args.flagged || false),
+                    args.tags || ''
                 ]);
                 break;
 
@@ -486,8 +497,13 @@ async function executeTool(name, args) {
             case 'list_deferred_tasks':
             case 'list_flagged_tasks':
             case 'list_overdue_tasks':
-            case 'list_tags':
                 result = executeAppleScriptFile(name, []);
+                break;
+
+            case 'list_tags':
+                result = executeAppleScriptFile('list_tags', [
+                    String(args.include_counts || false)
+                ]);
                 break;
 
             case 'create_tag':
