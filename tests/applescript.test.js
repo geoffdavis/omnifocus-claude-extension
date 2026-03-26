@@ -40,7 +40,12 @@ describe('AppleScript Integration', () => {
                 'list_flagged_tasks.applescript',
                 'list_overdue_tasks.applescript',
                 'list_projects.applescript',
-                'search_tasks.applescript'
+                'search_tasks.applescript',
+                'list_tags.applescript',
+                'create_tag.applescript',
+                'delete_tag.applescript',
+                'add_tag_to_task.applescript',
+                'remove_tag_from_task.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -120,6 +125,12 @@ describe('AppleScript Integration', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
             expect(content).toContain('item 6 of argv');
             expect(content).toContain('item 7 of argv');
+        });
+
+        test('add_task.applescript parses argument 8 for tags', () => {
+            const scriptPath = path.join(scriptsDir, 'add_task.applescript');
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toContain('item 8 of argv');
         });
 
         test('scripts handle input parameters correctly', () => {

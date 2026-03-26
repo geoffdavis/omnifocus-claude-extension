@@ -6,6 +6,7 @@ on run argv
   set isFlagged to false
   set deferDate to missing value
   set estimatedMinutes to 0
+  set tagsString to ""
 
   if (count of argv) > 1 then set taskNote to item 2 of argv
   if (count of argv) > 2 then set projectName to item 3 of argv
@@ -45,6 +46,9 @@ on run argv
       end if
     end if
   end if
+  if (count of argv) > 7 then
+    set tagsString to item 8 of argv
+  end if
 
   tell application "OmniFocus"
     tell default document
@@ -67,6 +71,26 @@ on run argv
       end if
       if estimatedMinutes > 0 then
         set estimated minutes of newTask to estimatedMinutes
+      end if
+
+      -- Apply tags (comma-separated)
+      if tagsString is not "" then
+        set oldDelims to AppleScript's text item delimiters
+        set AppleScript's text item delimiters to ","
+        set tagList to text items of tagsString
+        set AppleScript's text item delimiters to oldDelims
+        repeat with tagItem in tagList
+          set tagName to my trimText(tagItem as string)
+          if tagName is not "" then
+            set matchingTags to every tag whose name is tagName
+            if (count of matchingTags) = 0 then
+              set theTag to make new tag with properties {name:tagName}
+            else
+              set theTag to item 1 of matchingTags
+            end if
+            add theTag to tags of newTask
+          end if
+        end repeat
       end if
 
       if skippedDates is not "" then

@@ -1,11 +1,12 @@
 on run argv
     -- Create multiple tasks at once
-    -- Usage: batch_add_tasks.applescript "task1|task2|task3" "project_name" "due_date" "flagged"
+    -- Usage: batch_add_tasks.applescript "task1|task2|task3" "project_name" "due_date" "flagged" "tags"
     
     set taskNames to item 1 of argv
     set projectName to ""
     set dueDate to ""
     set isFlagged to false
+    set tagsString to ""
     
     if (count of argv) > 1 then
         set projectName to item 2 of argv
@@ -19,10 +20,24 @@ on run argv
         set isFlagged to (item 4 of argv is "true")
     end if
     
+    if (count of argv) > 4 then
+        set tagsString to item 5 of argv
+    end if
+    
     -- Parse pipe-separated task names
+    set oldDelims to AppleScript's text item delimiters
     set AppleScript's text item delimiters to "|"
     set taskList to text items of taskNames
-    set AppleScript's text item delimiters to ""
+    set AppleScript's text item delimiters to oldDelims
+
+    -- Parse comma-separated tag names (resolved to objects inside the tell block)
+    set tagNames to {}
+    if tagsString is not "" then
+        set oldDelims to AppleScript's text item delimiters
+        set AppleScript's text item delimiters to ","
+        set tagNames to text items of tagsString
+        set AppleScript's text item delimiters to oldDelims
+    end if
     
     tell application "OmniFocus"
         tell default document
@@ -43,6 +58,22 @@ on run argv
             set parsedDueDate to missing value
             if dueDate is not "" then
                 set parsedDueDate to my parseDate(dueDate)
+            end if
+
+            -- Pre-resolve tag objects once so per-task application is O(1) per tag
+            set resolvedTags to {}
+            if (count of tagNames) > 0 then
+                repeat with tagName in tagNames
+                    set tagName to my trimText(tagName as string)
+                    if tagName is not "" then
+                        set matchingTags to every tag whose name is tagName
+                        if (count of matchingTags) = 0 then
+                            set end of resolvedTags to make new tag with properties {name:tagName}
+                        else
+                            set end of resolvedTags to item 1 of matchingTags
+                        end if
+                    end if
+                end repeat
             end if
             
             -- Create each task
@@ -93,7 +124,14 @@ on run argv
                         if parsedDueDate is not missing value then
                             set due date of newTask to parsedDueDate
                         end if
-                        
+
+                        -- Apply tags if specified
+                        if (count of resolvedTags) > 0 then
+                            repeat with theTag in resolvedTags
+                                add theTag to tags of newTask
+                            end repeat
+                        end if
+
                         set end of createdTasks to newTask
                     on error
                         set end of createdTasks to missing value
@@ -128,7 +166,11 @@ on run argv
                 if isFlagged then
                     set resultText to resultText & return & "🚩 All tasks flagged"
                 end if
-                
+
+                if (count of resolvedTags) > 0 then
+                    set resultText to resultText & return & "🏷️ Tags: " & tagsString
+                end if
+
                 return resultText
             end if
         end tell
