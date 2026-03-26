@@ -200,6 +200,40 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Recurring Task Recurrence Strings', () => {
+        const scriptPath = path.join(enhancedScriptsDir, 'create_recurring_task.applescript');
+
+        test('uses repetition rule with ICS recurrence strings instead of repetition interval', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            // Should use the new approach
+            expect(content).toContain('repetition rule');
+            expect(content).toContain('FREQ=');
+            // Should NOT use the old broken approach
+            expect(content).not.toContain('repetition interval');
+            expect(content).not.toContain('{unit:');
+        });
+
+        test('buildRecurrenceString handles all standard repeat rules', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toContain('FREQ=DAILY');
+            expect(content).toContain('FREQ=WEEKLY');
+            expect(content).toContain('FREQ=MONTHLY');
+            expect(content).toContain('FREQ=YEARLY');
+        });
+
+        test('buildRecurrenceString supports custom intervals with INTERVAL parameter', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            // Should build INTERVAL= strings for custom patterns like "3 days", "2 weeks"
+            expect(content).toContain('INTERVAL=');
+        });
+
+        test('supports both fixed and due-after-completion repetition methods', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toContain('fixed repetition');
+            expect(content).toContain('due after completion');
+        });
+    });
+
     describe('Tool-Script Coverage', () => {
         const serverPath = path.join(__dirname, '..', 'src', 'server', 'index.js');
 

@@ -49,14 +49,13 @@ on run argv
                 set due date of newTask to (current date) + 1 * days
             end if
             
-            -- Configure repetition (set properties directly on task to avoid class/property ambiguity)
+            -- Configure repetition using repetition rule with ICS/RFC 5545 recurrence strings
             try
-                set repInterval to my parseRepeatRule(repeatRule)
-                set repetition interval of newTask to repInterval
+                set recurrenceString to my buildRecurrenceString(repeatRule)
                 if repeatRule contains "fixed" then
-                    set repetition method of newTask to fixed repetition
+                    set repetition rule of newTask to {repetition method:fixed repetition, recurrence:recurrenceString}
                 else
-                    set repetition method of newTask to due after completion
+                    set repetition rule of newTask to {repetition method:due after completion, recurrence:recurrenceString}
                 end if
             on error errMsg
                 return "⚠️ Created task but couldn't set repeat: " & errMsg
@@ -83,46 +82,79 @@ on run argv
     end tell
 end run
 
-on parseRepeatRule(ruleString)
-    -- Create a repetition rule record based on the input string
-    -- OmniFocus unit constants (day, week, month, year) must be resolved
-    -- inside a tell block so they are in scope.
-    tell application "OmniFocus"
-        set ruleRecord to {unit:week, steps:1}
-        
-        if ruleString is "daily" then
-            set ruleRecord to {unit:day, steps:1}
-        else if ruleString is "weekly" then
-            set ruleRecord to {unit:week, steps:1}
-        else if ruleString is "monthly" then
-            set ruleRecord to {unit:month, steps:1}
-        else if ruleString is "yearly" or ruleString is "annually" then
-            set ruleRecord to {unit:year, steps:1}
-        else if ruleString contains "day" then
-            try
-                set stepCount to word 1 of ruleString as integer
-                set ruleRecord to {unit:day, steps:stepCount}
-            end try
-        else if ruleString contains "week" then
-            try
-                set stepCount to word 1 of ruleString as integer
-                set ruleRecord to {unit:week, steps:stepCount}
-            end try
-        else if ruleString contains "month" then
-            try
-                set stepCount to word 1 of ruleString as integer
-                set ruleRecord to {unit:month, steps:stepCount}
-            end try
-        else if ruleString contains "year" then
-            try
-                set stepCount to word 1 of ruleString as integer
-                set ruleRecord to {unit:year, steps:stepCount}
-            end try
-        end if
-        
-        return ruleRecord
-    end tell
-end parseRepeatRule
+on buildRecurrenceString(ruleString)
+    -- Build an ICS/RFC 5545 recurrence string from the user's repeat rule input
+    -- Returns strings like "FREQ=WEEKLY", "FREQ=DAILY;INTERVAL=3", etc.
+
+    -- Strip "fixed" modifier if present (handled separately for repetition method)
+    set cleanRule to ruleString
+    if cleanRule contains "fixed" then
+        set cleanRule to my replaceText(cleanRule, "fixed", "")
+        set cleanRule to my trimText(cleanRule)
+    end if
+
+    if cleanRule is "daily" then
+        return "FREQ=DAILY"
+    else if cleanRule is "weekly" then
+        return "FREQ=WEEKLY"
+    else if cleanRule is "monthly" then
+        return "FREQ=MONTHLY"
+    else if cleanRule is "yearly" or cleanRule is "annually" then
+        return "FREQ=YEARLY"
+    else if cleanRule contains "day" then
+        try
+            set stepCount to word 1 of cleanRule as integer
+            return "FREQ=DAILY;INTERVAL=" & stepCount
+        on error
+            return "FREQ=DAILY"
+        end try
+    else if cleanRule contains "week" then
+        try
+            set stepCount to word 1 of cleanRule as integer
+            return "FREQ=WEEKLY;INTERVAL=" & stepCount
+        on error
+            return "FREQ=WEEKLY"
+        end try
+    else if cleanRule contains "month" then
+        try
+            set stepCount to word 1 of cleanRule as integer
+            return "FREQ=MONTHLY;INTERVAL=" & stepCount
+        on error
+            return "FREQ=MONTHLY"
+        end try
+    else if cleanRule contains "year" then
+        try
+            set stepCount to word 1 of cleanRule as integer
+            return "FREQ=YEARLY;INTERVAL=" & stepCount
+        on error
+            return "FREQ=YEARLY"
+        end try
+    end if
+
+    -- Default to weekly
+    return "FREQ=WEEKLY"
+end buildRecurrenceString
+
+on replaceText(sourceText, searchText, replacementText)
+    set AppleScript's text item delimiters to searchText
+    set textItems to text items of sourceText
+    set AppleScript's text item delimiters to replacementText
+    set resultText to textItems as string
+    set AppleScript's text item delimiters to ""
+    return resultText
+end replaceText
+
+on trimText(sourceText)
+    -- Simple trim: remove leading/trailing spaces
+    set resultText to sourceText
+    repeat while resultText starts with " "
+        set resultText to text 2 thru -1 of resultText
+    end repeat
+    repeat while resultText ends with " "
+        set resultText to text 1 thru -2 of resultText
+    end repeat
+    return resultText
+end trimText
 
 on parseDate(dateString)
     set todayDate to current date
