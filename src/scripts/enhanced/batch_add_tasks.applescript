@@ -29,9 +29,9 @@ on run argv
     set AppleScript's text item delimiters to "|"
     set taskList to text items of taskNames
     set AppleScript's text item delimiters to oldDelims
-    
-    -- Pre-resolve tags so we don't repeat tag lookups per task
-    set resolvedTags to {}
+
+    -- Parse comma-separated tag names (resolved to objects inside the tell block)
+    set tagNames to {}
     if tagsString is not "" then
         set oldDelims to AppleScript's text item delimiters
         set AppleScript's text item delimiters to ","
@@ -58,6 +58,22 @@ on run argv
             set parsedDueDate to missing value
             if dueDate is not "" then
                 set parsedDueDate to my parseDate(dueDate)
+            end if
+
+            -- Pre-resolve tag objects once so per-task application is O(1) per tag
+            set resolvedTags to {}
+            if (count of tagNames) > 0 then
+                repeat with tagName in tagNames
+                    set tagName to my trimText(tagName as string)
+                    if tagName is not "" then
+                        set matchingTags to every tag whose name is tagName
+                        if (count of matchingTags) = 0 then
+                            set end of resolvedTags to make new tag with properties {name:tagName}
+                        else
+                            set end of resolvedTags to item 1 of matchingTags
+                        end if
+                    end if
+                end repeat
             end if
             
             -- Create each task
@@ -110,18 +126,9 @@ on run argv
                         end if
 
                         -- Apply tags if specified
-                        if tagsString is not "" then
-                            repeat with tagName in tagNames
-                                set tagName to my trimText(tagName as string)
-                                if tagName is not "" then
-                                    set matchingTags to every tag whose name is tagName
-                                    if (count of matchingTags) = 0 then
-                                        set theTag to make new tag with properties {name:tagName}
-                                    else
-                                        set theTag to item 1 of matchingTags
-                                    end if
-                                    add theTag to tags of newTask
-                                end if
+                        if (count of resolvedTags) > 0 then
+                            repeat with theTag in resolvedTags
+                                add theTag to tags of newTask
                             end repeat
                         end if
 
@@ -160,7 +167,7 @@ on run argv
                     set resultText to resultText & return & "🚩 All tasks flagged"
                 end if
 
-                if tagsString is not "" then
+                if (count of resolvedTags) > 0 then
                     set resultText to resultText & return & "🏷️ Tags: " & tagsString
                 end if
 
