@@ -13,9 +13,16 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 
 ### Advanced
 - **Search Tasks**: Search across all projects, contexts, and notes
-- **Edit Tasks**: Modify any task property including defer dates
+- **Edit Tasks**: Modify any task property including defer dates and tags
 - **Batch Task Creation**: Create multiple tasks with subtasks in one command
 - **Recurring Tasks**: Create tasks with daily, weekly, monthly, or custom repeat patterns
+
+### Tags
+- **List Tags**: View all tags with hierarchy
+- **Create Tags**: Create tags, optionally nested under a parent
+- **Delete Tags**: Remove tags from OmniFocus
+- **Tag Tasks**: Add or remove tags on existing tasks
+- **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks
 
 ### Views
 - **List Projects**: View all active projects with task counts
@@ -79,6 +86,17 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Add monthly recurring 'Review finances' on the 15th"
 ```
 
+### Tags
+```
+"List all my tags"
+"Create a tag called 'Urgent'"
+"Create a 'Home' tag under 'Locations'"
+"Add tag 'Priority' to my 'Review reports' task"
+"Remove tag 'Waiting' from 'Follow up with client'"
+"Add task 'Fix login bug' with tags Priority, Computer"
+"Edit 'Fix login bug' and set tags to Urgent, Computer"
+```
+
 ### Views and Reviews
 ```
 "Show me my flagged tasks"
@@ -105,6 +123,11 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 | `list_overdue_tasks` | Show overdue items | "What's overdue?" |
 | `complete_task` | Mark as complete | "Complete budget review" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
+| `list_tags` | Show all tags with hierarchy | "List my tags" |
+| `create_tag` | Create a new tag | "Create tag 'Urgent'" |
+| `delete_tag` | Delete a tag | "Delete the 'Old' tag" |
+| `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
+| `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 
 ## Development
 
@@ -124,7 +147,12 @@ omnifocus-claude-extension/
 │   │   │   ├── list_projects.applescript
 │   │   │   ├── list_deferred_tasks.applescript
 │   │   │   ├── list_flagged_tasks.applescript
-│   │   │   └── list_overdue_tasks.applescript
+│   │   │   ├── list_overdue_tasks.applescript
+│   │   │   ├── list_tags.applescript
+│   │   │   ├── create_tag.applescript
+│   │   │   ├── delete_tag.applescript
+│   │   │   ├── add_tag_to_task.applescript
+│   │   │   └── remove_tag_from_task.applescript
 │   │   ├── add_task.applescript
 │   │   ├── complete_task.applescript
 │   │   ├── list_inbox.applescript
