@@ -234,6 +234,46 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('list_tags Hierarchy Support', () => {
+        const scriptPath = path.join(enhancedScriptsDir, 'list_tags.applescript');
+
+        test('uses recursive formatTags handler for hierarchical output', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toMatch(/on formatTags\(tagList, depth\)/);
+            expect(content).toMatch(/my formatTags\(childTags, depth \+ 1\)/);
+        });
+
+        test('uses recursive formatTagsWithCounts handler for hierarchical output with counts', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toMatch(/on formatTagsWithCounts\(tagList, depth, tagCountRecord\)/);
+            expect(content).toMatch(/my formatTagsWithCounts\(childTags, depth \+ 1, tagCountRecord\)/);
+        });
+
+        test('indents child tags based on depth', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            // Both handlers should build indent strings by repeating spaces per depth level
+            expect(content).toMatch(/repeat depth times/);
+            expect(content).toMatch(/set indent to indent & "  "/);
+        });
+
+        test('fetches child tags for recursion', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toMatch(/set childTags to every tag of aTag/);
+        });
+
+        test('uses every flattened tag for total count', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toMatch(/set flatTags to every flattened tag/);
+            expect(content).toMatch(/count of flatTags/);
+        });
+
+        test('uses tag id instead of name for count map', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toMatch(/set tID to id of aTag/);
+            expect(content).toMatch(/tagID:tID/);
+        });
+    });
+
     describe('Tool-Script Coverage', () => {
         const serverPath = path.join(__dirname, '..', 'src', 'server', 'index.js');
 
