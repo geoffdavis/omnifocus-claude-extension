@@ -1,8 +1,8 @@
 # OmniFocus MCP Plugin Smoke Test
 
-> **Version:** 1.1
-> **Extension Version:** 2.1 (any 2.1.x patch should be non-breaking; breaking changes bump to 2.2)
-> **Last Updated:** 2026-03-24
+> **Version:** 1.2
+> **Extension Version:** 2.2.2 (tested with 2.2.2; any 2.2.x patch should be non-breaking; breaking changes bump to 2.3)
+> **Last Updated:** 2026-03-31
 > **Author:** John Telford (generated with Claude)
 > **Purpose:** Reusable end-to-end smoke test for all 18 OmniFocus MCP tools, designed to run as a single prompt in Claude Desktop.
 
@@ -19,7 +19,7 @@ Copy everything below the `---START PROMPT---` line and paste it into Claude Des
 
 **Runtime:** ~3-4 minutes
 
-**Safety:** All synthetic data uses the `SMOKETEST` + today's YYMMDD as a prefix. All created tasks are routed to the "Smoke Test" project and marked complete at the end. All created tags are deleted (with confirm=true) at the end. No existing data is modified.
+**Safety:** All synthetic data uses the `SMOKETEST` + YYMMDDHHMMSS timestamp as a prefix. All created tasks are routed to the "Smoke Test" project and marked complete at the end. All created tags are deleted at the end. Recurring tasks require manual cleanup in OmniFocus (see Phase 9). No existing data is modified.
 
 ---START PROMPT---
 
@@ -55,7 +55,7 @@ These tests call tools that do not create or modify data. They validate that eac
 | T02 | `create_tag` | Create nested tag with `name: "{PREFIX}-ChildTag"`, `parent_tag: "{PREFIX}-Tag"`. PASS if child tag is created under parent. |
 | T03 | `create_tag` | **Edge case: duplicate.** Create tag with `name: "{PREFIX}-Tag"` again. Record whether it errors or silently succeeds. PASS either way (this documents behavior). Note the actual behavior in the report. |
 
-## Phase 3: Task Creation (6 tests)
+## Phase 3: Task Creation (8 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -93,7 +93,7 @@ All edits target `{PREFIX} Full Task` (created in C01).
 | E06 | `edit_task` | Edit `task_name: "{PREFIX} Full Task Renamed"`, `property: "estimated_minutes"`, `value: "30"`. PASS if estimate is updated. |
 | E07 | `edit_task` | **Edge case: edit nonexistent task.** Edit `task_name: "{PREFIX} DOES NOT EXIST"`, `property: "name"`, `value: "anything"`. PASS if it returns an error or "not found" (expected failure). FAIL if it silently succeeds or crashes. |
 
-## Phase 6: Tag Operations on Tasks (4 tests)
+## Phase 6: Tag Operations on Tasks (5 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -103,12 +103,12 @@ All edits target `{PREFIX} Full Task` (created in C01).
 | G04 | `remove_tag_from_task` | **Edge case: remove tag not on task.** Remove `tag_name: "{PREFIX}-ChildTag"` from `task_name: "{PREFIX} Full Task Renamed"` (this tag was never added to this task). PASS if it returns an error or no-op. FAIL if it crashes. |
 | G05 | `list_tags` | **Verify auto-created tag.** Call `list_tags` and check that `{PREFIX}-AutoTag` (created in C08) appears in the output. PASS if found. |
 
-## Phase 7: Delete Tag (Dry Run + Real) (2 tests)
+## Phase 7: Delete Tag (2 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
-| D01 | `delete_tag` | **Dry run.** Call with `name: "{PREFIX}-ChildTag"`, `confirm: false`. PASS if it returns impact info without deleting. |
-| D02 | `delete_tag` | **Edge case: delete nonexistent tag (dry run).** Call with `name: "{PREFIX} NONEXISTENT TAG"`, `confirm: false`. PASS if it returns an error or empty impact. FAIL if it crashes. |
+| D01 | `delete_tag` | **Delete existing tag.** Call with `name: "{PREFIX}-ChildTag"`. PASS if the tag is deleted successfully. |
+| D02 | `delete_tag` | **Edge case: delete nonexistent tag.** Call with `name: "{PREFIX} NONEXISTENT TAG"`. PASS if it returns an error or indicates nothing to delete. FAIL if it crashes. |
 
 ## Phase 8: Complete Tasks (2 tests)
 
@@ -121,9 +121,10 @@ All edits target `{PREFIX} Full Task` (created in C01).
 
 Execute these steps to leave OmniFocus clean. Record failures but do not stop.
 
-1. **Complete all remaining smoke test tasks.** Search for `{PREFIX}` and complete every task that is still incomplete. This includes: `{PREFIX} Full Task Renamed`, `{PREFIX} Batch Parent`, `{PREFIX} Batch Sub 1`, `{PREFIX} Batch Sub 2`, `{PREFIX} Batch Standalone`, `{PREFIX} Recurring Daily`, `{PREFIX} Recurring 3 Days`, `{PREFIX} Tagged Batch 1`, `{PREFIX} Tagged Batch 2`, `{PREFIX} AutoTag Task`, and the edge case task from C03.
-2. **Delete synthetic tags.** Call `delete_tag` with `confirm: true` for `{PREFIX}-ChildTag` first (child before parent), then `{PREFIX}-Tag`, then `{PREFIX}-AutoTag`.
-3. **Verify cleanup.** Run `search_tasks` with `query: "{PREFIX}"`, `filter: "remaining"`. PASS if zero remaining (incomplete) tasks are found.
+1. **Complete all remaining non-recurring smoke test tasks.** Search for `{PREFIX}` and complete every non-recurring task that is still incomplete. This includes: `{PREFIX} Full Task Renamed`, `{PREFIX} Batch Parent`, `{PREFIX} Batch Sub 1`, `{PREFIX} Batch Sub 2`, `{PREFIX} Batch Standalone`, `{PREFIX} Tagged Batch 1`, `{PREFIX} Tagged Batch 2`, `{PREFIX} AutoTag Task`, and the edge case task from C03.
+2. **Manually clean up recurring tasks in OmniFocus.** In the OmniFocus app (not via MCP tools), locate `{PREFIX} Recurring Daily` and `{PREFIX} Recurring 3 Days`. For each, either (a) delete all instances of the task, or (b) edit the task to remove its recurrence rule and then complete or delete the remaining instance(s). This manual step is required because the MCP tools do not currently support deleting tasks or clearing recurrence rules.
+3. **Delete synthetic tags.** Call `delete_tag` for `{PREFIX}-ChildTag` first (child before parent), then `{PREFIX}-Tag`, then `{PREFIX}-AutoTag`.
+4. **Verify cleanup.** After completing the manual recurring-task cleanup above, run `search_tasks` with `query: "{PREFIX}"`. PASS if zero remaining (incomplete) tasks are found.
 
 ## Phase 10: Generate Report
 
@@ -200,7 +201,7 @@ Produce the final report in this exact format. Replace the sample data with actu
   G05  verify auto-tag         [PASS/FAIL]
 
   Phase 7: Delete Tag
-  D01  delete_tag (dry run)    [PASS/FAIL]
+  D01  delete_tag              [PASS/FAIL]
   D02  delete nonexistent tag  [PASS/FAIL]  [note: describe error]
 
   Phase 8: Complete Tasks
