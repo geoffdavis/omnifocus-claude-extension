@@ -155,7 +155,6 @@ to include them.
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
 | `list_tags` | Show all tags with hierarchy | "List my tags" |
 | `create_tag` | Create a new tag | "Create tag 'Urgent'" |
-| `delete_tag` | Delete a tag | "Delete the 'Old' tag" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 | `create_project` | Create a project, optionally in a folder | "Create project 'Website 2.0' in 'Clients'" |
@@ -190,7 +189,6 @@ omnifocus-claude-extension/
 │   │   │   ├── list_overdue_tasks.applescript
 │   │   │   ├── list_tags.applescript
 │   │   │   ├── create_tag.applescript
-│   │   │   ├── delete_tag.applescript
 │   │   │   ├── add_tag_to_task.applescript
 │   │   │   ├── remove_tag_from_task.applescript
 │   │   │   ├── get_task.applescript

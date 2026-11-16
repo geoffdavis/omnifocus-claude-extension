@@ -43,7 +43,6 @@ describe('AppleScript Integration', () => {
                 'search_tasks.applescript',
                 'list_tags.applescript',
                 'create_tag.applescript',
-                'delete_tag.applescript',
                 'add_tag_to_task.applescript',
                 'remove_tag_from_task.applescript',
                 'create_project.applescript',

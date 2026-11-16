@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Tool output is wrapped in a block marked as untrusted data, so that task names and notes are not read as instructions
 - The server log contains metadata only, no task content
+- `delete_tag` was removed
 
 ## [2.0.3] - 2026-03-21
 

@@ -334,20 +334,6 @@ const tools = [
         }
     },
     {
-        name: 'delete_tag',
-        description: 'Delete a tag from OmniFocus',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                name: {
-                    type: 'string',
-                    description: 'Name of the tag to delete'
-                }
-            },
-            required: ['name']
-        }
-    },
-    {
         name: 'add_tag_to_task',
         description: 'Add a tag to a task (creates the tag if it does not exist)',
         inputSchema: {
@@ -776,10 +762,6 @@ async function executeTool(name, args) {
                     args.name || '',
                     args.parent_tag || ''
                 ]);
-                break;
-
-            case 'delete_tag':
-                result = executeAppleScriptFile('delete_tag', [args.name || '']);
                 break;
 
             case 'add_tag_to_task':
