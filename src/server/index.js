@@ -197,7 +197,7 @@ const tools = [
                 },
                 value: {
                     type: 'string',
-                    description: 'New value for the property'
+                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date and defer_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear.'
                 }
             },
             required: ['task_name', 'property', 'value']
@@ -263,7 +263,7 @@ const tools = [
     },
     {
         name: 'list_projects',
-        description: 'List all active projects in OmniFocus',
+        description: 'List all active projects in OmniFocus with their folder path',
         inputSchema: {
             type: 'object',
             properties: {
@@ -381,6 +381,108 @@ const tools = [
                 }
             },
             required: ['task_name', 'tag_name']
+        }
+    },
+
+    // Task and project lifecycle tools
+    {
+        name: 'drop_task',
+        description: 'Drop a task (mark it as dropped, it stays in the database). Deletes the task permanently only if confirm_delete is true. Fails without changes if several tasks match the name.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                task_name: {
+                    type: 'string',
+                    description: 'Name or partial name of the task to drop'
+                },
+                confirm_delete: {
+                    type: 'boolean',
+                    description: 'Set to true only when the user explicitly asked to delete the task permanently instead of dropping it. This cannot be undone.',
+                    default: false
+                }
+            },
+            required: ['task_name']
+        }
+    },
+    {
+        name: 'create_project',
+        description: 'Create a new project, at top level or inside an existing folder',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'Name of the new project'
+                },
+                folder: {
+                    type: 'string',
+                    description: 'Optional existing folder to create the project in, by name or as path "Folder > Subfolder". Fails without changes if the folder is missing or ambiguous.'
+                },
+                note: {
+                    type: 'string',
+                    description: 'Optional note for the project'
+                }
+            },
+            required: ['name']
+        }
+    },
+    {
+        name: 'edit_project',
+        description: 'Edit an existing project: rename it, change its note, move it to another folder, or set it active or on hold. Fails without changes if the project name is ambiguous.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                project: {
+                    type: 'string',
+                    description: 'Project name or path "Folder > Subfolder > Project" (projects in all folders are searched)'
+                },
+                property: {
+                    type: 'string',
+                    enum: ['name', 'note', 'folder', 'status'],
+                    description: 'Property to modify'
+                },
+                value: {
+                    type: 'string',
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active" or "on_hold".'
+                }
+            },
+            required: ['project', 'property', 'value']
+        }
+    },
+    {
+        name: 'create_folder',
+        description: 'Create a new folder for organizing projects, at top level or inside an existing folder',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                name: {
+                    type: 'string',
+                    description: 'Name of the new folder'
+                },
+                parent_folder: {
+                    type: 'string',
+                    description: 'Optional existing parent folder, by name or as path "Folder > Subfolder". Fails without changes if it is missing or ambiguous.'
+                }
+            },
+            required: ['name']
+        }
+    },
+    {
+        name: 'rename_folder',
+        description: 'Rename an existing folder. Fails without changes if the folder name is ambiguous.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                folder: {
+                    type: 'string',
+                    description: 'Folder name or path "Folder > Subfolder"'
+                },
+                new_name: {
+                    type: 'string',
+                    description: 'New name for the folder'
+                }
+            },
+            required: ['folder', 'new_name']
         }
     }
 ];
@@ -540,6 +642,44 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('remove_tag_from_task', [
                     args.task_name || '',
                     args.tag_name || ''
+                ]);
+                break;
+
+            case 'drop_task':
+                // Deleting needs the explicit boolean true; anything else only drops
+                result = executeAppleScriptFile('drop_task', [
+                    args.task_name || '',
+                    String(args.confirm_delete === true)
+                ]);
+                break;
+
+            case 'create_project':
+                result = executeAppleScriptFile('create_project', [
+                    args.name || '',
+                    args.folder || '',
+                    args.note || ''
+                ]);
+                break;
+
+            case 'edit_project':
+                result = executeAppleScriptFile('edit_project', [
+                    args.project || '',
+                    args.property || '',
+                    args.value || ''
+                ]);
+                break;
+
+            case 'create_folder':
+                result = executeAppleScriptFile('create_folder', [
+                    args.name || '',
+                    args.parent_folder || ''
+                ]);
+                break;
+
+            case 'rename_folder':
+                result = executeAppleScriptFile('rename_folder', [
+                    args.folder || '',
+                    args.new_name || ''
                 ]);
                 break;
 

@@ -31,6 +31,7 @@ on run argv
             repeat with aProject in activeProjects
                 set projectName to name of aProject
                 set projectNote to note of aProject
+                set folderText to my projectFolderText(contents of aProject)
                 
                 if includeStats then
                     -- Count various task states
@@ -47,7 +48,7 @@ on run argv
                     set weekFromNow to (current date) + 7 * days
                     set dueSoonCount to count of (tasks of aProject whose due date ≤ weekFromNow and due date ≥ (current date) and completed is false)
                     
-                    set projectList to projectList & "• " & projectName
+                    set projectList to projectList & "• " & projectName & folderText
                     set projectList to projectList & " (" & remainingCount & " remaining"
                     
                     if availableCount > 0 then
@@ -73,7 +74,7 @@ on run argv
                         set projectList to projectList & return & "  💬 " & notePreview
                     end if
                 else
-                    set projectList to projectList & "• " & projectName
+                    set projectList to projectList & "• " & projectName & folderText
                 end if
                 
                 set projectList to projectList & return
@@ -107,6 +108,31 @@ on run argv
         end tell
     end tell
 end run
+
+on projectFolderText(aProject)
+    -- " — 📂 Folder > Subfolder" for a project inside folders, "" at top level
+    set folderNames to {}
+    tell application "OmniFocus"
+        try
+            set currentFolder to folder of aProject
+            repeat while currentFolder is not missing value
+                set beginning of folderNames to name of currentFolder
+                set parentContainer to container of currentFolder
+                if class of parentContainer is folder then
+                    set currentFolder to parentContainer
+                else
+                    set currentFolder to missing value
+                end if
+            end repeat
+        end try
+    end tell
+    if (count of folderNames) = 0 then return ""
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to " > "
+    set folderText to folderNames as string
+    set AppleScript's text item delimiters to oldDelims
+    return " — 📂 " & folderText
+end projectFolderText
 
 on minValue(x, y)
     if x < y then

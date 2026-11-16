@@ -17,10 +17,14 @@ on run argv
     tell application "OmniFocus"
         tell default document
             -- Determine which tasks to search based on filter
-            if taskFilter is "available" then
-                set searchableTasks to every available task of every project
-            else if taskFilter is "remaining" then
-                set searchableTasks to every remaining task of every project
+            if taskFilter is "available" or taskFilter is "remaining" then
+                -- Open tasks in all projects and the inbox: not completed and not dropped,
+                -- also not through their project or parent task
+                try
+                    set searchableTasks to every flattened task whose effectively completed is false and effectively dropped is false
+                on error
+                    set searchableTasks to every flattened task whose completed is false
+                end try
             else
                 set searchableTasks to every flattened task
             end if
@@ -36,7 +40,20 @@ on run argv
                 set taskNote to note of aTask
                 
                 -- Search in both name and note
-                if (taskName contains searchTerm) or (taskNote contains searchTerm) then
+                set taskMatches to (taskName contains searchTerm) or (taskNote contains searchTerm)
+
+                -- "available" additionally excludes blocked tasks and tasks deferred to the future
+                if taskMatches and taskFilter is "available" then
+                    try
+                        if blocked of aTask then set taskMatches to false
+                    end try
+                    try
+                        set taskDefer to defer date of aTask
+                        if taskDefer is not missing value and taskDefer > (current date) then set taskMatches to false
+                    end try
+                end if
+
+                if taskMatches then
                     set taskCount to taskCount + 1
                     
                     -- Build task info

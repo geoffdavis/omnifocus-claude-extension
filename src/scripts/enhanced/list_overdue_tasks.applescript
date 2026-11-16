@@ -5,7 +5,12 @@ on run argv
     tell application "OmniFocus"
         tell default document
             set currentTime to current date
-            set overdueTasks to every flattened task whose due date < currentTime and completed is false
+            -- Open tasks only: not completed and not dropped, also not through their project or parent task
+            try
+                set overdueTasks to every flattened task whose due date < currentTime and effectively completed is false and effectively dropped is false
+            on error
+                set overdueTasks to every flattened task whose due date < currentTime and completed is false
+            end try
             
             if (count of overdueTasks) = 0 then
                 return "✅ No overdue tasks! You're all caught up!"
