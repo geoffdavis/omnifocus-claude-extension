@@ -204,6 +204,50 @@ describe('MCP Server', () => {
             expect(isJsonRpcError || isContentError).toBe(true);
         });
 
+        test('GTD query tools are listed and list_tasks_by_tag requires a tag', async () => {
+            serverProcess = spawn('node', [serverPath]);
+            let responseData = '';
+            let toolsRequestSent = false;
+            let callRequestSent = false;
+
+            await new Promise((resolve, reject) => {
+                serverProcess.stdout.on('data', (data) => {
+                    responseData += data.toString();
+                    if (!toolsRequestSent && responseData.includes('"id":1')) {
+                        toolsRequestSent = true;
+                        serverProcess.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'tools/list', params: {}, id: 2 }) + '\n');
+                    }
+                    if (!callRequestSent && responseData.includes('"id":2')) {
+                        callRequestSent = true;
+                        // Without a tag the tool must answer with a message and never reach OmniFocus
+                        const callRequest = {
+                            jsonrpc: '2.0', method: 'tools/call',
+                            params: { name: 'list_tasks_by_tag', arguments: {} }, id: 5
+                        };
+                        serverProcess.stdin.write(JSON.stringify(callRequest) + '\n');
+                        serverProcess.stdin.end();
+                    }
+                });
+                serverProcess.on('close', resolve);
+                serverProcess.on('error', reject);
+
+                const initRequest = {
+                    jsonrpc: '2.0', method: 'initialize',
+                    params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1
+                };
+                serverProcess.stdin.write(JSON.stringify(initRequest) + '\n');
+            });
+
+            const responses = responseData.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
+            const toolNames = responses.find(r => r.id === 2).result.tools.map(t => t.name);
+            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks', 'edit_tag', 'reopen_task', 'get_project', 'list_due_soon', 'parse_tasks', 'list_perspectives', 'get_selected_link', 'synchronize', 'clean_up', 'undo', 'list_folders', 'edit_folder', 'delete_folder', 'save_attachment', 'get_selection', 'set_view', 'show_item', 'duplicate_item', 'list_tasks_by_date', 'get_settings', 'create_backup'].forEach(name => {
+                expect(toolNames).toContain(name);
+            });
+
+            const callResponse = responses.find(r => r.id === 5);
+            expect(callResponse.result.content[0].text).toContain('Tag name is required');
+        });
+
         test('handles invalid method gracefully', async () => {
             const request = {
                 jsonrpc: '2.0',
@@ -248,6 +292,115 @@ describe('MCP Server', () => {
                     expect(responseData.length).toBe(0);
                 }
             }
+        });
+    });
+
+    describe('Argument types', () => {
+        // normalizeArgs is a plain function of the server file; it is taken from the source to test it without OmniFocus
+        const source = fs.readFileSync(serverPath, 'utf8');
+        const functionText = source.match(/function normalizeArgs[\s\S]*?\n}\n/)[0];
+        const normalizeArgs = new Function(`${functionText}\nreturn normalizeArgs;`)();
+        const tool = {
+            inputSchema: {
+                properties: {
+                    name: { type: 'string' },
+                    tags: { type: 'string' },
+                    flagged: { type: 'boolean' },
+                    limit: { type: 'number' },
+                    status: { type: 'string', enum: ['active', 'on_hold'] }
+                }
+            }
+        };
+
+        test('values of the right type pass unchanged', () => {
+            const result = normalizeArgs(tool, { name: 'A', flagged: true, limit: 5, status: 'active' });
+            expect(result.args).toEqual({ name: 'A', flagged: true, limit: 5, status: 'active' });
+        });
+
+        test('clear meanings are converted: numbers and booleans as text, numeric text as number, text as boolean', () => {
+            const result = normalizeArgs(tool, { name: 42, tags: ['a', 'b', 3], flagged: 'TRUE', limit: ' 30 ' });
+            expect(result.args).toEqual({ name: '42', tags: 'a, b, 3', flagged: true, limit: 30 });
+        });
+
+        test('an enumeration value in another case is the same value, without locale rules', () => {
+            expect(normalizeArgs(tool, { status: 'Active' }).args.status).toBe('active');
+            expect(normalizeArgs(tool, { status: 'ON_HOLD ' }).args.status).toBe('on_hold');
+        });
+
+        test('wrong values are refused with a message naming the parameter, and nothing is passed on', () => {
+            const cases = [
+                [{ name: { a: 1 } }, 'name', 'expected text'],
+                [{ name: ['x'] }, 'name', 'expected text'],
+                [{ limit: 'abc' }, 'limit', 'expected a whole number'],
+                [{ limit: '1e3' }, 'limit', 'expected a whole number'],
+                [{ limit: NaN }, 'limit', 'expected a whole number'],
+                [{ limit: [] }, 'limit', 'expected a whole number'],
+                [{ limit: 2.5 }, 'limit', 'not a fraction'],
+                [{ limit: '2.5' }, 'limit', 'expected a whole number'],
+                [{ flagged: 'yes' }, 'flagged', 'expected true or false'],
+                [{ flagged: 1 }, 'flagged', 'expected true or false'],
+                [{ status: 'finished' }, 'status', 'expected one of: active, on_hold'],
+                [{ status: 5 }, 'status', 'expected one of: active, on_hold']
+            ];
+            for (const [args, key, text] of cases) {
+                const result = normalizeArgs(tool, args);
+                expect(result.args).toBeUndefined();
+                expect(result.problem).toContain(`for ${key} (`);
+                expect(result.problem).toContain(text);
+                expect(result.problem).toContain('Nothing was done.');
+            }
+        });
+
+        test('several wrong values are reported together', () => {
+            const result = normalizeArgs(tool, { limit: 'x', flagged: 'maybe' });
+            expect(result.problem).toContain('Invalid values');
+            expect(result.problem).toContain('limit');
+            expect(result.problem).toContain('flagged');
+        });
+
+        test('null, undefined and unknown parameters are dropped', () => {
+            const result = normalizeArgs(tool, { name: null, limit: undefined, bogus: 1, flagged: false });
+            expect(result.args).toEqual({ flagged: false });
+        });
+
+        test('arguments that are not an object are refused', () => {
+            for (const args of ['abc', 5, [1], null]) {
+                expect(normalizeArgs(tool, args).problem).toContain('expected an object');
+            }
+        });
+
+        test('the server refuses a wrong type before anything reaches OmniFocus', async () => {
+            const serverProcess = spawn('node', [serverPath]);
+            let responseData = '';
+            let sent = false;
+            await new Promise((resolve, reject) => {
+                serverProcess.stdout.on('data', (data) => {
+                    responseData += data.toString();
+                    if (!sent && responseData.includes('"id":1')) {
+                        sent = true;
+                        const calls = [
+                            { name: 'search_tasks', arguments: { query: 'x', limit: 'abc' } },
+                            { name: 'edit_task', arguments: { task_name: 'x', property: 'bogus', value: 'y' } },
+                            { name: 'add_task', arguments: { name: { a: 1 } } }
+                        ];
+                        calls.forEach((params, index) => {
+                            serverProcess.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params, id: 10 + index }) + '\n');
+                        });
+                    }
+                    if (responseData.includes('"id":12')) serverProcess.stdin.end();
+                });
+                serverProcess.on('close', resolve);
+                serverProcess.on('error', reject);
+                serverProcess.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1 }) + '\n');
+            });
+            const responses = responseData.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
+            const text = id => responses.find(r => r.id === id).result.content[0].text;
+            expect(text(10)).toContain('limit');
+            expect(text(10)).toContain('expected a whole number');
+            expect(text(11)).toContain('property');
+            expect(text(11)).toContain('expected one of');
+            expect(text(12)).toContain('expected text');
+            responses.filter(r => r.id >= 10).forEach(r => expect(r.result.content[0].text).toContain('Nothing was done.'));
         });
     });
 
