@@ -168,8 +168,8 @@ const tools = [
                 filter: {
                     type: 'string',
                     enum: ['all', 'available', 'remaining'],
-                    description: 'Filter for task availability status',
-                    default: 'all'
+                    description: 'Filter for task availability status: "remaining" (default) = open tasks, "available" = open and neither blocked nor deferred, "all" = also completed tasks',
+                    default: 'remaining'
                 },
                 limit: {
                     type: 'number',
@@ -487,6 +487,22 @@ const tools = [
     }
 ];
 
+// Read tools leave out dropped items and items below dropped (hidden) folders
+// unless include_dropped is set
+const INCLUDE_DROPPED_TOOLS = [
+    'list_inbox', 'today_tasks', 'weekly_review', 'search_tasks', 'list_projects',
+    'list_deferred_tasks', 'list_flagged_tasks', 'list_overdue_tasks'
+];
+for (const tool of tools) {
+    if (INCLUDE_DROPPED_TOOLS.includes(tool.name)) {
+        tool.inputSchema.properties.include_dropped = {
+            type: 'boolean',
+            description: 'Also include dropped items and items below dropped (hidden) folders. Completed tasks stay excluded.',
+            default: false
+        };
+    }
+}
+
 // Execute AppleScript file with arguments
 function executeAppleScriptFile(scriptName, args = []) {
     // Try enhanced scripts first
@@ -535,6 +551,7 @@ function wrapUntrusted(text) {
 // Handle tool execution
 async function executeTool(name, args) {
     log(`Executing tool: ${name}`);
+    args = args || {};
 
     const tool = tools.find(t => t.name === name);
     if (!tool) {
@@ -563,8 +580,9 @@ async function executeTool(name, args) {
             case 'search_tasks':
                 result = executeAppleScriptFile('search_tasks', [
                     args.query || '',
-                    args.filter || 'all',
-                    String(args.limit || 50)
+                    args.filter || 'remaining',
+                    String(args.limit || 50),
+                    String(args.include_dropped === true)
                 ]);
                 break;
 
@@ -597,7 +615,8 @@ async function executeTool(name, args) {
 
             case 'list_projects':
                 result = executeAppleScriptFile('list_projects', [
-                    String(args.include_stats || false)
+                    String(args.include_stats || false),
+                    String(args.include_dropped === true)
                 ]);
                 break;
 
@@ -611,7 +630,7 @@ async function executeTool(name, args) {
             case 'list_deferred_tasks':
             case 'list_flagged_tasks':
             case 'list_overdue_tasks':
-                result = executeAppleScriptFile(name, []);
+                result = executeAppleScriptFile(name, [String(args.include_dropped === true)]);
                 break;
 
             case 'list_tags':

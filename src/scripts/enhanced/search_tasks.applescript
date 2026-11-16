@@ -1,6 +1,6 @@
 on run argv
     -- Search for tasks across all projects and contexts
-    -- Usage: search_tasks.applescript "search term" ["all"|"available"|"remaining"] [limit]
+    -- Usage: search_tasks.applescript "search term" ["all"|"available"|"remaining"] [limit] [include_dropped]
     
     set searchTerm to item 1 of argv
     set taskFilter to "all"
@@ -14,19 +14,29 @@ on run argv
         set resultLimit to item 3 of argv as integer
     end if
     
+    -- include_dropped: "true" also shows dropped items and items below dropped (hidden) folders
+    set includeDropped to false
+    if (count of argv) > 3 then set includeDropped to (item 4 of argv is "true")
+    set hiddenIDs to {}
+    if not includeDropped then set hiddenIDs to my hiddenFolderTaskIDs()
+    
     tell application "OmniFocus"
         tell default document
             -- Determine which tasks to search based on filter
+            -- "remaining" and "available": open tasks only; "all" also includes completed tasks.
+            -- Dropped tasks are left out unless include_dropped is set.
             if taskFilter is "available" or taskFilter is "remaining" then
-                -- Open tasks in all projects and the inbox: not completed and not dropped,
-                -- also not through their project or parent task
-                try
+                if includeDropped then
+                    set searchableTasks to every flattened task whose effectively completed is false
+                else
                     set searchableTasks to every flattened task whose effectively completed is false and effectively dropped is false
-                on error
-                    set searchableTasks to every flattened task whose completed is false
-                end try
+                end if
             else
-                set searchableTasks to every flattened task
+                if includeDropped then
+                    set searchableTasks to every flattened task
+                else
+                    set searchableTasks to every flattened task whose effectively dropped is false
+                end if
             end if
             
             -- Filter tasks by search term
@@ -53,6 +63,9 @@ on run argv
                     end try
                 end if
 
+                -- Leave out tasks of projects below hidden (dropped) folders
+                if taskMatches and my isHiddenItem(contents of aTask, hiddenIDs) then set taskMatches to false
+                
                 if taskMatches then
                     set taskCount to taskCount + 1
                     
@@ -102,3 +115,59 @@ on run argv
         end tell
     end tell
 end run
+
+on hiddenFolderProjectIDs()
+    -- IDs of all projects below a hidden (dropped) folder, at any depth
+    set idList to {}
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hiddenFolders to every flattened folder whose hidden is true
+                repeat with aFolder in hiddenFolders
+                    set idList to idList & (id of every flattened project of (contents of aFolder))
+                end repeat
+            end try
+        end tell
+    end tell
+    return idList
+end hiddenFolderProjectIDs
+
+on hiddenFolderTaskIDs()
+    -- IDs of all tasks in projects below a hidden (dropped) folder
+    set idList to {}
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hiddenFolders to every flattened folder whose hidden is true
+                repeat with aFolder in hiddenFolders
+                    set folderProjects to every flattened project of (contents of aFolder)
+                    repeat with aProject in folderProjects
+                        try
+                            set idList to idList & (id of every flattened task of root task of (contents of aProject))
+                        on error
+                            set idList to idList & (id of every flattened task of (contents of aProject))
+                        end try
+                    end repeat
+                end repeat
+            end try
+        end tell
+    end tell
+    return idList
+end hiddenFolderTaskIDs
+
+on isHiddenItem(anItem, hiddenIDs)
+    -- True if the task or project is one of the items below a hidden folder
+    if (count of hiddenIDs) = 0 then return false
+    tell application "OmniFocus" to set itemID to id of anItem
+    return (hiddenIDs contains itemID)
+end isHiddenItem
+
+on countVisible(idList, hiddenIDs)
+    -- Number of IDs that are not below a hidden folder
+    if (count of hiddenIDs) = 0 then return count of idList
+    set visibleCount to 0
+    repeat with anID in idList
+        if hiddenIDs does not contain (contents of anID) then set visibleCount to visibleCount + 1
+    end repeat
+    return visibleCount
+end countVisible

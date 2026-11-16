@@ -1,12 +1,16 @@
-on run
+on run argv
+  -- include_dropped: "true" also shows dropped tasks
+  set includeDropped to false
+  if (count of argv) > 0 then set includeDropped to (item 1 of argv is "true")
+
   tell application "OmniFocus"
     tell default document
-      -- Open tasks only: not completed and not dropped
-      try
-        set candidateTasks to every inbox task whose completed is false and dropped is false
-      on error
-        set candidateTasks to every inbox task whose completed is false
-      end try
+      -- Open tasks only: not completed and, by default, not dropped
+      if includeDropped then
+        set candidateTasks to every inbox task whose effectively completed is false
+      else
+        set candidateTasks to every inbox task whose effectively completed is false and effectively dropped is false
+      end if
 
       -- Check each task again, in case the filter above let a closed task through
       set incompleteTasks to {}
@@ -15,9 +19,11 @@ on run
         try
           if completed of aTask then set taskIsOpen to false
         end try
-        try
-          if dropped of aTask then set taskIsOpen to false
-        end try
+        if not includeDropped then
+          try
+            if dropped of aTask then set taskIsOpen to false
+          end try
+        end if
         if taskIsOpen then set end of incompleteTasks to contents of aTask
       end repeat
 
