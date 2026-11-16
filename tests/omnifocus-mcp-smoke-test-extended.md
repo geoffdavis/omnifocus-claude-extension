@@ -24,7 +24,7 @@ You are executing a structured smoke test of the OmniFocus MCP plugin. Follow ev
 
 Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and time (example: `SMOKETEST260324130501`). Refer to it as `{PREFIX}`. Record for each test: ID, tool, result (PASS/FAIL) and error message.
 
-## Phase 1: Read-only tools (16 tests)
+## Phase 1: Read-only tools (17 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -44,6 +44,7 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q14 | `list_available_tasks` | `project: "{PREFIX} NO SUCH PROJECT"`. PASS if it FAILS with `Project not found` and lists nothing. Then use the name of a real project: PASS if the header contains `in the project` and only that project is listed. |
 | Q15 | `list_perspectives` | PASS if the built-in perspectives (for example Inbox, Projects, Forecast) are listed, and the custom ones (OmniFocus Pro) with an ID. |
 | Q16 | `get_selected_link` | Manual test, only if you can select something in the apps (otherwise mark SKIPPED). With `app: "Finder"` and a file selected in Finder: PASS if the name and a `Link: file://...` line are shown. With `app: "Safari"` (or `Google Chrome`) and a window open: PASS if the title and the URL of the front tab are shown. With Mail and a message selected: PASS if subject, sender, date and `Link: message://%3C...%3E` are shown and no message text. With a closed app the call must FAIL with `is not running`; `app: "Notes"` must FAIL with `Unsupported app`. |
+| Q17 | `synchronize` | `wait_seconds: 5`. PASS if it answers `Synchronized` or `still running`, or, when no sync is set up in OmniFocus, with a message starting `Could not synchronize` (then mark the sync part SKIPPED). `wait_seconds: 0` must answer `Synchronization started`. Optional by hand: `clean_up` moves inbox items that already have a project into their projects and hides completed tasks, so it changes existing data and is not part of the automatic run; PASS if it answers `Cleaned up` with the number of moved inbox items. |
 
 ## Phase 2: Tasks and tags (28 tests)
 

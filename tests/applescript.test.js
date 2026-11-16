@@ -92,7 +92,9 @@ describe('AppleScript Integration', () => {
                 'list_due_soon.applescript',
                 'parse_tasks.applescript',
                 'list_perspectives.applescript',
-                'get_selected_link.applescript'
+                'get_selected_link.applescript',
+                'synchronize.applescript',
+                'clean_up.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -511,6 +513,27 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('Apple Notes cannot be linked');
             expect(content).toContain('Automation');
             expect(content).not.toContain('content of m');
+        });
+    });
+
+    describe('Synchronize and clean up', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('synchronize.applescript starts the sync and waits for it with a limit', () => {
+            const content = read('synchronize.applescript');
+            expect(content).toContain('synchronize default document');
+            expect(content).toContain('syncing of default document');
+            expect(content).toContain('if waitSeconds > 120 then set waitSeconds to 120');
+            expect(content).toContain('Could not synchronize');
+            expect(content).toContain('A synchronization is already running');
+        });
+
+        test('clean_up.applescript compacts the document and reports the inbox change', () => {
+            const content = read('clean_up.applescript');
+            expect(content).toContain('compact default document');
+            expect(content).toContain('every inbox task of default document whose completed is false');
+            expect(content).not.toContain('tell default document');
+            expect(content).toContain('moved into projects');
         });
     });
 

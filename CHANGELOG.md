@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `add_task` to create a subtask under an existing task
 - **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
   an existing task, `get_task` shows it
+- **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
+  it is finished (`wait_seconds`, default 15, 0 = do not wait); `clean_up` runs Clean Up (inbox items that already have
+  a project are moved into their projects, completed tasks are hidden) and reports how many inbox items were moved
 - **Links**: `get_selected_link` shows what is selected or open in Mail (`message://`), Safari and Chromium browsers (URL of
   the front tab), Finder (`file://`) or Contacts (`addressbook://`) with a link for each item (no message bodies or file
   contents are read, the app is not started). `edit_task` and `edit_project` have `append_note`, which adds a line to the

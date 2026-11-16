@@ -377,6 +377,28 @@ const tools = [
         }
     },
     {
+        name: 'synchronize',
+        description: 'Synchronize OmniFocus with its sync database (the sync set in OmniFocus > Settings > Sync) and wait until it is finished.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                wait_seconds: {
+                    type: 'number',
+                    description: 'Wait until the synchronization is finished, at most this many seconds (0 to return at once)',
+                    default: 15
+                }
+            }
+        }
+    },
+    {
+        name: 'clean_up',
+        description: 'Clean up OmniFocus like the Clean Up command: inbox items that already have a project are moved into their projects, and completed tasks are hidden. Changes the database; items without a project stay in the inbox.',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
         name: 'list_perspectives',
         description: 'List the perspectives of OmniFocus, the built-in ones and the custom ones (OmniFocus Pro) with their IDs. Scripts can only read the names and IDs, not the rules of a perspective or the tasks it shows.',
         inputSchema: {
@@ -981,6 +1003,16 @@ async function executeTool(name, args) {
                     typeof args.app === 'string' ? args.app : '',
                     String(sanitizeLimit(args.limit, 10, 50))
                 ]);
+                break;
+
+            case 'synchronize':
+                result = executeAppleScriptFile('synchronize', [
+                    String(args.wait_seconds === undefined ? 15 : Math.max(0, Math.min(120, Math.floor(Number(args.wait_seconds)) || 0)))
+                ]);
+                break;
+
+            case 'clean_up':
+                result = executeAppleScriptFile('clean_up', []);
                 break;
 
             case 'list_perspectives':
