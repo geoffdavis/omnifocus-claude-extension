@@ -57,7 +57,8 @@ describe('AppleScript Integration', () => {
                 'list_tasks_filtered.applescript',
                 'list_completed_tasks.applescript',
                 'edit_tag.applescript',
-                'reopen_task.applescript'
+                'reopen_task.applescript',
+                'get_project.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -369,6 +370,32 @@ describe('AppleScript Integration', () => {
             ['"day"', '"week"', '"month"', '"year"', '"weekly"', '"monthly"'].forEach(word => {
                 expect(content).toContain(word);
             });
+        });
+    });
+
+    describe('Project contents', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('get_project.applescript lists the tasks recursively, including blocked and deferred ones', () => {
+            const content = read('get_project.applescript');
+            expect(content).toContain('on taskTree(');
+            expect(content).toContain('my taskTree(theTask, depth + 1');
+            expect(content).toContain('effective defer date');
+            expect(content).toContain('blocked of theTask');
+            expect(content).toContain('number of tasks of theTask');
+        });
+
+        test('get_project.applescript hides completed and dropped tasks unless asked and has a limit', () => {
+            const content = read('get_project.applescript');
+            expect(content).toContain('(isDone or isDropped) and not includeDone');
+            expect(content).toContain('Limit of');
+            expect(content).toContain('item 3 of argv');
+        });
+
+        test('get_project.applescript finds projects in all folders and by id', () => {
+            const content = read('get_project.applescript');
+            expect(content).toContain('on resolveProject(');
+            expect(content).toContain('every flattened project whose id is wantedID');
         });
     });
 

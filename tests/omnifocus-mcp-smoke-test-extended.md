@@ -1,7 +1,7 @@
 # OmniFocus MCP Plugin Smoke Test: GTD, Review and Project Tools
 
 > **Purpose:** End-to-end smoke test for the tools added after the base smoke test (`omnifocus-mcp-smoke-test.md`):
-> GTD queries, review tools, project and folder tools, `get_task`, `drop_task` and `include_dropped`.
+> GTD queries, review tools, project and folder tools, `get_task`, `get_project`, `drop_task` and `include_dropped`.
 > It is designed to run as a single prompt in Claude Desktop.
 
 ---
@@ -69,7 +69,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | T07 | `edit_tag` | `tag: "{PREFIX}-Child"`, `property: "name"`, `value: "{PREFIX}-Child2"`. PASS if confirmed. Then `edit_tag` with `tag: "{PREFIX}-Parent"`, `property: "parent"`, `value: "{PREFIX}-Child2"` must FAIL with a message that a tag cannot be moved below one of its child tags. |
 | T08 | `edit_tag` | `tag: "{PREFIX}-Grandchild"`, `property: "hidden"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed and `list_tags` shows the tag as hidden in between. |
 
-## Phase 4: Folders and projects (13 tests)
+## Phase 4: Folders and projects (15 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -85,7 +85,9 @@ All tasks MUST use `project: "Smoke Test"`.
 | P10 | `edit_project` | `project: "{PREFIX} Project"`, `property: "due_date"` with `value: "2030-01-15"`, then `property: "defer_date"` with `value: "2029-12-01"`, then `property: "flagged"` with `value: "true"`. PASS if all three are confirmed. Then `due_date` with `value: "none"` must clear the due date. |
 | P11 | `edit_project` | `project: "{PREFIX} Project"`, `property: "complete_with_last_item"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed. |
 | P12 | `create_project` | Create `{PREFIX} Project 2` with `folder: "{PREFIX} Folder"`, `review_interval: "1 month"`, `type: "single_action"` and `due_date: "2030-01-15"`. PASS if created and the answer lists the review interval, the type and the due date. Then `create_project` with `name: "{PREFIX} Project 3"` and `review_interval: "fortnight"` must FAIL with "Invalid review interval ... Nothing was created." and `list_projects` must not show `{PREFIX} Project 3`. |
-| P13 | `rename_folder` | Rename `{PREFIX} Folder` to `{PREFIX} Folder Renamed`. PASS if confirmed. |
+| P13 | `get_project` | `project: "{PREFIX} Folder > {PREFIX} Project"`. PASS if the header shows the project with its ID, status, type `sequential`, and the list contains `{PREFIX} Task B` with a marker (▶ or 🔒) and an `[id:...]`. |
+| P14 | `get_project` | `project: "{PREFIX} Project"`, `include_completed: true`, `limit: 1`. PASS if at most one task is listed and the limit note appears when the project has more tasks. |
+| P15 | `rename_folder` | Rename `{PREFIX} Folder` to `{PREFIX} Folder Renamed`. PASS if confirmed. |
 
 ## Phase 5: Drop and delete (3 tests)
 

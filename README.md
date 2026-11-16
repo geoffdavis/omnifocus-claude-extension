@@ -123,6 +123,7 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Put the project 'Website 2.0' on hold"
 "Make 'Website 2.0' a sequential project"
 "Review 'Website 2.0' every 2 weeks"
+"Show everything in the project 'Website 2.0', also blocked and deferred tasks"
 "Keep 'Someday' out of the reviews until 2027-01-01"
 "Set the due date of 'Website 2.0' to 2026-12-31 and complete it with its last item"
 "Drop the task 'Old idea'"
@@ -165,6 +166,7 @@ to include them.
 | `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
 | `get_task` | Show all details of one task | "Show details of 'Report'" |
+| `get_project` | Show a project with its properties and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
 | `list_tags` | Show all tags with hierarchy, IDs and hidden / no-next-action flags | "List my tags" |
 | `create_tag` | Create a new tag, optionally below another tag | "Create tag 'Urgent'" |
@@ -208,6 +210,7 @@ omnifocus-claude-extension/
 │   │   │   ├── add_tag_to_task.applescript
 │   │   │   ├── remove_tag_from_task.applescript
 │   │   │   ├── get_task.applescript
+│   │   │   ├── get_project.applescript
 │   │   │   ├── drop_task.applescript
 │   │   │   ├── create_project.applescript
 │   │   │   ├── edit_project.applescript

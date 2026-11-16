@@ -587,6 +587,31 @@ const tools = [
         }
     },
 
+    {
+        name: 'get_project',
+        description: 'Show a project with its status, type, dates, review interval and counts, and all its tasks as an indented list with subtasks. Open tasks are listed with their state (available, blocked, deferred, action group), flag, due date, estimate, tags and ID, also blocked and deferred ones.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                project: {
+                    type: 'string',
+                    description: 'Project name, path "Folder > Subfolder > Project" (projects in all folders are searched), or "id:<id>"'
+                },
+                include_completed: {
+                    type: 'boolean',
+                    description: 'Also list completed and dropped tasks',
+                    default: false
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of tasks to list',
+                    default: 300
+                }
+            },
+            required: ['project']
+        }
+    },
+
     // GTD query tools
     {
         name: 'list_available_tasks',
@@ -894,6 +919,14 @@ async function executeTool(name, args) {
 
             case 'get_task':
                 result = executeAppleScriptFile('get_task', [args.task_name || '']);
+                break;
+
+            case 'get_project':
+                result = executeAppleScriptFile('get_project', [
+                    args.project || '',
+                    args.include_completed === true ? 'true' : 'false',
+                    String(Math.max(1, Math.floor(Number(args.limit) || 300)))
+                ]);
                 break;
 
             case 'list_available_tasks':
