@@ -16,6 +16,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Edit Tasks**: Modify any task property including defer dates and tags
 - **Batch Task Creation**: Create multiple tasks with subtasks in one command
 - **Recurring Tasks**: Create tasks with daily, weekly, monthly, or custom repeat patterns
+- **Text to tasks**: Turn a list of lines (or the note of a task) into tasks and subtasks, with the inline syntax of OmniFocus
 - **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
 
 ### Tags
@@ -93,6 +94,16 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Make the task 'Water plants' repeat every 3 days"
 "Stop the repetition of 'Process inbox'"
 ```
+
+### Text to Tasks
+```
+"Turn the note of 'Plan offsite' into subtasks"
+"Create these tasks in the project 'Website 2.0': Design review, then below it Collect feedback and Write summary"
+```
+One task per line, indented lines become subtasks of the closest line above that is indented less. A list marker
+(`- `, `* ` or `• `) at the start of a line is removed, and every line goes through the text parser of OmniFocus, so
+its inline syntax works (for example `Call Max //number 123` puts the number in the note). `single_task` makes the whole
+text one task, `clear_note` empties the note after `from_note` was converted.
 
 ### Action Groups
 ```
@@ -192,6 +203,7 @@ to include them.
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag, folder or time (`max_minutes`) | "What can I work on now?" |
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project, or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
+| `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
 | `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
 | `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
@@ -226,6 +238,7 @@ omnifocus-claude-extension/
 │   │   │   ├── get_task.applescript
 │   │   │   ├── get_project.applescript
 │   │   │   ├── list_due_soon.applescript
+│   │   │   ├── parse_tasks.applescript
 │   │   │   ├── drop_task.applescript
 │   │   │   ├── create_project.applescript
 │   │   │   ├── edit_project.applescript

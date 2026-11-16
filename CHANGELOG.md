@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `add_task` to create a subtask under an existing task
 - **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
   an existing task, `get_task` shows it
+- **Text to tasks**: `parse_tasks` turns text into tasks and subtasks (one per line, indentation makes subtasks) in the inbox, in a
+  project or below a task, or converts the note of an existing task (`from_note`, optionally emptying it with
+  `clear_note`). Each line goes through the text parser of OmniFocus ("parse tasks into"), so its inline syntax works;
+  OmniFocus itself would make one task out of a multi-line text, so the lines are split by the script
 - **Action groups**: `edit_task` moves a task (with its subtasks) below another open task (`parent_task`) and sets whether the
   subtasks are done one after another (`sequential`) and whether the task completes with its last subtask
   (`complete_with_last_item`). `get_task` and `get_project` show the behavior of an action group. The task lookup of

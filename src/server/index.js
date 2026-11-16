@@ -226,6 +226,41 @@ const tools = [
         }
     },
     {
+        name: 'parse_tasks',
+        description: 'Turn text into tasks: one task per line, indented lines become subtasks (a leading "- ", "* " or "• " is removed). Each line goes through the text parser of OmniFocus, so its inline syntax works, for example a note after //. The text is given directly or taken from the note of an existing task (from_note), for example to turn an action list in a note into subtasks. The new tasks go to the inbox, to a project or below an existing task. Everything is checked before anything is created.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                text: {
+                    type: 'string',
+                    description: 'The lines to turn into tasks, one task per line. Indent a line (tab or spaces) to make it a subtask of the closest line above that is indented less. Leave empty when from_note is used.'
+                },
+                project: {
+                    type: 'string',
+                    description: 'Optional open project for the new tasks (any folder) by name, path "Folder > Subfolder > Project" or "id:<id>". Default is the inbox. Cannot be combined with parent_task.'
+                },
+                parent_task: {
+                    type: 'string',
+                    description: 'Optional existing open task by name or "id:<id>"; the new tasks become its subtasks. Cannot be combined with project.'
+                },
+                single_task: {
+                    type: 'boolean',
+                    description: 'Make the whole text one task instead of one task per line (the first line is the name, the other lines become the note)',
+                    default: false
+                },
+                from_note: {
+                    type: 'string',
+                    description: 'Use the note of this open task (name or "id:<id>") as the text instead of text. The new tasks become its subtasks unless project or parent_task is given.'
+                },
+                clear_note: {
+                    type: 'boolean',
+                    description: 'Together with from_note: empty the note of that task after the tasks were created',
+                    default: false
+                }
+            }
+        }
+    },
+    {
         name: 'batch_add_tasks',
         description: 'Create multiple tasks at once, optionally with subtasks',
         inputSchema: {
@@ -893,6 +928,17 @@ async function executeTool(name, args) {
             case 'list_flagged_tasks':
             case 'list_overdue_tasks':
                 result = executeAppleScriptFile(name, [String(args.include_dropped === true)]);
+                break;
+
+            case 'parse_tasks':
+                result = executeAppleScriptFile('parse_tasks', [
+                    typeof args.text === 'string' ? args.text : '',
+                    args.project || '',
+                    args.parent_task || '',
+                    String(args.single_task === true),
+                    args.from_note || '',
+                    String(args.clear_note === true)
+                ]);
                 break;
 
             case 'list_due_soon':

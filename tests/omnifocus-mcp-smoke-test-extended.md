@@ -42,7 +42,7 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q12 | `list_due_soon` | `days: 7`. PASS if it returns a list grouped by tag (headings starting with `🏷`) where every task shows a due date, or the message that nothing is due. |
 | Q13 | `list_due_soon` | `days: 14`, `group_by: "day"`, `limit: 5`. PASS if at most five tasks are listed under date headings in ascending order. Then `group_by: "nonsense"` must still work (falls back to tag). |
 
-## Phase 2: Tasks and tags (20 tests)
+## Phase 2: Tasks and tags (25 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -68,6 +68,11 @@ All tasks MUST use `project: "Smoke Test"`.
 | A18 | `edit_task` | `task_name: "{PREFIX} Task A"`, `property: "parent_task"`, `value: "{PREFIX} Subtask B"`. PASS if it FAILS with a message that a task cannot be moved below itself or one of its own subtasks, and nothing changed. |
 | A19 | `edit_task` | `task_name: "{PREFIX} Task A"`, `property: "sequential"`, `value: "true"`. PASS if confirmed and `get_task` shows `Subtasks: 2 (one after another)`. Then `value: "maybe"` must FAIL with a message about the invalid value. |
 | A20 | `edit_task` | `property: "complete_with_last_item"`, `value: "true"`. PASS if confirmed and `get_task` shows `completes with the last subtask`. Then set `sequential` and `complete_with_last_item` back to `false` and PASS if `get_task` shows plain `Subtasks: 2`. |
+| A21 | `parse_tasks` | `project: "Smoke Test"`, text of three lines: `{PREFIX} P1`, then `{PREFIX} P1a //note` indented by a tab, then `{PREFIX} P2`. PASS if 3 tasks are created, `{PREFIX} P1a` below `{PREFIX} P1`, and `get_task` of `{PREFIX} P1a` shows the note `note` (and not `//note` in the name). |
+| A22 | `parse_tasks` | `parent_task: "{PREFIX} P2"`, text of two lines: `- {PREFIX} P2a`, then `{PREFIX} P2b` indented by two spaces. PASS if both are created below `{PREFIX} P2` (the marker `- ` is not part of the name) and `{PREFIX} P2b` is below `{PREFIX} P2a`. |
+| A23 | `parse_tasks` | `project: "Smoke Test"`, `single_task: true`, text of two lines: `{PREFIX} Single`, `second line`. PASS if one task `{PREFIX} Single` is created and `get_task` shows `second line` as its note. |
+| A24 | `edit_task` then `parse_tasks` | Set the `note` of `{PREFIX} P2` to two lines `{PREFIX} N1` and `{PREFIX} N2`, then `parse_tasks` with `from_note: "{PREFIX} P2"` and `clear_note: true`. PASS if both tasks are created below `{PREFIX} P2` and `get_task` of `{PREFIX} P2` shows no note any more. |
+| A25 | `parse_tasks` | Each of these must FAIL with a message and create nothing: text together with `from_note`; `project` together with `parent_task`; `clear_note` without `from_note`; an unknown `project`; `from_note` of a task without a note; no text at all. PASS if `get_project` of `Smoke Test` shows no new task. |
 
 ## Phase 3: Tag hierarchy (8 tests)
 
@@ -112,7 +117,7 @@ All tasks MUST use `project: "Smoke Test"`.
 
 ## Phase 6: Cleanup
 
-1. Delete `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
+1. Delete `{PREFIX} P1`, `{PREFIX} P2` (with their subtasks) and `{PREFIX} Single`, then `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
 3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` in OmniFocus by hand, because the tools cannot delete folders or projects.
 4. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.

@@ -89,7 +89,8 @@ describe('AppleScript Integration', () => {
                 'edit_tag.applescript',
                 'reopen_task.applescript',
                 'get_project.applescript',
-                'list_due_soon.applescript'
+                'list_due_soon.applescript',
+                'parse_tasks.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -447,6 +448,46 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('item 1 of argv');
             expect(content).toContain('item 2 of argv');
             expect(content).toContain('item 3 of argv');
+        });
+    });
+
+    describe('Text to tasks', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('parse_tasks.applescript lets OmniFocus parse every line as one task', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('parse tasks into default document with transport text lineText as single task true');
+            // OmniFocus makes one task out of a multi-line text, so the lines are split in the script
+            expect(content).toContain('on splitIntoLines(sourceText)');
+            expect(content).toContain('repeat with aLine in (paragraphs of sourceText)');
+        });
+
+        test('parse_tasks.applescript checks everything before it creates tasks', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('Give either text or from_note');
+            expect(content).toContain('Use either text or from_note, not both');
+            expect(content).toContain('Use either project or parent_task, not both');
+            expect(content).toContain('clear_note only works together with from_note');
+            expect(content).toContain('has no note. Nothing was created.');
+            const firstParse = content.indexOf('parse tasks into default document');
+            expect(content.indexOf('my resolveProject(projectQuery)')).toBeLessThan(firstParse);
+            expect(content.indexOf('my resolveTask(parentQuery)')).toBeLessThan(firstParse);
+        });
+
+        test('parse_tasks.applescript builds the hierarchy from the indentation', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('set indentWidth to indentWidth + 4');
+            expect(content).toContain('set end of levelList to (count of openWidths) - 1');
+            expect(content).toContain('move newTask to end of tasks of levelParent');
+            expect(content).toContain('move newTask to end of tasks of destinationProject');
+            expect(content).toContain('move newTask to end of tasks of destinationTask');
+        });
+
+        test('parse_tasks.applescript removes list markers and can use the note of a task', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('cleanLine starts with "- " or cleanLine starts with "* " or cleanLine starts with "• "');
+            expect(content).toContain('set sourceText to (note of sourceTask) as text');
+            expect(content).toContain('set note of sourceTask to ""');
         });
     });
 
