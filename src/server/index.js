@@ -12,7 +12,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Read version - try from package.json if available, otherwise use fallback
-let VERSION = '2.0.1'; // Fallback version
+let VERSION = '2.2.2'; // Fallback version
 try {
     const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
     if (fs.existsSync(packageJsonPath)) {
@@ -117,7 +117,7 @@ const tools = [
     },
     {
         name: 'list_inbox',
-        description: 'List all tasks currently in the OmniFocus inbox',
+        description: 'List all open tasks in the OmniFocus inbox, each with its ID',
         inputSchema: {
             type: 'object',
             properties: {}
@@ -139,7 +139,7 @@ const tools = [
             properties: {
                 task_name: {
                     type: 'string',
-                    description: 'Name or partial name of the task to complete'
+                    description: 'Name or partial name of the task to complete, or "id:<id>" as shown in list outputs'
                 }
             },
             required: ['task_name']
@@ -157,7 +157,7 @@ const tools = [
     // Advanced tools
     {
         name: 'search_tasks',
-        description: 'Search for tasks across all projects and contexts',
+        description: 'Search for tasks by name or note across all projects and the inbox; results include task IDs',
         inputSchema: {
             type: 'object',
             properties: {
@@ -188,7 +188,7 @@ const tools = [
             properties: {
                 task_name: {
                     type: 'string',
-                    description: 'Name or partial name of the task to edit'
+                    description: 'Name or partial name of the task to edit, or "id:<id>" as shown in list outputs'
                 },
                 property: {
                     type: 'string',
@@ -355,7 +355,7 @@ const tools = [
             properties: {
                 task_name: {
                     type: 'string',
-                    description: 'Name or partial name of the task'
+                    description: 'Name or partial name of the task, or "id:<id>" as shown in list outputs'
                 },
                 tag_name: {
                     type: 'string',
@@ -373,7 +373,7 @@ const tools = [
             properties: {
                 task_name: {
                     type: 'string',
-                    description: 'Name or partial name of the task'
+                    description: 'Name or partial name of the task, or "id:<id>" as shown in list outputs'
                 },
                 tag_name: {
                     type: 'string',
@@ -393,7 +393,7 @@ const tools = [
             properties: {
                 task_name: {
                     type: 'string',
-                    description: 'Name or partial name of the task to drop'
+                    description: 'Name or partial name of the task to drop, or "id:<id>" as shown in list outputs'
                 },
                 confirm_delete: {
                     type: 'boolean',
@@ -428,13 +428,13 @@ const tools = [
     },
     {
         name: 'edit_project',
-        description: 'Edit an existing project: rename it, change its note, move it to another folder, or set it active or on hold. Fails without changes if the project name is ambiguous.',
+        description: 'Edit an existing project: rename it, change its note, move it to another folder, or set its status (active, on hold, completed, dropped). Fails without changes if the project name is ambiguous.',
         inputSchema: {
             type: 'object',
             properties: {
                 project: {
                     type: 'string',
-                    description: 'Project name or path "Folder > Subfolder > Project" (projects in all folders are searched)'
+                    description: 'Project name, path "Folder > Subfolder > Project" (projects in all folders are searched), or "id:<id>"'
                 },
                 property: {
                     type: 'string',
@@ -443,7 +443,7 @@ const tools = [
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active" or "on_hold".'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped".'
                 }
             },
             required: ['project', 'property', 'value']
@@ -483,6 +483,58 @@ const tools = [
                 }
             },
             required: ['folder', 'new_name']
+        }
+    },
+
+    // Review tools
+    {
+        name: 'list_projects_for_review',
+        description: 'List active and on-hold projects whose review is due, with last and next review date, ID and a hint if the project has no next action',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                days_ahead: {
+                    type: 'number',
+                    description: 'Also include projects whose review becomes due within this many days',
+                    default: 0
+                }
+            }
+        }
+    },
+    {
+        name: 'mark_project_reviewed',
+        description: 'Mark a project as reviewed today. OmniFocus sets the next review date from the project\'s review interval. Fails without changes if the project name is ambiguous.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                project: {
+                    type: 'string',
+                    description: 'Project name, path "Folder > Subfolder > Project", or "id:<id>"'
+                }
+            },
+            required: ['project']
+        }
+    },
+    {
+        name: 'list_stalled_projects',
+        description: 'List active projects that have no open tasks or no next action. Single action lists are skipped.',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
+        name: 'get_task',
+        description: 'Show the details of one task: ID, state, project with folder path, tags, dates, estimate, subtask count and note',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                task_name: {
+                    type: 'string',
+                    description: 'Name or partial name of the task, or "id:<id>" as shown in list outputs'
+                }
+            },
+            required: ['task_name']
         }
     }
 ];
@@ -693,6 +745,24 @@ async function executeTool(name, args) {
                     args.name || '',
                     args.parent_folder || ''
                 ]);
+                break;
+
+            case 'list_projects_for_review':
+                result = executeAppleScriptFile('list_projects_for_review', [
+                    String(Math.max(0, Math.floor(Number(args.days_ahead) || 0)))
+                ]);
+                break;
+
+            case 'mark_project_reviewed':
+                result = executeAppleScriptFile('mark_project_reviewed', [args.project || '']);
+                break;
+
+            case 'list_stalled_projects':
+                result = executeAppleScriptFile('list_stalled_projects', []);
+                break;
+
+            case 'get_task':
+                result = executeAppleScriptFile('get_task', [args.task_name || '']);
                 break;
 
             case 'rename_folder':

@@ -93,6 +93,7 @@ on run argv
                         end if
                     end try
                     
+                    set taskInfo to taskInfo & " [id:" & (id of aTask) & "]"
                     set end of matchingTasks to taskInfo
                 end if
             end repeat

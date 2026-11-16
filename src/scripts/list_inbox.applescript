@@ -34,9 +34,9 @@ on run argv
         repeat with aTask in incompleteTasks
           set taskName to name of aTask
           if flagged of aTask then
-            set taskList to taskList & return & "• " & taskName & " 🚩"
+            set taskList to taskList & return & "• " & taskName & " 🚩 [id:" & (id of aTask) & "]"
           else
-            set taskList to taskList & return & "• " & taskName
+            set taskList to taskList & return & "• " & taskName & " [id:" & (id of aTask) & "]"
           end if
         end repeat
         return taskList

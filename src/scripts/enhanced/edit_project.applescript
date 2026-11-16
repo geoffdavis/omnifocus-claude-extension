@@ -63,8 +63,14 @@ on run argv
                     else if newValue is "on_hold" or newValue is "on hold" then
                         set status of targetProject to on hold status
                         return "⏸️ Project is on hold: " & originalLabel
+                    else if newValue is "completed" or newValue is "done" then
+                        mark complete targetProject
+                        return "✅ Project completed: " & originalLabel
+                    else if newValue is "dropped" then
+                        mark dropped targetProject
+                        return "🚫 Project dropped: " & originalLabel
                     else
-                        return "❌ Unknown status: " & newValue & ". Valid values: active, on_hold"
+                        return "❌ Unknown status: " & newValue & ". Valid values: active, on_hold, completed, dropped"
                     end if
                     
                 else
@@ -78,6 +84,20 @@ on run argv
 end run
 
 on resolveProject(queryText)
+    -- "id:<id>" addresses exactly one project
+    if queryText starts with "id:" and (length of queryText) > 3 then
+        tell application "OmniFocus"
+            tell default document
+                set wantedID to text 4 thru -1 of queryText
+                set idMatches to every flattened project whose id is wantedID
+            end tell
+        end tell
+        if (count of idMatches) = 1 then
+            return {foundProject:item 1 of idMatches, errorText:""}
+        end if
+        return {foundProject:missing value, errorText:"❌ Project not found: " & queryText}
+    end if
+    
     -- Finds a project in any folder by name, or by "Folder > Subfolder > Project".
     -- Names match exactly or as a substring, ignoring case.
     -- Returns {foundProject, errorText}; foundProject is missing value if nothing or more than one project fits.
