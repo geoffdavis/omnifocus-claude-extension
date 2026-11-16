@@ -1,6 +1,6 @@
 on run argv
     -- List open tasks, optionally filtered by tag, folder and availability
-    -- Usage: list_tasks_filtered.applescript "tag" "folder" "available_only" "include_subtags" "include_inbox" "limit" "max_minutes" "include_unestimated" "show_age"
+    -- Usage: list_tasks_filtered.applescript "tag" "folder" "available_only" "include_subtags" "include_inbox" "limit" "max_minutes" "include_unestimated" "show_age" "project"
     --   tag:             tag name, part of a name or path "Parent > Tag" ("" = no tag filter)
     --   folder:          only projects whose folder path contains this text ("" = all folders)
     --   available_only:  "true" leaves out blocked and deferred tasks, tasks of projects that are
@@ -12,6 +12,7 @@ on run argv
     --   include_unestimated: "true" keeps tasks without an estimate when max_minutes is set
     --   show_age:        "true" shows how long each task exists (creation date) and lists the tasks as one
     --                    flat list, oldest first, with the project of each task
+    --   project:         only the tasks of this project (name, "Folder > Project" or "id:<id>"; "" = all projects)
     -- Dropped items and items below dropped (hidden) folders are always left out.
 
     set tagQuery to ""
@@ -23,6 +24,7 @@ on run argv
     set maxMinutes to 0
     set includeUnestimated to false
     set showAge to false
+    set projectQuery to ""
     if (count of argv) > 0 then set tagQuery to my trimItem(item 1 of argv)
     if (count of argv) > 1 then set folderQuery to my trimItem(item 2 of argv)
     if (count of argv) > 2 then set availableOnly to (item 3 of argv is "true")
@@ -42,6 +44,7 @@ on run argv
     if maxMinutes < 0 then set maxMinutes to 0
     if (count of argv) > 7 then set includeUnestimated to (item 8 of argv is "true")
     if (count of argv) > 8 then set showAge to (item 9 of argv is "true")
+    if (count of argv) > 9 then set projectQuery to my trimItem(item 10 of argv)
 
     -- Resolve the tag, including its child tags if requested
     set tagObjects to {}
@@ -58,6 +61,23 @@ on run argv
                     set tagObjects to tagObjects & (every flattened tag of theTag)
                 end try
             end if
+        end tell
+    end if
+
+    -- Resolve the project filter: the IDs of all tasks below the project
+    set projectFilterLabel to ""
+    set projectTaskIDs to {}
+    if projectQuery is not "" then
+        set projectLookup to my resolveProject(projectQuery)
+        set projectFilter to foundProject of projectLookup
+        if projectFilter is missing value then return errorText of projectLookup
+        set projectFilterLabel to my projectLabel(projectFilter)
+        tell application "OmniFocus"
+            try
+                set projectTaskIDs to id of every flattened task of root task of projectFilter
+            on error
+                set projectTaskIDs to id of every flattened task of projectFilter
+            end try
         end tell
     end if
 
@@ -108,6 +128,7 @@ on run argv
                 -- Duplicates (a task with a tag and one of its child tags) and tasks below hidden folders
                 if seenIDs contains taskID then set keepTask to false
                 if keepTask and (hiddenIDs contains taskID) then set keepTask to false
+                if keepTask and projectFilterLabel is not "" and (projectTaskIDs does not contain taskID) then set keepTask to false
 
                 -- Availability
                 if keepTask and availableOnly then
@@ -273,6 +294,7 @@ on run argv
         if includeSubtags then set filterText to filterText & " (or a child tag)"
     end if
     if folderQuery is not "" then set filterText to filterText & " in folders matching \"" & folderQuery & "\""
+    if projectFilterLabel is not "" then set filterText to filterText & " in the project \"" & projectFilterLabel & "\""
 
     if maxMinutes > 0 then
         set filterText to filterText & " with an estimate of up to " & maxMinutes & " min"
@@ -304,26 +326,6 @@ on run argv
     end if
     return reportText
 end run
-
-on projectFolderNames(aProject)
-    -- Folder names from the outermost folder down to the one holding the project; {} at top level
-    set folderNames to {}
-    tell application "OmniFocus"
-        try
-            set currentFolder to folder of aProject
-            repeat while currentFolder is not missing value
-                set beginning of folderNames to name of currentFolder
-                set parentContainer to container of currentFolder
-                if class of parentContainer is folder then
-                    set currentFolder to parentContainer
-                else
-                    set currentFolder to missing value
-                end if
-            end repeat
-        end try
-    end tell
-    return folderNames
-end projectFolderNames
 
 on hiddenFolderTaskIDs()
     -- IDs of all tasks in projects below a hidden (dropped) folder
@@ -566,22 +568,6 @@ on joinText(textItems, separator)
     return joinedText
 end joinText
 
-on trimItem(theText)
-    set whitespaceChars to {" ", tab, return, linefeed}
-    set textLength to length of theText
-    if textLength is 0 then return ""
-    set textStart to 1
-    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
-        set textStart to textStart + 1
-    end repeat
-    if textStart > textLength then return ""
-    set textEnd to textLength
-    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
-        set textEnd to textEnd - 1
-    end repeat
-    return text textStart thru textEnd of theText
-end trimItem
-
 on ageText(createdDate, nowDate)
     -- How long ago a task was created: "today", "3 days", "5 weeks", "4 months", "3 years"
     set dayCount to (nowDate - createdDate) div days
@@ -599,3 +585,152 @@ on insertAtIndex(aList, anItem, slotIndex)
     if slotIndex > (count of aList) then return aList & {anItem}
     return (items 1 thru (slotIndex - 1) of aList) & {anItem} & (items slotIndex thru -1 of aList)
 end insertAtIndex
+
+on resolveProject(queryText)
+    -- "id:<id>" addresses exactly one project
+    if queryText starts with "id:" and (length of queryText) > 3 then
+        tell application "OmniFocus"
+            tell default document
+                set wantedID to text 4 thru -1 of queryText
+                set idMatches to every flattened project whose id is wantedID
+            end tell
+        end tell
+        if (count of idMatches) = 1 then
+            return {foundProject:item 1 of idMatches, errorText:""}
+        end if
+        return {foundProject:missing value, errorText:"❌ Project not found: " & queryText}
+    end if
+    
+    -- Finds a project in any folder by name, or by "Folder > Subfolder > Project".
+    -- Names match exactly or as a substring, ignoring case.
+    -- Returns {foundProject, errorText}; foundProject is missing value if nothing or more than one project fits.
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ">"
+    set rawParts to text items of queryText
+    set AppleScript's text item delimiters to oldDelims
+    
+    set queryParts to {}
+    repeat with rawPart in rawParts
+        set cleanPart to my trimItem(rawPart as string)
+        if cleanPart is not "" then set end of queryParts to cleanPart
+    end repeat
+    if (count of queryParts) = 0 then
+        return {foundProject:missing value, errorText:"❌ Project name cannot be empty."}
+    end if
+    
+    set projectQuery to item -1 of queryParts
+    set folderQuery to {}
+    if (count of queryParts) > 1 then set folderQuery to items 1 thru -2 of queryParts
+    
+    tell application "OmniFocus"
+        tell default document
+            set allProjects to every flattened project
+        end tell
+    end tell
+    
+    set exactMatches to {}
+    set partialMatches to {}
+    repeat with aProject in allProjects
+        set candidateProject to contents of aProject
+        tell application "OmniFocus" to set candidateName to name of candidateProject
+        ignoring case
+            if candidateName is projectQuery then
+                set end of exactMatches to candidateProject
+            else if candidateName contains projectQuery then
+                set end of partialMatches to candidateProject
+            end if
+        end ignoring
+    end repeat
+    
+    if (count of folderQuery) > 0 then
+        set exactMatches to my filterByFolder(exactMatches, folderQuery)
+        set partialMatches to my filterByFolder(partialMatches, folderQuery)
+    end if
+    
+    -- A single exact name wins; otherwise every match counts and must be unique
+    if (count of exactMatches) = 1 then
+        return {foundProject:item 1 of exactMatches, errorText:""}
+    end if
+    set allMatches to exactMatches & partialMatches
+    if (count of allMatches) = 1 then
+        return {foundProject:item 1 of allMatches, errorText:""}
+    end if
+    if (count of allMatches) = 0 then
+        return {foundProject:missing value, errorText:"❌ Project not found: " & queryText}
+    end if
+    
+    set matchList to "❌ Ambiguous project \"" & queryText & "\" (" & (count of allMatches) & " matches). Nothing was changed. Use \"Folder > Project\" to pick one:"
+    repeat with aMatch in allMatches
+        set matchList to matchList & return & "• " & my projectLabel(contents of aMatch)
+    end repeat
+    return {foundProject:missing value, errorText:matchList}
+end resolveProject
+
+on filterByFolder(projectList, folderQuery)
+    -- Keeps the projects whose innermost folders match folderQuery (outermost first)
+    set keptProjects to {}
+    repeat with aProject in projectList
+        set candidateProject to contents of aProject
+        set folderNames to my projectFolderNames(candidateProject)
+        set queryCount to count of folderQuery
+        set nameCount to count of folderNames
+        set folderFits to (queryCount ≤ nameCount)
+        if folderFits then
+            ignoring case
+                repeat with i from 1 to queryCount
+                    set wantedName to item i of folderQuery
+                    set actualName to item (nameCount - queryCount + i) of folderNames
+                    if actualName does not contain wantedName then set folderFits to false
+                end repeat
+            end ignoring
+        end if
+        if folderFits then set end of keptProjects to candidateProject
+    end repeat
+    return keptProjects
+end filterByFolder
+
+on projectFolderNames(aProject)
+    -- Folder names from the outermost folder down to the one holding the project; {} at top level
+    set folderNames to {}
+    tell application "OmniFocus"
+        try
+            set currentFolder to folder of aProject
+            repeat while currentFolder is not missing value
+                set beginning of folderNames to name of currentFolder
+                set parentContainer to container of currentFolder
+                if class of parentContainer is folder then
+                    set currentFolder to parentContainer
+                else
+                    set currentFolder to missing value
+                end if
+            end repeat
+        end try
+    end tell
+    return folderNames
+end projectFolderNames
+
+on projectLabel(aProject)
+    -- "Folder > Subfolder > Project", the same form resolveProject accepts
+    tell application "OmniFocus" to set projectName to name of aProject
+    set labelText to ""
+    repeat with folderName in my projectFolderNames(aProject)
+        set labelText to labelText & folderName & " > "
+    end repeat
+    return labelText & projectName
+end projectLabel
+
+on trimItem(theText)
+    set whitespaceChars to {" ", tab, return, linefeed}
+    set textLength to length of theText
+    if textLength is 0 then return ""
+    set textStart to 1
+    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
+        set textStart to textStart + 1
+    end repeat
+    if textStart > textLength then return ""
+    set textEnd to textLength
+    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
+        set textEnd to textEnd - 1
+    end repeat
+    return text textStart thru textEnd of theText
+end trimItem

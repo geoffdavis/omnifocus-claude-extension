@@ -24,7 +24,7 @@ You are executing a structured smoke test of the OmniFocus MCP plugin. Follow ev
 
 Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and time (example: `SMOKETEST260324130501`). Refer to it as `{PREFIX}`. Record for each test: ID, tool, result (PASS/FAIL) and error message.
 
-## Phase 1: Read-only tools (13 tests)
+## Phase 1: Read-only tools (15 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -41,6 +41,8 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q11 | `list_tasks_by_tag` | `tag: "{PREFIX} NO SUCH TAG"`, `show_age: true`. PASS if it returns the "Tag not found" error. Then call `list_available_tasks` with `show_age: true`, `limit: 3`. PASS if at most three tasks are listed, each with a `🕒` age and its project, the oldest first. |
 | Q12 | `list_due_soon` | `days: 7`. PASS if it returns a list grouped by tag (headings starting with `🏷`) where every task shows a due date, or the message that nothing is due. |
 | Q13 | `list_due_soon` | `days: 14`, `group_by: "day"`, `limit: 5`. PASS if at most five tasks are listed under date headings in ascending order. Then `group_by: "nonsense"` must still work (falls back to tag). |
+| Q14 | `list_available_tasks` | `project: "{PREFIX} NO SUCH PROJECT"`. PASS if it FAILS with `Project not found` and lists nothing. Then use the name of a real project: PASS if the header contains `in the project` and only that project is listed. |
+| Q15 | `list_perspectives` | PASS if the built-in perspectives (for example Inbox, Projects, Forecast) are listed, and the custom ones (OmniFocus Pro) with an ID. |
 
 ## Phase 2: Tasks and tags (25 tests)
 

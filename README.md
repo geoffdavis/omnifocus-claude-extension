@@ -157,6 +157,7 @@ several projects the tool lists the matches and changes nothing. Tasks and proje
 ```
 "What can I work on now?"
 "What can I work on in the folder 'Clients'?"
+"What are the next actions of the project 'Website 2.0'?"
 "Show all tasks tagged 'Waiting for'"
 "Which waiting-for items are the oldest?"
 "What is due in the next 7 days, grouped by tag?"
@@ -165,6 +166,7 @@ several projects the tool lists the matches and changes nothing. Tasks and proje
 "What did I complete in the last 7 days?"
 "Which projects are due for review?"
 "Mark the project 'Website 2.0' as reviewed"
+"Which perspectives do I have?"
 "Which projects have no next action?"
 ```
 
@@ -201,9 +203,10 @@ to include them.
 | `edit_project` | Rename, change note, folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
-| `list_available_tasks` | Next actions across all projects, optionally by tag, folder or time (`max_minutes`) | "What can I work on now?" |
-| `list_tasks_by_tag` | Open tasks with a tag, grouped by project, or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
+| `list_available_tasks` | Next actions across all projects, optionally by tag, folder, a single project or time (`max_minutes`) | "What can I work on now?" |
+| `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
 | `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
+| `list_perspectives` | Built-in and custom perspectives with their IDs (the rules of a perspective are not available to scripts) | "Which perspectives do I have?" |
 | `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
 | `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
@@ -238,6 +241,7 @@ omnifocus-claude-extension/
 │   │   │   ├── get_task.applescript
 │   │   │   ├── get_project.applescript
 │   │   │   ├── list_due_soon.applescript
+│   │   │   ├── list_perspectives.applescript
 │   │   │   ├── parse_tasks.applescript
 │   │   │   ├── drop_task.applescript
 │   │   │   ├── create_project.applescript

@@ -90,7 +90,8 @@ describe('AppleScript Integration', () => {
                 'reopen_task.applescript',
                 'get_project.applescript',
                 'list_due_soon.applescript',
-                'parse_tasks.applescript'
+                'parse_tasks.applescript',
+                'list_perspectives.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -448,6 +449,30 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('item 1 of argv');
             expect(content).toContain('item 2 of argv');
             expect(content).toContain('item 3 of argv');
+        });
+    });
+
+    describe('Project filter and perspectives', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('list_tasks_filtered.applescript can be limited to one project', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('set projectQuery to my trimItem(item 10 of argv)');
+            expect(content).toContain('my resolveProject(projectQuery)');
+            expect(content).toContain('projectTaskIDs does not contain taskID');
+            expect(content).toContain('in the project');
+        });
+
+        test('the server passes the project to both task list tools', () => {
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect((server.match(/args\.project \|\| ''\n                \]\);/g) || []).length).toBeGreaterThanOrEqual(2);
+        });
+
+        test('list_perspectives.applescript separates built-in and custom perspectives', () => {
+            const content = read('list_perspectives.applescript');
+            expect(content).toContain('set perspectiveList to every perspective');
+            expect(content).toContain('(class of thePerspective) is custom perspective');
+            expect(content).toContain('set end of customNames to perspectiveName');
         });
     });
 

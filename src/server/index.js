@@ -358,6 +358,14 @@ const tools = [
     },
 
     {
+        name: 'list_perspectives',
+        description: 'List the perspectives of OmniFocus, the built-in ones and the custom ones (OmniFocus Pro) with their IDs. Scripts can only read the names and IDs, not the rules of a perspective or the tasks it shows.',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
         name: 'list_due_soon',
         description: 'List the open tasks that are due in the next days (from now until the end of the day N days from today), soonest first, grouped by tag, day or project. Overdue tasks are not included, use list_overdue_tasks for those.',
         inputSchema: {
@@ -676,7 +684,7 @@ const tools = [
     // GTD query tools
     {
         name: 'list_available_tasks',
-        description: 'List the tasks that can be worked on now (next actions) across all projects, grouped by project: open tasks that are not blocked, not deferred, belong to an active project and are not action groups. Optionally filter by tag (for example a context), folder or time (max_minutes).',
+        description: 'List the tasks that can be worked on now (next actions) across all projects, grouped by project: open tasks that are not blocked, not deferred, belong to an active project and are not action groups. Optionally filter by tag (for example a context), folder, a single project or time (max_minutes).',
         inputSchema: {
             type: 'object',
             properties: {
@@ -687,6 +695,10 @@ const tools = [
                 folder: {
                     type: 'string',
                     description: 'Optional folder, by name or path "Folder > Subfolder". Only projects whose folder path contains this text are listed.'
+                },
+                project: {
+                    type: 'string',
+                    description: 'Optional project (any folder) by name, path "Folder > Subfolder > Project" or "id:<id>": only the tasks of this project are listed. An unknown or ambiguous project returns an error.'
                 },
                 max_minutes: {
                     type: 'number',
@@ -729,6 +741,10 @@ const tools = [
                     type: 'boolean',
                     description: 'Only tasks that can be worked on now (not blocked, not deferred, active project, no action group)',
                     default: false
+                },
+                project: {
+                    type: 'string',
+                    description: 'Optional project (any folder) by name, path "Folder > Subfolder > Project" or "id:<id>": only the tasks of this project are listed. An unknown or ambiguous project returns an error.'
                 },
                 max_minutes: {
                     type: 'number',
@@ -941,6 +957,10 @@ async function executeTool(name, args) {
                 ]);
                 break;
 
+            case 'list_perspectives':
+                result = executeAppleScriptFile('list_perspectives', []);
+                break;
+
             case 'list_due_soon':
                 result = executeAppleScriptFile('list_due_soon', [
                     String(sanitizeLimit(args.days, 7, 365)),
@@ -1047,7 +1067,8 @@ async function executeTool(name, args) {
                     String(sanitizeLimit(args.limit, 100)),
                     String(sanitizeLimit(args.max_minutes, 0, 100000)),
                     String(args.include_unestimated === true),
-                    String(args.show_age === true)
+                    String(args.show_age === true),
+                    args.project || ''
                 ]);
                 break;
 
@@ -1065,7 +1086,8 @@ async function executeTool(name, args) {
                     String(sanitizeLimit(args.limit, 100)),
                     String(sanitizeLimit(args.max_minutes, 0, 100000)),
                     String(args.include_unestimated === true),
-                    String(args.show_age === true)
+                    String(args.show_age === true),
+                    args.project || ''
                 ]);
                 break;
 
