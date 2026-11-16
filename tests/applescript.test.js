@@ -56,7 +56,8 @@ describe('AppleScript Integration', () => {
                 'list_stalled_projects.applescript',
                 'list_tasks_filtered.applescript',
                 'list_completed_tasks.applescript',
-                'edit_tag.applescript'
+                'edit_tag.applescript',
+                'reopen_task.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -323,6 +324,34 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('propertyName is "type"');
             expect(content).toContain('singleton action holder');
             expect(content).toContain('set sequential of targetProject');
+        });
+    });
+
+    describe('Task lifecycle tools', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('reopen_task.applescript reopens completed and dropped tasks and checks the result', () => {
+            const content = read('reopen_task.applescript');
+            expect(content).toContain('mark incomplete');
+            expect(content).toContain('completed is true');
+            expect(content).toContain('dropped is true');
+            expect(content).toContain('Please be more specific or use id:<id>');
+            expect(content).toContain('Task is already open');
+        });
+
+        test('edit_task.applescript supports the planned date', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "planned_date"');
+            expect(content).toContain('set planned date of targetTask');
+        });
+
+        test('add_task.applescript reads planned_date and parent_task and never combines parent_task with a project', () => {
+            const content = fs.readFileSync(path.join(scriptsDir, 'add_task.applescript'), 'utf8');
+            expect(content).toContain('item 9 of argv');
+            expect(content).toContain('item 10 of argv');
+            expect(content).toContain('set planned date of newTask');
+            expect(content).toContain('at end of tasks of parentTaskObject');
+            expect(content).toContain('Use either project or parent_task, not both');
         });
     });
 

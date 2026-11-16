@@ -12,7 +12,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Read version - try from package.json if available, otherwise use fallback
-let VERSION = '2.2.2'; // Fallback version
+let VERSION = '2.0.1'; // Fallback version
 try {
     const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
     if (fs.existsSync(packageJsonPath)) {
@@ -98,6 +98,10 @@ const tools = [
                     type: 'string',
                     description: 'Optional defer date (when the task becomes available)'
                 },
+                planned_date: {
+                    type: 'string',
+                    description: 'Optional planned date (when you intend to work on the task, not a deadline). Needs an OmniFocus version with planned dates.'
+                },
                 flagged: {
                     type: 'boolean',
                     description: 'Whether to flag this task as important',
@@ -110,6 +114,10 @@ const tools = [
                 tags: {
                     type: 'string',
                     description: 'Comma-separated list of tags to apply to the task (e.g., "work,urgent"). Tags at any level are found by name, by path "Parent > Child" or by "id:<id>"; a tag that does not exist is created.'
+                },
+                parent_task: {
+                    type: 'string',
+                    description: 'Optional existing open task to create this task under as a subtask, by name or "id:<id>". Cannot be combined with project. An unknown or ambiguous task returns an error (with the matches) and nothing is created.'
                 }
             },
             required: ['name']
@@ -140,6 +148,20 @@ const tools = [
                 task_name: {
                     type: 'string',
                     description: 'Name or partial name of the task to complete, or "id:<id>" as shown in list outputs'
+                }
+            },
+            required: ['task_name']
+        }
+    },
+    {
+        name: 'reopen_task',
+        description: 'Reopen a completed or dropped task (mark it as open again). The name must match exactly one completed or dropped task, otherwise the matches are listed.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                task_name: {
+                    type: 'string',
+                    description: 'Name or partial name of the completed or dropped task, or "id:<id>" as shown in list outputs (for example by list_completed_tasks)'
                 }
             },
             required: ['task_name']
@@ -192,12 +214,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'due_date', 'defer_date', 'flagged', 'project', 'estimated_minutes', 'tags'],
+                    enum: ['name', 'note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date and defer_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags.'
+                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags.'
                 }
             },
             required: ['task_name', 'property', 'value']
@@ -714,7 +736,9 @@ async function executeTool(name, args) {
                     String(args.flagged || false),
                     args.defer_date || '',
                     String(args.estimated_minutes || 0),
-                    args.tags || ''
+                    args.tags || '',
+                    args.planned_date || '',
+                    args.parent_task || ''
                 ];
                 result = executeAppleScriptFile('add_task', taskArgs);
                 break;
@@ -881,6 +905,12 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('list_completed_tasks', [
                     String(sanitizeLimit(args.days, 7, 3650)),
                     String(sanitizeLimit(args.limit, 100))
+                ]);
+                break;
+
+            case 'reopen_task':
+                result = executeAppleScriptFile('reopen_task', [
+                    args.task_name || ''
                 ]);
                 break;
 

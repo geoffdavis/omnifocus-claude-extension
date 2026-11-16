@@ -49,10 +49,36 @@ on run argv
   if (count of argv) > 7 then
     set tagsString to item 8 of argv
   end if
+  set plannedDate to missing value
+  if (count of argv) > 8 then
+    set plannedDateString to item 9 of argv
+    if plannedDateString is not "" then
+      set plannedDate to my parseDate(plannedDateString)
+      if plannedDate is missing value then
+        set skippedDates to skippedDates & " planned_date"
+      end if
+    end if
+  end if
+  -- Optional parent task: the new task becomes a subtask of an existing open task
+  set parentTaskName to ""
+  if (count of argv) > 9 then set parentTaskName to my trimText(item 10 of argv)
 
   tell application "OmniFocus"
     tell default document
-      if projectName is not "" and projectName is not "inbox" then
+      set subtaskNote to ""
+      if parentTaskName is not "" then
+        if projectName is not "" then
+          return "❌ Use either project or parent_task, not both. Nothing was created."
+        end if
+        -- The parent must be one open task: by "id:<id>" or by name
+        set parentLookup to my resolveTask(parentTaskName)
+        if foundTask of parentLookup is missing value then
+          return errorText of parentLookup & return & "Nothing was created."
+        end if
+        set parentTaskObject to foundTask of parentLookup
+        set newTask to make new task with properties {name:taskName, note:taskNote, flagged:isFlagged} at end of tasks of parentTaskObject
+        set subtaskNote to " (subtask of \"" & (name of parentTaskObject) & "\")"
+      else if projectName is not "" and projectName is not "inbox" then
         -- Searches open projects in all folders; accepts "Folder > Subfolder > Project" and "id:<id>"
         set projectLookup to my resolveProject(projectName)
         if foundProject of projectLookup is missing value then
@@ -72,6 +98,13 @@ on run argv
       end if
       if estimatedMinutes > 0 then
         set estimated minutes of newTask to estimatedMinutes
+      end if
+      if plannedDate is not missing value then
+        try
+          set planned date of newTask to plannedDate
+        on error
+          set skippedDates to skippedDates & " planned_date (not supported by this OmniFocus version)"
+        end try
       end if
 
       -- Apply tags (comma-separated)
@@ -99,7 +132,7 @@ on run argv
       set resultNote to ""
       if skippedDates is not "" then set resultNote to " (⚠️ could not parse:" & skippedDates & ")"
       if tagProblems is not "" then set resultNote to resultNote & return & "⚠️ Tags not applied:" & tagProblems
-      return "✅ Added: " & taskName & resultNote
+      return "✅ Added: " & taskName & subtaskNote & resultNote
     end tell
   end tell
 end run
@@ -541,3 +574,71 @@ on trimItem(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimItem
+
+on resolveTask(queryText)
+  -- Finds one open task: "id:<id>", or a name (an exact name wins, otherwise part of a name; case is ignored).
+  -- Returns {foundTask, errorText}; foundTask is missing value if nothing or more than one task fits.
+  set searchText to my trimText(queryText)
+  if searchText is "" then
+    return {foundTask:missing value, errorText:"❌ Parent task cannot be empty."}
+  end if
+
+  if searchText starts with "id:" and (length of searchText) > 3 then
+    set wantedID to my trimText(text 4 thru -1 of searchText)
+    tell application "OmniFocus"
+      tell default document
+        set idMatches to every flattened task whose id is wantedID and effectively completed is false and effectively dropped is false
+      end tell
+    end tell
+    if (count of idMatches) = 1 then
+      return {foundTask:item 1 of idMatches, errorText:""}
+    end if
+    return {foundTask:missing value, errorText:"❌ Open task not found: " & searchText}
+  end if
+
+  tell application "OmniFocus"
+    tell default document
+      set nameMatches to every flattened task whose name contains searchText and effectively completed is false and effectively dropped is false
+    end tell
+  end tell
+
+  set exactMatches to {}
+  repeat with aMatch in nameMatches
+    set matchTask to contents of aMatch
+    tell application "OmniFocus" to set matchName to name of matchTask
+    ignoring case
+      if matchName is searchText then set end of exactMatches to matchTask
+    end ignoring
+  end repeat
+
+  if (count of exactMatches) = 1 then
+    return {foundTask:item 1 of exactMatches, errorText:""}
+  end if
+  if (count of nameMatches) = 1 then
+    return {foundTask:item 1 of nameMatches, errorText:""}
+  end if
+  if (count of nameMatches) = 0 then
+    return {foundTask:missing value, errorText:"❌ Open task not found: " & searchText}
+  end if
+
+  set matchList to "🔍 Several open tasks match \"" & searchText & "\" (" & (count of nameMatches) & "). Use id:<id> to pick one:"
+  set shownCount to 0
+  repeat with aMatch in nameMatches
+    if shownCount ≥ 15 then
+      set matchList to matchList & return & "… more not shown"
+      exit repeat
+    end if
+    set matchTask to contents of aMatch
+    tell application "OmniFocus"
+      set matchLabel to name of matchTask
+      try
+        set matchProject to containing project of matchTask
+        if matchProject is not missing value then set matchLabel to matchLabel & " [" & (name of matchProject) & "]"
+      end try
+      set matchLabel to matchLabel & " [id:" & (id of matchTask) & "]"
+    end tell
+    set matchList to matchList & return & "• " & matchLabel
+    set shownCount to shownCount + 1
+  end repeat
+  return {foundTask:missing value, errorText:matchList}
+end resolveTask

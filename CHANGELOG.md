@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Projects and folders**: `create_project`, `edit_project` (name, note, folder, status, type), `create_folder`,
   `rename_folder`
 - **Tags**: `edit_tag` (name, note, parent, hidden, allows next action)
+- **Tasks**: `reopen_task` (completed or dropped tasks), `planned_date` in `add_task` and `edit_task`, and `parent_task` in
+  `add_task` to create a subtask under an existing task
 - **Tasks**: `get_task` (all details of one task) and `drop_task` (deleting needs the explicit `confirm_delete`)
 - **ID addressing**: task and project tools accept `id:<id>`; list outputs, search results and ambiguity messages
   show the IDs

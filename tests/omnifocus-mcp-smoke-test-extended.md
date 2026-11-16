@@ -38,7 +38,7 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q08 | `list_projects` | `include_dropped: true`. PASS if it returns the projects plus a "Dropped Projects" section when dropped projects exist. |
 | Q09 | `list_inbox` | `include_dropped: false`. PASS if every listed task has an `[id:...]`. |
 
-## Phase 2: Tasks and tags (7 tests)
+## Phase 2: Tasks and tags (11 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -51,6 +51,10 @@ All tasks MUST use `project: "Smoke Test"`.
 | A05 | `get_task` | `task_name: "id:<ID from A03>"`. PASS if the details show the same task, its project and the tag. |
 | A06 | `complete_task` | `task_name: "id:<ID from A03>"`. PASS if completed. |
 | A07 | `list_completed_tasks` | `days: 1`. PASS if `{PREFIX} Task A` is listed. |
+| A08 | `reopen_task` | `task_name: "id:<ID from A03>"`. PASS if reopened, and `get_task` shows the state `open`. |
+| A09 | `add_task` | Create `{PREFIX} Subtask A` with `parent_task: "id:<ID from A03>"` and `planned_date: "2030-01-15"`. PASS if created as a subtask of `{PREFIX} Task A`. |
+| A10 | `get_task` | `task_name: "{PREFIX} Subtask A"`. PASS if it shows the parent task `{PREFIX} Task A` and the planned date. |
+| A11 | `edit_task` | `task_name: "{PREFIX} Subtask A"`, `property: "planned_date"`, `value: "none"`. PASS if the planned date is cleared. |
 
 ## Phase 3: Tag hierarchy (8 tests)
 
@@ -87,7 +91,7 @@ All tasks MUST use `project: "Smoke Test"`.
 
 ## Phase 6: Cleanup
 
-1. Delete `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true`.
+1. Delete `{PREFIX} Subtask A`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
 3. Delete the folder `{PREFIX} Folder Renamed` with its project `{PREFIX} Project` in OmniFocus by hand, because the tools cannot delete folders or projects.
 4. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.

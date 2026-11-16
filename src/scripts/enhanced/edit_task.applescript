@@ -1,7 +1,7 @@
 on run argv
     -- Edit an existing task
     -- Usage: edit_task.applescript "task name" "property" "new value"
-    -- Properties: name, note, due_date, defer_date, flagged, project, estimated_minutes, tags
+    -- Properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags
     
     set searchTerm to item 1 of argv
     set propertyName to item 2 of argv
@@ -64,6 +64,16 @@ on run argv
                         return "✏️ Set defer date to " & (parsedDate as string) & " for: " & originalName
                     end if
                     
+                else if propertyName is "planned_date" or propertyName is "planned" then
+                    if newValue is "none" or newValue is "clear" then
+                        set planned date of targetTask to missing value
+                        return "✏️ Cleared planned date for: " & originalName
+                    else
+                        set parsedDate to my parseDate(newValue)
+                        set planned date of targetTask to parsedDate
+                        return "✏️ Set planned date to " & (parsedDate as string) & " for: " & originalName
+                    end if
+
                 else if propertyName is "flagged" or propertyName is "flag" then
                     if newValue is "true" or newValue is "yes" or newValue is "1" then
                         set flagged of targetTask to true
@@ -146,7 +156,7 @@ on run argv
                     end if
 
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, due_date, defer_date, flagged, project, estimated_minutes, tags"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags"
                 end if
                 
             on error errMsg

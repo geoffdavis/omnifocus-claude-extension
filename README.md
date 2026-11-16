@@ -20,6 +20,8 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 ### Tags
 - **List Tags**: View all tags with hierarchy
 - **Create Tags**: Create tags, optionally nested under a parent
+- **Reopen Tasks**: Mark a completed or dropped task as open again
+- **Subtasks and planned dates**: Add a task under an existing task, set a planned date
 - **Edit Tags**: Rename, move, hide a tag, change its note or whether its tasks can be next actions
 - **Tag Tasks**: Add or remove tags on existing tasks
 - **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks. Tags at any level are found by name, by path `Parent > Child` or by `id:<id>`
@@ -72,6 +74,9 @@ npm run build
 "Search for all tasks about 'budget'"
 "Edit 'Team meeting' to be due tomorrow at 2pm"
 "Complete the task about reviewing reports"
+"Reopen the task 'Review Q3 reports'"
+"Add a subtask 'Collect figures' under the task 'Review Q3 reports'"
+"Set the planned date of 'Review Q3 reports' to Monday"
 ```
 
 ### Batch Operations
@@ -154,6 +159,7 @@ to include them.
 | `list_flagged_tasks` | Show flagged items | "Show flagged tasks" |
 | `list_overdue_tasks` | Show overdue items | "What's overdue?" |
 | `complete_task` | Mark as complete | "Complete budget review" |
+| `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
 | `get_task` | Show all details of one task | "Show details of 'Report'" |
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
@@ -195,6 +201,7 @@ omnifocus-claude-extension/
 │   │   │   ├── list_tags.applescript
 │   │   │   ├── create_tag.applescript
 │   │   │   ├── edit_tag.applescript
+│   │   │   ├── reopen_task.applescript
 │   │   │   ├── add_tag_to_task.applescript
 │   │   │   ├── remove_tag_from_task.applescript
 │   │   │   ├── get_task.applescript
