@@ -1,7 +1,10 @@
 on run argv
     -- Edit an existing folder
     -- Usage: edit_folder.applescript "folder name, Parent > Folder or id:<id>" "property" "new value"
-    -- Properties: name, note, append_note, parent, hidden
+    -- Properties: name, note, append_note, parent, hidden, attach_file, link_file, remove_attachment
+    --   attach_file: attaches the file with the given full path to the note (a copy is stored in OmniFocus)
+    --   link_file: links the file with the given full path in the note (the file stays where it is)
+    --   remove_attachment: removes the attachment with the given number (1 is the first one)
     --   parent: an existing folder, or "none" for top level; the folder is moved with everything in it
     --   hidden: true or false
 
@@ -64,6 +67,12 @@ on run argv
                 tell application "OmniFocus" to set note of targetFolder to currentNote & linefeed & newValue
             end if
             return "📝 Added to the note of folder: " & originalLabel
+
+        else if propertyName is "attach_file" or propertyName is "link_file" then
+            return my attachFileToNote(targetFolder, originalLabel, newValue, propertyName is "attach_file")
+
+        else if propertyName is "remove_attachment" then
+            return my removeAttachmentFromNote(targetFolder, originalLabel, newValue)
 
         else if propertyName is "parent" then
             if newValue is "none" or newValue is "top level" then
@@ -128,7 +137,7 @@ on run argv
             return "👁️ Folder is visible: " & originalLabel
 
         else
-            return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, parent, hidden"
+            return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, parent, hidden, attach_file, link_file, remove_attachment"
         end if
     on error errMsg
         return "❌ Error updating folder: " & errMsg
@@ -345,3 +354,141 @@ on trimItem(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimItem
+
+on attachFileToNote(theItem, itemLabel, pathText, embedFile)
+    -- Attaches a file at the end of the note of a task, project or folder and returns the message for the user.
+    -- embedFile true: a copy of the file is stored in the OmniFocus database and synchronized to all devices.
+    -- embedFile false: the note only links to the file, which has to stay where it is (it opens on this Mac only).
+    -- Needs noteFormattingProblem in the same script.
+    set filePath to my attachmentPath(pathText)
+    if filePath is "" then
+        return "❌ The path of the file is missing. Nothing was attached."
+    end if
+    if filePath does not start with "/" then
+        return "❌ Give the full path of the file, starting with / or ~. Nothing was attached."
+    end if
+    set fileSize to 0
+    try
+        do shell script "/bin/test -f " & quoted form of filePath
+        set fileSize to (do shell script "/usr/bin/stat -f %z " & quoted form of filePath) as number
+    on error
+        return "❌ The file does not exist, is a folder or cannot be read: " & filePath & ". Nothing was attached."
+    end try
+    set fileName to do shell script "/usr/bin/basename " & quoted form of filePath
+    set theFile to POSIX file filePath
+
+    set noteText to ""
+    set attachmentsBefore to 0
+    tell application "OmniFocus"
+        try
+            set noteText to (note of theItem) as text
+            set attachmentsBefore to count of attachment of (note of theItem)
+        on error errMsg
+            return "❌ The note could not be read: " & errMsg
+        end try
+    end tell
+
+    -- The attachment is added at the end of the note, in its own line as long as the note can be rewritten as plain text
+    if noteText is not "" then
+        set lastCharacter to last character of noteText
+        if lastCharacter is not linefeed and lastCharacter is not return then
+            if my noteFormattingProblem(theItem) is "" then
+                tell application "OmniFocus" to set note of theItem to noteText & linefeed
+            end if
+        end if
+    end if
+
+    set attachmentsAfter to attachmentsBefore
+    tell application "OmniFocus"
+        try
+            if noteText is "" then
+                tell note of theItem
+                    make new file attachment with properties {file name:theFile, embedded:embedFile}
+                end tell
+            else
+                make new file attachment at after last character of (note of theItem) with properties {file name:theFile, embedded:embedFile}
+            end if
+            set attachmentsAfter to count of attachment of (note of theItem)
+        on error errMsg
+            return "❌ Could not attach the file: " & errMsg
+        end try
+    end tell
+    if attachmentsAfter <= attachmentsBefore then
+        return "❌ OmniFocus did not attach the file."
+    end if
+    set kindText to "embedded"
+    if not embedFile then set kindText to "linked, stays where it is"
+    return "📎 Attached " & fileName & " (" & my attachmentSizeText(fileSize) & ", " & kindText & ") to: " & itemLabel
+end attachFileToNote
+
+on removeAttachmentFromNote(theItem, itemLabel, numberText)
+    -- Removes one attachment from the note, numbered as in the attachment list of get_task
+    set attachmentNumber to 0
+    try
+        set attachmentNumber to numberText as integer
+    end try
+    if attachmentNumber < 1 then
+        return "❌ remove_attachment needs the number of the attachment (1 is the first one, see get_task). Nothing was removed."
+    end if
+    set attachmentTotal to 0
+    tell application "OmniFocus"
+        try
+            set attachmentTotal to count of file attachment of (note of theItem)
+        on error errMsg
+            return "❌ The note could not be read: " & errMsg
+        end try
+        if attachmentTotal = 0 then
+            return "❌ The note has no attachments. Nothing was removed."
+        end if
+        if attachmentNumber > attachmentTotal then
+            return "❌ The note has only " & attachmentTotal & " attachments. Nothing was removed."
+        end if
+        try
+            delete (file attachment attachmentNumber of (note of theItem))
+        on error errMsg
+            return "❌ Could not remove the attachment: " & errMsg
+        end try
+    end tell
+    return "🗑️ Removed attachment " & attachmentNumber & " from: " & itemLabel
+end removeAttachmentFromNote
+
+on attachmentPath(pathText)
+    -- Removes spaces around the path and turns ~ into the home folder
+    set cleaned to pathText
+    set whitespaceChars to {" ", tab, linefeed, return}
+    repeat
+        if cleaned is "" then exit repeat
+        if whitespaceChars does not contain (character 1 of cleaned) then exit repeat
+        if (length of cleaned) = 1 then
+            set cleaned to ""
+        else
+            set cleaned to text 2 thru -1 of cleaned
+        end if
+    end repeat
+    repeat
+        if cleaned is "" then exit repeat
+        if whitespaceChars does not contain (last character of cleaned) then exit repeat
+        if (length of cleaned) = 1 then
+            set cleaned to ""
+        else
+            set cleaned to text 1 thru -2 of cleaned
+        end if
+    end repeat
+    if cleaned is "~" or cleaned starts with "~/" then
+        set homePath to POSIX path of (path to home folder)
+        if cleaned is "~" or cleaned is "~/" then
+            set cleaned to text 1 thru -2 of homePath
+        else
+            set cleaned to homePath & (text 3 thru -1 of cleaned)
+        end if
+    end if
+    return cleaned
+end attachmentPath
+
+on attachmentSizeText(byteCount)
+    -- "512 bytes", "12 KB", "3.4 MB"
+    if byteCount < 1024 then return ((byteCount as integer) as text) & " bytes"
+    if byteCount < 1048576 then return ((round (byteCount / 1024)) as text) & " KB"
+    set tenths to round (byteCount / 104857.6)
+    return ((tenths div 10) as text) & "." & ((tenths mod 10) as text) & " MB"
+end attachmentSizeText

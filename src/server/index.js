@@ -214,12 +214,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'append_note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags', 'repeat', 'parent_task', 'sequential', 'complete_with_last_item'],
+                    enum: ['name', 'note', 'append_note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags', 'repeat', 'parent_task', 'sequential', 'complete_with_last_item', 'attach_file', 'link_file', 'remove_attachment'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For repeat: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks" and so on; the next occurrence follows the completion, add "fixed" ("weekly fixed") for a fixed schedule; "none" stops the repetition. The task needs a due, defer or planned date. For parent_task: an open task by name or "id:<id>"; the task is moved below it together with its own subtasks (use project to move it to a project or the inbox instead); a task cannot be moved below itself or one of its subtasks. For sequential: "true" if the subtasks are to be done one after another, "false" for any order. For complete_with_last_item: "true" if the task completes when its last subtask is completed, "false" otherwise. For append_note: text that is added as a new line at the end of the note (note replaces the whole note), for example a link of any app (message://, https://, file://, things:///, ...), see get_selected_link.'
+                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For repeat: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks" and so on; the next occurrence follows the completion, add "fixed" ("weekly fixed") for a fixed schedule; "none" stops the repetition. The task needs a due, defer or planned date. For parent_task: an open task by name or "id:<id>"; the task is moved below it together with its own subtasks (use project to move it to a project or the inbox instead); a task cannot be moved below itself or one of its subtasks. For sequential: "true" if the subtasks are to be done one after another, "false" for any order. For complete_with_last_item: "true" if the task completes when its last subtask is completed, "false" otherwise. For append_note: text that is added as a new line at the end of the note (note replaces the whole note), for example a link of any app (message://, https://, file://, things:///, ...), see get_selected_link. For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_task (1 is the first one).'
                 }
             },
             required: ['task_name', 'property', 'value']
@@ -617,12 +617,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item'],
+                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item', 'attach_file', 'link_file', 'remove_attachment'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For append_note: text that is added as a new line at the end of the note (note replaces the whole note).'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For append_note: text that is added as a new line at the end of the note (note replaces the whole note). For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_project (1 is the first one).'
                 }
             },
             required: ['project', 'property', 'value']
@@ -666,12 +666,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'append_note', 'parent', 'hidden'],
+                    enum: ['name', 'note', 'append_note', 'parent', 'hidden', 'attach_file', 'link_file', 'remove_attachment'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new folder name. For note: the new note text. For append_note: text that is added as a new line at the end of the note. For parent: an existing folder by name, path or "id:<id>", or "none" for top level; a folder cannot be moved below itself or one of its subfolders. For hidden: "true" or "false".'
+                    description: 'New value. For name: the new folder name. For note: the new note text. For append_note: text that is added as a new line at the end of the note. For parent: an existing folder by name, path or "id:<id>", or "none" for top level; a folder cannot be moved below itself or one of its subfolders. For hidden: "true" or "false". For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by list_folders (1 is the first one).'
                 }
             },
             required: ['folder', 'property', 'value']
@@ -759,7 +759,7 @@ const tools = [
     },
     {
         name: 'get_task',
-        description: 'Show the details of one task: ID, state, project with folder path, tags, dates, estimate, repetition, subtask count and note',
+        description: 'Show the details of one task: ID, state, project with folder path, tags, dates, estimate, repetition, subtask count, attachments and note',
         inputSchema: {
             type: 'object',
             properties: {

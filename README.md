@@ -126,6 +126,20 @@ text of a message or a file, does not start the app, and the first use of each a
 `get_task` and `get_project` show the `omnifocus:///task/<id>` link of the item, which you can paste into other apps.
 Apple Notes cannot be linked this way: scripts get no link to a note.
 
+### Attachments in Notes
+```
+"Attach the file ~/Documents/offer.pdf to the task 'Answer the offer'"
+"Link the file /Users/me/Contracts/lease.pdf in the note of the project 'Rental'"
+"Show the attachments of the task 'Answer the offer'"
+"Remove attachment 2 from the task 'Answer the offer'"
+```
+`edit_task`, `edit_project` and `edit_folder` take the properties `attach_file` (the full path of a file; a copy is stored
+in the note and synchronized to all devices), `link_file` (the note only links to the file, which has to stay where it is
+and opens on this Mac only) and `remove_attachment` (the number shown by `get_task`, `get_project`; 1 is the first one).
+The file goes to the end of the note in its own line, the text of the note stays as it is. `get_task` and `get_project`
+list the attachments (linked files with their path) and show a paperclip in the note where an attachment sits. OmniFocus
+does not give scripts the name of an embedded file. Notes with attachments are not changed by `append_note`.
+
 ### Action Groups
 ```
 "Move the task 'Collect figures' below the task 'Review Q3 reports'"
@@ -203,7 +217,7 @@ to include them.
 |---------|-------------|---------|
 | `add_task` | Add a task with full properties | "Add task to buy milk due tomorrow, defer until morning" |
 | `search_tasks` | Search across all tasks | "Search for budget tasks" |
-| `edit_task` | Modify existing task, including its repetition, its parent task and the behavior of its subtasks | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
+| `edit_task` | Modify existing task, including its repetition, its parent task, the behavior of its subtasks and file attachments in its note | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
 | `batch_add_tasks` | Create multiple tasks | "Add tasks: Task1\|Task2\|-Subtask" |
 | `create_recurring_task` | Set up repeating task | "Create daily task 'Review email'" |
 | `list_inbox` | Show inbox tasks | "Show my inbox" |
@@ -215,7 +229,7 @@ to include them.
 | `complete_task` | Mark as complete | "Complete budget review" |
 | `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
-| `get_task` | Show all details of one task, including its repetition | "Show details of 'Report'" |
+| `get_task` | Show all details of one task, including its repetition and attachments | "Show details of 'Report'" |
 | `get_project` | Show a project with its properties and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
 | `list_tags` | Show all tags with hierarchy, IDs, hidden / no-next-action flags and locations | "List my tags" |
@@ -224,11 +238,11 @@ to include them.
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 | `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
-| `edit_project` | Rename, change or extend note (`append_note`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
+| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
 | `list_folders` | Show all folders as a hierarchy with IDs, project counts, hidden folders and notes | "List my folders" |
-| `edit_folder` | Rename, move (with everything in it), hide or show a folder, change or extend its note | "Move the folder 'Old clients' below 'Archive'" |
+| `edit_folder` | Rename, move (with everything in it), hide or show a folder, change or extend its note, attach or remove files | "Move the folder 'Old clients' below 'Archive'" |
 | `delete_folder` | Delete a folder (needs `confirm_delete`; a folder with content only with `delete_contents`) | "Delete the empty folder 'Test'" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag, folder, a single project or time (`max_minutes`) | "What can I work on now?" |
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |

@@ -92,7 +92,9 @@ on run argv
         end try
         set reportText to reportText & return
 
-        set projectNote to note of targetProject
+        set attachmentText to my attachmentLines(targetProject)
+        if attachmentText is not "" then set reportText to reportText & attachmentText & return
+        set projectNote to my markAttachments((note of targetProject) as text)
         if projectNote is not "" then
             if (length of projectNote) > 500 then set projectNote to (text 1 thru 500 of projectNote) & "..."
             set reportText to reportText & "Note: " & projectNote & return
@@ -415,3 +417,57 @@ on reviewIntervalText(aProject)
     if stepCount is 1 then return "every " & unitName
     return "every " & stepCount & " " & unitName & "s"
 end reviewIntervalText
+
+on attachmentLines(theItem)
+    -- Returns "" when the note has no attachment, otherwise the lines that describe the attachments.
+    -- OmniFocus gives scripts the path of a linked file, but not the name of an embedded file.
+    set attachmentCount to 0
+    set embeddedFlags to {}
+    set filePaths to {}
+    tell application "OmniFocus"
+        try
+            set attachmentCount to count of file attachment of (note of theItem)
+        end try
+        repeat with i from 1 to attachmentCount
+            set isEmbedded to true
+            set thePath to ""
+            try
+                set isEmbedded to embedded of (file attachment i of (note of theItem))
+            end try
+            if not isEmbedded then
+                try
+                    -- two steps: the path of the file is made by AppleScript, not by OmniFocus
+                    set fileReference to file name of (file attachment i of (note of theItem))
+                    set thePath to POSIX path of fileReference
+                end try
+            end if
+            set end of embeddedFlags to isEmbedded
+            set end of filePaths to thePath
+        end repeat
+    end tell
+    if attachmentCount = 0 then return ""
+    set reportText to "Attachments: " & attachmentCount
+    repeat with i from 1 to attachmentCount
+        if item i of embeddedFlags then
+            set reportText to reportText & return & "  " & i & ". embedded file"
+        else if (item i of filePaths) is not "" then
+            set reportText to reportText & return & "  " & i & ". linked file: " & (item i of filePaths)
+        else
+            set reportText to reportText & return & "  " & i & ". linked file (path unknown)"
+        end if
+    end repeat
+    return reportText
+end attachmentLines
+
+on markAttachments(noteText)
+    -- The note text holds one special character for each attachment; show it as a paperclip
+    set marker to character id 65532
+    if noteText does not contain marker then return noteText
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to marker
+    set pieces to text items of noteText
+    set AppleScript's text item delimiters to "📎"
+    set markedText to pieces as text
+    set AppleScript's text item delimiters to oldDelims
+    return markedText
+end markAttachments

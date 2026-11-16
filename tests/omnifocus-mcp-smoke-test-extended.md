@@ -46,7 +46,7 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q16 | `get_selected_link` | Manual test, only if you can select something in the apps (otherwise mark SKIPPED). With `app: "Finder"` and a file selected in Finder: PASS if the name and a `Link: file://...` line are shown. With `app: "Safari"` (or `Google Chrome`) and a window open: PASS if the title and the URL of the front tab are shown. With Mail and a message selected: PASS if subject, sender, date and `Link: message://%3C...%3E` are shown and no message text. With a closed app the call must FAIL with `is not running`; `app: "Notes"` must FAIL with `Unsupported app`. |
 | Q17 | `synchronize` | `wait_seconds: 5`. PASS if it answers `Synchronized` or `still running`, or, when no sync is set up in OmniFocus, with a message starting `Could not synchronize` (then mark the sync part SKIPPED). `wait_seconds: 0` must answer `Synchronization started`. Optional by hand: `clean_up` moves inbox items that already have a project into their projects and hides completed tasks, so it changes existing data and is not part of the automatic run; PASS if it answers `Cleaned up` with the number of moved inbox items. |
 
-## Phase 2: Tasks and tags (29 tests)
+## Phase 2: Tasks and tags (32 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -81,6 +81,9 @@ All tasks MUST use `project: "Smoke Test"`.
 | A27 | `edit_task` | `task_name: "{PREFIX} P1"` (no note), `property: "append_note"`, `value: "{PREFIX} first line"`. PASS if `get_task` shows exactly this note without an empty line before it. Then `value: ""` must FAIL with `append_note needs a text to add`, and the note stays the same. |
 | A28 | `get_task` | `task_name: "{PREFIX} P1"`. PASS if a line `Link: omnifocus:///task/<id>` with the ID of the task is shown. Then `get_project` of `Smoke Test` must show a `Link: omnifocus:///task/<id>` line for the project. |
 | A29 | `add_task` then `undo` | Create `{PREFIX} Undo` in project `Smoke Test`, then call `undo` without parameters. PASS if it answers `Undid` and `search_tasks` with `query: "{PREFIX} Undo"` finds no task. Then `undo` with `action: "redo"`: PASS if it answers `Redid` and the task is found again. Do not change anything in OmniFocus by hand during this test, because `undo` reverts the last change whoever made it. |
+| A30 | `edit_task` | Manual preparation: create a small text file `/tmp/{PREFIX}.txt` (for example `echo test > /tmp/{PREFIX}.txt`); mark A30 to A32 SKIPPED if that is not possible. `task_name: "{PREFIX} P1"`, `property: "attach_file"`, `value: "/tmp/{PREFIX}.txt"`. PASS if it answers `Attached` with the file name and size, `get_task` shows `Attachments: 1` and `1. embedded file`, and the note shows the text `{PREFIX} first line` followed by a paperclip in its own line. The values `relative.txt`, `/tmp/{PREFIX}-missing.txt` and `/tmp` must each FAIL with `Nothing was attached` and change nothing. |
+| A31 | `edit_task` | `property: "link_file"`, `value: "/tmp/{PREFIX}.txt"` on `{PREFIX} P1`. PASS if `get_task` shows `Attachments: 2` with `2. linked file:` and the path of the file. |
+| A32 | `edit_task` | `append_note` on `{PREFIX} P1`: PASS if it refuses because of the attachments. Then `property: "remove_attachment"` with `value: "2"`: PASS if `get_task` shows `Attachments: 1`. The values `5`, `0` and `x` must FAIL and change nothing. Then `value: "1"`: PASS if `get_task` shows no `Attachments` line and the note is `{PREFIX} first line` again. |
 
 ## Phase 3: Tag hierarchy (11 tests)
 
@@ -137,7 +140,8 @@ All tasks MUST use `project: "Smoke Test"`.
 1. Delete `{PREFIX} Undo` (if it exists), `{PREFIX} P1`, `{PREFIX} P2` (with their subtasks) and `{PREFIX} Single`, then `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
 3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` using `delete_folder` with `confirm_delete: true` and `delete_contents: true`. PASS if `list_folders` no longer shows it.
-4. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.
+4. Delete the file `/tmp/{PREFIX}.txt` if you created it.
+5. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.
 
 ## Phase 7: Report
 

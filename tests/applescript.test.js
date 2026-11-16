@@ -520,6 +520,49 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Attachments in notes', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_task, edit_project and edit_folder attach, link and remove files', () => {
+            ['edit_task.applescript', 'edit_project.applescript', 'edit_folder.applescript'].forEach(file => {
+                const content = read(file);
+                ['attach_file', 'link_file', 'remove_attachment'].forEach(property => {
+                    expect(content).toContain(`propertyName is "${property}"`);
+                });
+                expect(content).toContain('my attachFileToNote(');
+                expect(content).toContain('my removeAttachmentFromNote(');
+                expect(content).toContain('on attachFileToNote(theItem, itemLabel, pathText, embedFile)');
+                expect(content).toContain('on removeAttachmentFromNote(theItem, itemLabel, numberText)');
+                expect(content).toContain('make new file attachment at after last character of (note of theItem) with properties {file name:theFile, embedded:embedFile}');
+                expect(content).toContain('/bin/test -f');
+                expect(content).toContain('starting with / or ~');
+                expect(content).toContain('delete (file attachment attachmentNumber of (note of theItem))');
+                expect(content).toContain('attach_file, link_file, remove_attachment');
+            });
+        });
+
+        test('attachFileToNote starts a new line only when the note can be rewritten as plain text', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('if my noteFormattingProblem(theItem) is "" then');
+            expect(content).toContain('set note of theItem to noteText & linefeed');
+            expect(content).toContain('OmniFocus did not attach the file.');
+        });
+
+        test('get_task.applescript and get_project.applescript list the attachments and mark them in the note', () => {
+            ['get_task.applescript', 'get_project.applescript'].forEach(file => {
+                const content = read(file);
+                expect(content).toContain('my attachmentLines(');
+                expect(content).toContain('my markAttachments((note of');
+                expect(content).toContain('on attachmentLines(theItem)');
+                expect(content).toContain('embedded of (file attachment i of (note of theItem))');
+                expect(content).toContain('set fileReference to file name of (file attachment i of (note of theItem))');
+                expect(content).toContain('set thePath to POSIX path of fileReference');
+                expect(content).toContain('character id 65532');
+                expect(content).toContain('"Attachments: " & attachmentCount');
+            });
+        });
+    });
+
     describe('Synchronize and clean up', () => {
         const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
 
