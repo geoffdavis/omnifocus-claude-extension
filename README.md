@@ -20,9 +20,11 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 ### Tags
 - **List Tags**: View all tags with hierarchy
 - **Create Tags**: Create tags, optionally nested under a parent
-- **Delete Tags**: Remove tags from OmniFocus
+- **Reopen Tasks**: Mark a completed or dropped task as open again
+- **Subtasks and planned dates**: Add a task under an existing task, set a planned date
+- **Edit Tags**: Rename, move, hide a tag, change its note or whether its tasks can be next actions
 - **Tag Tasks**: Add or remove tags on existing tasks
-- **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks
+- **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks. Tags at any level are found by name, by path `Parent > Child` or by `id:<id>`
 
 ### Views
 - **List Projects**: View all active projects with task counts
@@ -72,6 +74,9 @@ npm run build
 "Search for all tasks about 'budget'"
 "Edit 'Team meeting' to be due tomorrow at 2pm"
 "Complete the task about reviewing reports"
+"Reopen the task 'Review Q3 reports'"
+"Add a subtask 'Collect figures' under the task 'Review Q3 reports'"
+"Set the planned date of 'Review Q3 reports' to Monday"
 ```
 
 ### Batch Operations
@@ -91,6 +96,10 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "List all my tags"
 "Create a tag called 'Urgent'"
 "Create a 'Home' tag under 'Locations'"
+"Rename the tag 'Waiting' to 'Waiting for'"
+"Make tasks with the tag 'Waiting for' no longer next actions"
+"Hide the tag 'Someday'"
+"Move the tag 'Phone' below 'Locations'"
 "Add tag 'Priority' to my 'Review reports' task"
 "Remove tag 'Waiting' from 'Follow up with client'"
 "Add task 'Fix login bug' with tags Priority, Computer"
@@ -105,6 +114,37 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Show all projects with task counts"
 "Give me a weekly review"
 ```
+
+### Projects and Folders
+```
+"Create a folder 'Clients' and a project 'Website relaunch' in it"
+"Rename the project 'Website relaunch' to 'Website 2.0'"
+"Move the project 'Website 2.0' to the folder 'Clients > Active'"
+"Put the project 'Website 2.0' on hold"
+"Make 'Website 2.0' a sequential project"
+"Review 'Website 2.0' every 2 weeks"
+"Keep 'Someday' out of the reviews until 2027-01-01"
+"Set the due date of 'Website 2.0' to 2026-12-31 and complete it with its last item"
+"Drop the task 'Old idea'"
+```
+Projects in any folder can be addressed by name or by path (`Folder > Subfolder > Project`). If a name matches
+several projects the tool lists the matches and changes nothing. Tasks and projects can also be addressed by the
+`id:<id>` shown in list outputs.
+
+### GTD Queries and Reviews
+```
+"What can I work on now?"
+"What can I work on in the folder 'Clients'?"
+"Show all tasks tagged 'Waiting for'"
+"Show the available tasks tagged 'Phone'"
+"What did I complete in the last 7 days?"
+"Which projects are due for review?"
+"Mark the project 'Website 2.0' as reviewed"
+"Which projects have no next action?"
+```
+
+Dropped items and items below dropped (hidden) folders are left out of all read tools. Pass `include_dropped: true`
+to include them.
 
 ## Available Commands
 
@@ -122,12 +162,25 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 | `list_flagged_tasks` | Show flagged items | "Show flagged tasks" |
 | `list_overdue_tasks` | Show overdue items | "What's overdue?" |
 | `complete_task` | Mark as complete | "Complete budget review" |
+| `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
-| `list_tags` | Show all tags with hierarchy | "List my tags" |
-| `create_tag` | Create a new tag | "Create tag 'Urgent'" |
-| `delete_tag` | Delete a tag | "Delete the 'Old' tag" |
+| `get_task` | Show all details of one task | "Show details of 'Report'" |
+| `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
+| `list_tags` | Show all tags with hierarchy, IDs and hidden / no-next-action flags | "List my tags" |
+| `create_tag` | Create a new tag, optionally below another tag | "Create tag 'Urgent'" |
+| `edit_tag` | Rename, move, hide a tag, change its note or next-action behavior | "Rename tag 'Waiting' to 'Waiting for'" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
+| `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
+| `edit_project` | Rename, change note, folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
+| `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
+| `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
+| `list_available_tasks` | Next actions across all projects, optionally by tag or folder | "What can I work on now?" |
+| `list_tasks_by_tag` | Open tasks with a tag, grouped by project | "Show tasks tagged 'Waiting for'" |
+| `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
+| `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
+| `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
+| `list_stalled_projects` | Active projects without a next action | "Which projects are stalled?" |
 
 ## Development
 
@@ -150,9 +203,21 @@ omnifocus-claude-extension/
 │   │   │   ├── list_overdue_tasks.applescript
 │   │   │   ├── list_tags.applescript
 │   │   │   ├── create_tag.applescript
-│   │   │   ├── delete_tag.applescript
+│   │   │   ├── edit_tag.applescript
+│   │   │   ├── reopen_task.applescript
 │   │   │   ├── add_tag_to_task.applescript
-│   │   │   └── remove_tag_from_task.applescript
+│   │   │   ├── remove_tag_from_task.applescript
+│   │   │   ├── get_task.applescript
+│   │   │   ├── drop_task.applescript
+│   │   │   ├── create_project.applescript
+│   │   │   ├── edit_project.applescript
+│   │   │   ├── create_folder.applescript
+│   │   │   ├── rename_folder.applescript
+│   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag
+│   │   │   ├── list_completed_tasks.applescript
+│   │   │   ├── list_projects_for_review.applescript
+│   │   │   ├── mark_project_reviewed.applescript
+│   │   │   └── list_stalled_projects.applescript
 │   │   ├── add_task.applescript
 │   │   ├── complete_task.applescript
 │   │   ├── list_inbox.applescript
