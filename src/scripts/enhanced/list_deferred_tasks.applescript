@@ -2,18 +2,28 @@ on run argv
     -- List all deferred tasks (tasks with defer dates in the future)
     -- Usage: list_deferred_tasks.applescript
     
+    -- include_dropped: "true" also shows dropped items and items below dropped (hidden) folders
+    set includeDropped to false
+    if (count of argv) > 0 then set includeDropped to (item 1 of argv is "true")
+    set hiddenIDs to {}
+    if not includeDropped then set hiddenIDs to my hiddenFolderTaskIDs()
+    
     tell application "OmniFocus"
         tell default document
             set currentTime to current date
             
             -- Get all tasks with defer dates
-            set allDeferredTasks to every flattened task whose defer date is not missing value and completed is false
+            if includeDropped then
+                set allDeferredTasks to every flattened task whose defer date is not missing value and effectively completed is false
+            else
+                set allDeferredTasks to every flattened task whose defer date is not missing value and effectively completed is false and effectively dropped is false
+            end if
             
             -- Filter for tasks actually deferred (defer date in future)
             set deferredTasks to {}
             repeat with aTask in allDeferredTasks
-                if defer date of aTask > currentTime then
-                    set end of deferredTasks to aTask
+                if defer date of aTask > currentTime and not (my isHiddenItem(contents of aTask, hiddenIDs)) then
+                    set end of deferredTasks to contents of aTask
                 end if
             end repeat
             
@@ -146,3 +156,59 @@ on formatDeferredTask(aTask)
         return "• " & taskName & projectInfo & flags & return & "  ⏰ Available: " & dateStr & " at " & timeStr
     end tell
 end formatDeferredTask
+
+on hiddenFolderProjectIDs()
+    -- IDs of all projects below a hidden (dropped) folder, at any depth
+    set idList to {}
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hiddenFolders to every flattened folder whose hidden is true
+                repeat with aFolder in hiddenFolders
+                    set idList to idList & (id of every flattened project of (contents of aFolder))
+                end repeat
+            end try
+        end tell
+    end tell
+    return idList
+end hiddenFolderProjectIDs
+
+on hiddenFolderTaskIDs()
+    -- IDs of all tasks in projects below a hidden (dropped) folder
+    set idList to {}
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hiddenFolders to every flattened folder whose hidden is true
+                repeat with aFolder in hiddenFolders
+                    set folderProjects to every flattened project of (contents of aFolder)
+                    repeat with aProject in folderProjects
+                        try
+                            set idList to idList & (id of every flattened task of root task of (contents of aProject))
+                        on error
+                            set idList to idList & (id of every flattened task of (contents of aProject))
+                        end try
+                    end repeat
+                end repeat
+            end try
+        end tell
+    end tell
+    return idList
+end hiddenFolderTaskIDs
+
+on isHiddenItem(anItem, hiddenIDs)
+    -- True if the task or project is one of the items below a hidden folder
+    if (count of hiddenIDs) = 0 then return false
+    tell application "OmniFocus" to set itemID to id of anItem
+    return (hiddenIDs contains itemID)
+end isHiddenItem
+
+on countVisible(idList, hiddenIDs)
+    -- Number of IDs that are not below a hidden folder
+    if (count of hiddenIDs) = 0 then return count of idList
+    set visibleCount to 0
+    repeat with anID in idList
+        if hiddenIDs does not contain (contents of anID) then set visibleCount to visibleCount + 1
+    end repeat
+    return visibleCount
+end countVisible
