@@ -15,14 +15,24 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Search Tasks**: Search across all projects, contexts, and notes
 - **Edit Tasks**: Modify any task property including defer dates and tags
 - **Batch Task Creation**: Create multiple tasks with subtasks in one command
-- **Recurring Tasks**: Create tasks with daily, weekly, monthly, or custom repeat patterns
+- **Recurring Tasks and Projects**: Repeat by interval, on weekdays, on a day of the month or on the last Friday of the month, on a fixed schedule or after completion, based on the due, defer or planned date, with or without catching up; for tasks and projects
+- **Text to tasks**: Turn a list of lines (or the note of a task) into tasks and subtasks, with the inline syntax of OmniFocus
+- **Undo**: Undo or redo the last change(s) in OmniFocus (it reverts changes made by hand too)
+- **Sync and clean up**: Synchronize OmniFocus on request (with the time and error of the last sync), and run Clean Up (inbox items with a project move into their projects)
+- **Links**: Put a link to anything in another app into the note of a task (any URL or app link), take it from Mail, Safari, Chrome, Finder or Contacts, and get the `omnifocus:///task/<id>` link of a task or project
+- **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
+- **Duplicate**: Copy a task with its subtasks or a project with all its tasks (for example as a template), into another project, folder or the inbox
+- **Queries by date**: List tasks or projects by the date they were created, last modified or dropped, for the last days or a period, newest first
 
 ### Tags
 - **List Tags**: View all tags with hierarchy
 - **Create Tags**: Create tags, optionally nested under a parent
-- **Delete Tags**: Remove tags from OmniFocus
+- **Reopen Tasks**: Mark a completed or dropped task as open again
+- **Subtasks and planned dates**: Add a task under an existing task, set a planned date
+- **Edit Tags**: Rename, move, hide a tag, change its note or whether its tasks can be next actions
+- **Tag locations**: Set, change or remove the location of a tag (latitude, longitude, radius, arriving or leaving) for Nearby in OmniFocus
 - **Tag Tasks**: Add or remove tags on existing tasks
-- **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks
+- **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks. Tags at any level are found by name, by path `Parent > Child` or by `id:<id>`
 
 ### Views
 - **List Projects**: View all active projects with task counts
@@ -72,6 +82,9 @@ npm run build
 "Search for all tasks about 'budget'"
 "Edit 'Team meeting' to be due tomorrow at 2pm"
 "Complete the task about reviewing reports"
+"Reopen the task 'Review Q3 reports'"
+"Add a subtask 'Collect figures' under the task 'Review Q3 reports'"
+"Set the planned date of 'Review Q3 reports' to Monday"
 ```
 
 ### Batch Operations
@@ -80,10 +93,99 @@ npm run build
 ```
 Note: Use `|` to separate tasks and `-` prefix for subtasks
 
-### Recurring Tasks
+### Recurring Tasks and Projects
 ```
 "Create weekly recurring task 'Process inbox' due every Sunday"
 "Add monthly recurring 'Review finances' on the 15th"
+"Make the task 'Water plants' repeat every 3 days"
+"Repeat 'Team meeting' every Monday and Thursday"
+"Repeat 'Invoices' on the last Friday of the month, fixed schedule"
+"Let 'Water plants' repeat 2 weeks after I complete it, based on the defer date"
+"Repeat the project 'Monthly closing' on the 1st of every month"
+"Stop the repetition of 'Process inbox'"
+```
+`create_recurring_task`, `edit_task` and `edit_project` take the repeat rule in words or as an iCalendar rule
+(`FREQ=WEEKLY;BYDAY=MO,TH`, upper case, optionally with `COUNT` or `UNTIL`). In words: `daily`, `weekly`, `monthly`,
+`yearly`, `3 days`, `2 weeks`, `every monday and thursday`, `weekdays`, `every 2 weeks on monday`, `monthly on the 15th`,
+`last day of the month`, `first monday of the month`, `last friday of the month`. `fixed` at the end follows the calendar
+(the next occurrence does not depend on when you complete the task), `from completion` follows the completion; without
+either, a rule that only has an interval follows the completion and a rule with weekdays or days of the month follows
+the calendar. `none` stops the repetition. A repeating task or project needs a due, defer or planned date.
+
+Two more properties change a rule that exists, without touching the rest of it: `repeat_based_on` (`due`, `defer` or
+`planned`: the date the next occurrence is calculated from; the task needs this date) and `repeat_catch_up` (`true` or
+`false`: a fixed schedule skips the occurrences in the past instead of creating them one after the other). `get_task`
+and `get_project` show the rule, for example `every week on Monday and Thursday, fixed schedule, based on the defer date,
+catches up automatically`. A rule that OmniFocus does not accept changes nothing. OmniFocus has no yearly rule for a fixed
+month and day: a yearly rule repeats on the date of the due date.
+
+### Text to Tasks
+```
+"Turn the note of 'Plan offsite' into subtasks"
+"Create these tasks in the project 'Website 2.0': Design review, then below it Collect feedback and Write summary"
+```
+One task per line, indented lines become subtasks of the closest line above that is indented less. A list marker
+(`- `, `* ` or `• `) at the start of a line is removed, and every line goes through the text parser of OmniFocus, so
+its inline syntax works (for example `Call Max //number 123` puts the number in the note). `single_task` makes the whole
+text one task, `clear_note` empties the note after `from_note` was converted.
+
+### Links to Other Apps
+```
+"Create a task 'Answer the offer' with the link to the selected mail in its note"
+"Add the link to the page I have open in Safari to the note of 'Plan offsite'"
+"Add the link to the file selected in Finder to the project 'Taxes 2026'"
+"Show me the link to the task 'Answer the offer'"
+```
+A link is only text in the note, so any app link works: `add_task` (`note`) and `edit_task` / `edit_project` with
+`append_note` accept `message://`, `https://`, `file://`, `things:///`, `x-devonthink-item://` and so on. `append_note`
+adds a line to the end of the note and keeps the existing text; it refuses to change a note with attachments or
+formatting instead of losing them. `get_selected_link` reads the link from the app: for the messages selected in Mail
+(`message://`), the front tab of Safari or a Chromium browser (Chrome, Brave, Edge, Arc, Vivaldi), the files selected in
+Finder (`file://`) and the contacts selected in Contacts (`addressbook://`). It reads titles, senders and IDs, never the
+text of a message or a file, does not start the app, and the first use of each app asks for permission to control it.
+`get_task` and `get_project` show the `omnifocus:///task/<id>` link of the item, which you can paste into other apps.
+Apple Notes cannot be linked this way: scripts get no link to a note.
+
+### Attachments in Notes
+```
+"Attach the file ~/Documents/offer.pdf to the task 'Answer the offer'"
+"Link the file /Users/me/Contracts/lease.pdf in the note of the project 'Rental'"
+"Show the attachments of the task 'Answer the offer'"
+"Remove attachment 2 from the task 'Answer the offer'"
+"Save the attachment of the task 'Answer the offer' to ~/Downloads/offer.pdf"
+```
+`edit_task`, `edit_project` and `edit_folder` take the properties `attach_file` (the full path of a file; a copy is stored
+in the note and synchronized to all devices), `link_file` (the note only links to the file, which has to stay where it is
+and opens on this Mac only) and `remove_attachment` (the number shown by `get_task`, `get_project`; 1 is the first one).
+The file goes to the end of the note in its own line, the text of the note stays as it is. `get_task` and `get_project`
+list the attachments (linked files with their path) and show a paperclip in the note where an attachment sits. OmniFocus
+does not give scripts the name of an embedded file. `save_attachment` writes an embedded attachment to a new file
+(the path is up to you and must not exist yet), a linked file is not copied. Notes with attachments are not changed by
+`append_note`.
+
+### View and Selection
+```
+"What is selected in OmniFocus?"
+"Show the Forecast perspective"
+"Search OmniFocus for 'invoice'"
+"Focus OmniFocus on the project 'Website 2.0'"
+"Show the project 'Rental' in OmniFocus"
+```
+`get_selection` shows what the front OmniFocus window shows: the perspective, the search term, the focus and the selected
+items (tasks, projects, folders or tags) with their IDs, so that you can say "this task" or "the selected project" and
+the other tools take the item with `id:<id>`. `set_view` switches the perspective (a part of a name works if only one
+perspective fits), sets or clears the search term and focuses the window on a project or folder (`none` removes the
+focus); it checks the result and says so if OmniFocus did not accept a value. OmniFocus reports a removed focus to the
+script late, so `set_view` may only say that the removal was sent: check it with `get_selection`. For a project that is
+completed or dropped, or below a hidden folder, `set_view` and `show_item` add a note, because OmniFocus may not show it. `show_item` opens a task, project, folder or
+tag in the window and selects it, through the `omnifocus:///` links of OmniFocus. These tools only change what the window
+shows, never a task, project or folder.
+
+### Action Groups
+```
+"Move the task 'Collect figures' below the task 'Review Q3 reports'"
+"Make the subtasks of 'Review Q3 reports' sequential"
+"Let 'Review Q3 reports' complete when its last subtask is done"
 ```
 
 ### Tags
@@ -91,6 +193,13 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "List all my tags"
 "Create a tag called 'Urgent'"
 "Create a 'Home' tag under 'Locations'"
+"Rename the tag 'Waiting' to 'Waiting for'"
+"Make tasks with the tag 'Waiting for' no longer next actions"
+"Hide the tag 'Someday'"
+"Move the tag 'Phone' below 'Locations'"
+"Set the location of the tag 'Office' to latitude 50.9787 and longitude 11.3235, radius 0.5 km, notify when arriving"
+"Change the radius of the location of 'Office' to 1 km"
+"Remove the location of the tag 'Office'"
 "Add tag 'Priority' to my 'Review reports' task"
 "Remove tag 'Waiting' from 'Follow up with client'"
 "Add task 'Fix login bug' with tags Priority, Computer"
@@ -106,15 +215,81 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Give me a weekly review"
 ```
 
+### Projects and Folders
+```
+"Create a folder 'Clients' and a project 'Website relaunch' in it"
+"Rename the project 'Website relaunch' to 'Website 2.0'"
+"Move the project 'Website 2.0' to the folder 'Clients > Active'"
+"Put the project 'Website 2.0' on hold"
+"Make 'Website 2.0' a sequential project"
+"Review 'Website 2.0' every 2 weeks"
+"Show everything in the project 'Website 2.0', also blocked and deferred tasks"
+"Keep 'Someday' out of the reviews until 2027-01-01"
+"Set the due date of 'Website 2.0' to 2026-12-31 and complete it with its last item"
+"Drop the task 'Old idea'"
+```
+Projects in any folder can be addressed by name or by path (`Folder > Subfolder > Project`). If a name matches
+several projects the tool lists the matches and changes nothing. Tasks and projects can also be addressed by the
+`id:<id>` shown in list outputs.
+
+### Duplicate
+```
+"Duplicate the project 'Onboarding' into the folder 'Clients' as 'Onboarding Acme' and reopen all tasks"
+"Duplicate the task 'Prepare release' into the project 'Website 2.0'"
+"Copy the task 'Weekly report' to the inbox"
+"Duplicate the task 'Send invoice' as a subtask of 'Monthly closing'"
+```
+`duplicate_item` copies a task with all its subtasks or a project with all its tasks. The copy keeps notes, tags, dates,
+estimate, flag, repetition and (for a project) status and type. Without a destination the copy goes
+directly after the original. `project` (a project, or `inbox`) or `parent_task` choose the place of a task copy,
+`folder` (or `none` for the top level) the place of a project copy. `new_name` renames the copy; a project copy gets
+` copy` after its name if its folder already has a project with this name. OmniFocus loses the dropped state of a
+task when it copies it, so the tool drops those tasks again in the copy. Completed tasks stay completed, unless
+`reopen_completed` is true, which makes a copy usable as a template. The answer shows the ID of the copy, so it can be
+addressed with `id:<id>` (the copy has the same name as the original). Only open tasks can be duplicated; OmniFocus
+cannot duplicate folders.
+
+### GTD Queries and Reviews
+```
+"What can I work on now?"
+"What can I work on in the folder 'Clients'?"
+"What are the next actions of the project 'Website 2.0'?"
+"Show all tasks tagged 'Waiting for'"
+"Which waiting-for items are the oldest?"
+"What is due in the next 7 days, grouped by tag?"
+"What can I do in 15 minutes?"
+"Show the available tasks tagged 'Phone'"
+"What did I complete in the last 7 days?"
+"What did I add this week?"
+"Which open tasks of the project 'Website 2.0' changed since Monday?"
+"Which projects did I create in October?"
+"What did I drop yesterday?"
+"Which projects are due for review?"
+"Mark the project 'Website 2.0' as reviewed"
+"Which perspectives do I have?"
+"Which projects have no next action?"
+```
+
+Dropped items and items below dropped (hidden) folders are left out of all read tools. Pass `include_dropped: true`
+to include them.
+
+`list_tasks_by_date` lists tasks (or `item_type: projects`) by one of three dates: `created`, `modified` (OmniFocus
+updates it with every change, also with the completion or the drop of a task) or `dropped`. Completed tasks stay with
+`list_completed_tasks`. The period is the last `days` (default 7) or a range from `since` to `until`
+(`YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, `today` or `yesterday`; a date as `until` counts through the end of that day).
+`status: open` leaves out completed and dropped tasks (for projects: only active and on hold), `project` limits the list
+to one project, `limit` caps the number of items. The list is sorted newest first and grouped by day; tasks show their
+project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dropped) folders are always left out.
+
 ## Available Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
 | `add_task` | Add a task with full properties | "Add task to buy milk due tomorrow, defer until morning" |
 | `search_tasks` | Search across all tasks | "Search for budget tasks" |
-| `edit_task` | Modify existing task | "Change due date of 'Report' to Friday" |
+| `edit_task` | Modify existing task, including its repetition (`repeat`, `repeat_based_on`, `repeat_catch_up`), its parent task, the behavior of its subtasks and file attachments in its note | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
 | `batch_add_tasks` | Create multiple tasks | "Add tasks: Task1\|Task2\|-Subtask" |
-| `create_recurring_task` | Set up repeating task | "Create daily task 'Review email'" |
+| `create_recurring_task` | Set up a repeating task with a repeat rule in words or as an iCalendar rule | "Create daily task 'Review email'", "Repeat 'Invoices' on the last Friday of the month" |
 | `list_inbox` | Show inbox tasks | "Show my inbox" |
 | `today_tasks` | List due today | "What's due today?" |
 | `list_projects` | Show all projects | "List projects with counts" |
@@ -122,12 +297,42 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 | `list_flagged_tasks` | Show flagged items | "Show flagged tasks" |
 | `list_overdue_tasks` | Show overdue items | "What's overdue?" |
 | `complete_task` | Mark as complete | "Complete budget review" |
+| `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
-| `list_tags` | Show all tags with hierarchy | "List my tags" |
-| `create_tag` | Create a new tag | "Create tag 'Urgent'" |
-| `delete_tag` | Delete a tag | "Delete the 'Old' tag" |
+| `get_task` | Show all details of one task, including its repetition and attachments | "Show details of 'Report'" |
+| `get_project` | Show a project with its properties, repetition and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
+| `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
+| `list_tags` | Show all tags with hierarchy, IDs, hidden / no-next-action flags and locations | "List my tags" |
+| `create_tag` | Create a new tag, optionally below another tag | "Create tag 'Urgent'" |
+| `edit_tag` | Rename, move, hide a tag, change its note or next-action behavior, set or remove its location (latitude, longitude, radius, trigger) | "Rename tag 'Waiting' to 'Waiting for'" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
+| `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
+| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
+| `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
+| `save_attachment` | Save an embedded attachment of a task, project or folder as a file | "Save the attachment of 'Answer the offer' to ~/Downloads/offer.pdf" |
+| `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
+| `list_folders` | Show all folders as a hierarchy with IDs, project counts, hidden folders and notes | "List my folders" |
+| `edit_folder` | Rename, move (with everything in it), hide or show a folder, change or extend its note, attach or remove files | "Move the folder 'Old clients' below 'Archive'" |
+| `delete_folder` | Delete a folder (needs `confirm_delete`; a folder with content only with `delete_contents`) | "Delete the empty folder 'Test'" |
+| `list_available_tasks` | Next actions across all projects, optionally by tag, folder, a single project or time (`max_minutes`) | "What can I work on now?" |
+| `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
+| `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
+| `get_selected_link` | What is selected or open in Mail, Safari, Chrome and other Chromium browsers, Finder or Contacts, with a link that opens it again | "Put the link to the selected mail in the note of 'Answer the offer'" |
+| `undo` | Undo or redo the last change(s) in OmniFocus, whoever made them | "Undo that" |
+| `synchronize` | Synchronize OmniFocus with its sync database and wait until it is finished; shows when the last synchronization finished and its error, `status_only` only reports that | "Sync OmniFocus now", "When did OmniFocus last sync?" |
+| `clean_up` | Clean Up: move inbox items that have a project into their projects, hide completed tasks | "Clean up OmniFocus" |
+| `get_selection` | Perspective, search term, focus and selected items (with IDs) of the front OmniFocus window | "What is selected in OmniFocus?" |
+| `set_view` | Switch the perspective, search, or focus on a project or folder in the front OmniFocus window | "Show the Forecast perspective" |
+| `show_item` | Open a task, project, folder or tag in OmniFocus and select it | "Show the project 'Rental' in OmniFocus" |
+| `duplicate_item` | Duplicate a task with its subtasks or a project with all its tasks, optionally into another project, folder or the inbox, under a new name, with completed tasks reopened | "Duplicate the project 'Onboarding' into the folder 'Clients'" |
+| `list_perspectives` | Built-in and custom perspectives with their IDs (the rules of a perspective are not available to scripts) | "Which perspectives do I have?" |
+| `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
+| `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
+| `list_tasks_by_date` | Tasks or projects by creation, modification or drop date, for the last days or a period, optionally one project or only open items | "What did I add this week?" |
+| `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
+| `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
+| `list_stalled_projects` | Active projects without a next action | "Which projects are stalled?" |
 
 ## Development
 
@@ -150,9 +355,38 @@ omnifocus-claude-extension/
 │   │   │   ├── list_overdue_tasks.applescript
 │   │   │   ├── list_tags.applescript
 │   │   │   ├── create_tag.applescript
-│   │   │   ├── delete_tag.applescript
+│   │   │   ├── edit_tag.applescript
+│   │   │   ├── reopen_task.applescript
 │   │   │   ├── add_tag_to_task.applescript
-│   │   │   └── remove_tag_from_task.applescript
+│   │   │   ├── remove_tag_from_task.applescript
+│   │   │   ├── get_task.applescript
+│   │   │   ├── get_project.applescript
+│   │   │   ├── list_due_soon.applescript
+│   │   │   ├── get_selected_link.applescript
+│   │   │   ├── get_selection.applescript
+│   │   │   ├── set_view.applescript
+│   │   │   ├── show_item.applescript
+│   │   │   ├── duplicate_item.applescript
+│   │   │   ├── undo.applescript
+│   │   │   ├── synchronize.applescript
+│   │   │   ├── clean_up.applescript
+│   │   │   ├── list_perspectives.applescript
+│   │   │   ├── parse_tasks.applescript
+│   │   │   ├── drop_task.applescript
+│   │   │   ├── create_project.applescript
+│   │   │   ├── edit_project.applescript
+│   │   │   ├── create_folder.applescript
+│   │   │   ├── rename_folder.applescript
+│   │   │   ├── list_folders.applescript
+│   │   │   ├── save_attachment.applescript
+│   │   │   ├── edit_folder.applescript
+│   │   │   ├── delete_folder.applescript
+│   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag
+│   │   │   ├── list_completed_tasks.applescript
+│   │   │   ├── list_tasks_by_date.applescript
+│   │   │   ├── list_projects_for_review.applescript
+│   │   │   ├── mark_project_reviewed.applescript
+│   │   │   └── list_stalled_projects.applescript
 │   │   ├── add_task.applescript
 │   │   ├── complete_task.applescript
 │   │   ├── list_inbox.applescript
