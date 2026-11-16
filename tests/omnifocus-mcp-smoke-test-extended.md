@@ -42,7 +42,7 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q12 | `list_due_soon` | `days: 7`. PASS if it returns a list grouped by tag (headings starting with `🏷`) where every task shows a due date, or the message that nothing is due. |
 | Q13 | `list_due_soon` | `days: 14`, `group_by: "day"`, `limit: 5`. PASS if at most five tasks are listed under date headings in ascending order. Then `group_by: "nonsense"` must still work (falls back to tag). |
 
-## Phase 2: Tasks and tags (15 tests)
+## Phase 2: Tasks and tags (20 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -63,6 +63,11 @@ All tasks MUST use `project: "Smoke Test"`.
 | A13 | `edit_task` | Set `due_date` of `{PREFIX} Task A` to `2030-01-15`, then `property: "repeat"`, `value: "2 weeks"`. PASS if confirmed with "every 2 weeks, due date after completion", and `get_task` shows a `Repeats:` line with the same text. |
 | A14 | `edit_task` | `property: "repeat"`, `value: "monthly fixed"`. PASS if confirmed with "every month, fixed schedule". Then `value: "fortnight"` must FAIL with "Invalid repeat" and leave the repetition unchanged. |
 | A15 | `edit_task` | `property: "repeat"`, `value: "none"`. PASS if confirmed as stopped, and `get_task` shows no `Repeats:` line. |
+| A16 | `add_task` | Create `{PREFIX} Subtask B` in project `Smoke Test`. PASS if created. |
+| A17 | `edit_task` | `task_name: "{PREFIX} Subtask B"`, `property: "parent_task"`, `value: "{PREFIX} Task A"`. PASS if confirmed as moved below `{PREFIX} Task A` and `get_task` of `{PREFIX} Subtask B` shows that parent task. |
+| A18 | `edit_task` | `task_name: "{PREFIX} Task A"`, `property: "parent_task"`, `value: "{PREFIX} Subtask B"`. PASS if it FAILS with a message that a task cannot be moved below itself or one of its own subtasks, and nothing changed. |
+| A19 | `edit_task` | `task_name: "{PREFIX} Task A"`, `property: "sequential"`, `value: "true"`. PASS if confirmed and `get_task` shows `Subtasks: 2 (one after another)`. Then `value: "maybe"` must FAIL with a message about the invalid value. |
+| A20 | `edit_task` | `property: "complete_with_last_item"`, `value: "true"`. PASS if confirmed and `get_task` shows `completes with the last subtask`. Then set `sequential` and `complete_with_last_item` back to `false` and PASS if `get_task` shows plain `Subtasks: 2`. |
 
 ## Phase 3: Tag hierarchy (8 tests)
 
@@ -107,7 +112,7 @@ All tasks MUST use `project: "Smoke Test"`.
 
 ## Phase 6: Cleanup
 
-1. Delete `{PREFIX} Subtask A`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
+1. Delete `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
 3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` in OmniFocus by hand, because the tools cannot delete folders or projects.
 4. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.

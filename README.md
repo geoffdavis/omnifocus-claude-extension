@@ -16,6 +16,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Edit Tasks**: Modify any task property including defer dates and tags
 - **Batch Task Creation**: Create multiple tasks with subtasks in one command
 - **Recurring Tasks**: Create tasks with daily, weekly, monthly, or custom repeat patterns
+- **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
 
 ### Tags
 - **List Tags**: View all tags with hierarchy
@@ -93,6 +94,13 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Stop the repetition of 'Process inbox'"
 ```
 
+### Action Groups
+```
+"Move the task 'Collect figures' below the task 'Review Q3 reports'"
+"Make the subtasks of 'Review Q3 reports' sequential"
+"Let 'Review Q3 reports' complete when its last subtask is done"
+```
+
 ### Tags
 ```
 "List all my tags"
@@ -158,7 +166,7 @@ to include them.
 |---------|-------------|---------|
 | `add_task` | Add a task with full properties | "Add task to buy milk due tomorrow, defer until morning" |
 | `search_tasks` | Search across all tasks | "Search for budget tasks" |
-| `edit_task` | Modify existing task, including its repetition | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
+| `edit_task` | Modify existing task, including its repetition, its parent task and the behavior of its subtasks | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
 | `batch_add_tasks` | Create multiple tasks | "Add tasks: Task1\|Task2\|-Subtask" |
 | `create_recurring_task` | Set up repeating task | "Create daily task 'Review email'" |
 | `list_inbox` | Show inbox tasks | "Show my inbox" |

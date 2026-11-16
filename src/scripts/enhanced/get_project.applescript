@@ -187,7 +187,11 @@ on taskEntry(theTask, includeDone, nowDate)
             try
                 set doneChildren to number of completed tasks of theTask
             end try
-            set stateText to stateText & " (" & (childCount - doneChildren) & " of " & childCount & " subtasks open)"
+            set groupNote to ""
+            try
+                if sequential of theTask then set groupNote to ", sequential"
+            end try
+            set stateText to stateText & " (" & (childCount - doneChildren) & " of " & childCount & " subtasks open" & groupNote & ")"
         else if isDeferred then
             set markText to "⏸"
         else

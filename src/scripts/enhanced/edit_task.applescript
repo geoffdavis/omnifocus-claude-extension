@@ -1,7 +1,11 @@
 on run argv
     -- Edit an existing task
     -- Usage: edit_task.applescript "task name" "property" "new value"
-    -- Properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat
+    -- Properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat,
+    --   parent_task, sequential, complete_with_last_item
+    --   parent_task: moves the task (with its subtasks) below another open task, given by name or "id:<id>"
+    --   sequential: "true" = the subtasks are done one after another, "false" = in any order
+    --   complete_with_last_item: "true" = the task completes when its last subtask is completed
     --   repeat: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", ... (add "fixed" for a fixed schedule,
     --   otherwise the next occurrence follows the completion), or "none" to stop repeating
     
@@ -187,8 +191,56 @@ on run argv
                         return "🏷️ Set tags to [" & addedTags & "] for: " & originalName
                     end if
 
+                else if propertyName is "parent_task" or propertyName is "parent" then
+                    -- Move the task below another open task (it keeps its own subtasks)
+                    set parentLookup to my resolveTask(newValue)
+                    if foundTask of parentLookup is missing value then
+                        return (errorText of parentLookup) & return & "Nothing was moved."
+                    end if
+                    set newParent to foundTask of parentLookup
+                    -- A task cannot go below itself or below one of its own subtasks
+                    set movedID to id of targetTask
+                    set walkTask to newParent
+                    repeat while walkTask is not missing value
+                        if (id of walkTask) is movedID then
+                            return "❌ A task cannot be moved below itself or one of its own subtasks. Nothing was moved."
+                        end if
+                        set walkTask to parent task of walkTask
+                    end repeat
+                    move targetTask to end of tasks of newParent
+                    set resultText to "📂 Moved below the task \"" & (name of newParent) & "\": " & originalName
+                    try
+                        set parentProject to containing project of newParent
+                        if parentProject is not missing value then set resultText to resultText & " (project: " & my projectLabel(parentProject) & ")"
+                    end try
+                    return resultText
+
+                else if propertyName is "sequential" then
+                    set flagValue to my parseFlag(newValue)
+                    if flagValue is "" then return "❌ Invalid value for sequential: " & newValue & ". Use true or false."
+                    set sequential of targetTask to (flagValue is "true")
+                    set hintText to ""
+                    if (number of tasks of targetTask) = 0 then set hintText to " (it has no subtasks yet)"
+                    if flagValue is "true" then
+                        return "🔢 Subtasks are done one after another: " & originalName & hintText
+                    else
+                        return "🔀 Subtasks can be done in any order: " & originalName & hintText
+                    end if
+
+                else if propertyName is "complete_with_last_item" then
+                    set flagValue to my parseFlag(newValue)
+                    if flagValue is "" then return "❌ Invalid value for complete_with_last_item: " & newValue & ". Use true or false."
+                    set completed by children of targetTask to (flagValue is "true")
+                    set hintText to ""
+                    if (number of tasks of targetTask) = 0 then set hintText to " (it has no subtasks yet)"
+                    if flagValue is "true" then
+                        return "✅ Completes when its last subtask is completed: " & originalName & hintText
+                    else
+                        return "☑️ No longer completes automatically with its last subtask: " & originalName & hintText
+                    end if
+
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, parent_task, sequential, complete_with_last_item"
                 end if
                 
             on error errMsg
@@ -741,3 +793,80 @@ on repetitionText(theTask)
     if methodText is not "" then set resultText to resultText & ", " & methodText
     return resultText
 end repetitionText
+
+on parseFlag(valueText)
+    -- "true" or "false" for the usual spellings, "" for anything else
+    ignoring case
+        if valueText is "true" or valueText is "yes" or valueText is "1" then return "true"
+        if valueText is "false" or valueText is "no" or valueText is "0" then return "false"
+    end ignoring
+    return ""
+end parseFlag
+
+on resolveTask(queryText)
+  -- Finds one open task: "id:<id>", or a name (an exact name wins, otherwise part of a name; case is ignored).
+  -- Returns {foundTask, errorText}; foundTask is missing value if nothing or more than one task fits.
+  set searchText to my trimItem(queryText)
+  if searchText is "" then
+    return {foundTask:missing value, errorText:"❌ Parent task cannot be empty."}
+  end if
+
+  if searchText starts with "id:" and (length of searchText) > 3 then
+    set wantedID to my trimItem(text 4 thru -1 of searchText)
+    tell application "OmniFocus"
+      tell default document
+        set idMatches to every flattened task whose id is wantedID and effectively completed is false and effectively dropped is false
+      end tell
+    end tell
+    if (count of idMatches) = 1 then
+      return {foundTask:item 1 of idMatches, errorText:""}
+    end if
+    return {foundTask:missing value, errorText:"❌ Open task not found: " & searchText}
+  end if
+
+  tell application "OmniFocus"
+    tell default document
+      set nameMatches to every flattened task whose name contains searchText and effectively completed is false and effectively dropped is false
+    end tell
+  end tell
+
+  set exactMatches to {}
+  repeat with aMatch in nameMatches
+    set matchTask to contents of aMatch
+    tell application "OmniFocus" to set matchName to name of matchTask
+    ignoring case
+      if matchName is searchText then set end of exactMatches to matchTask
+    end ignoring
+  end repeat
+
+  if (count of exactMatches) = 1 then
+    return {foundTask:item 1 of exactMatches, errorText:""}
+  end if
+  if (count of nameMatches) = 1 then
+    return {foundTask:item 1 of nameMatches, errorText:""}
+  end if
+  if (count of nameMatches) = 0 then
+    return {foundTask:missing value, errorText:"❌ Open task not found: " & searchText}
+  end if
+
+  set matchList to "🔍 Several open tasks match \"" & searchText & "\" (" & (count of nameMatches) & "). Use id:<id> to pick one:"
+  set shownCount to 0
+  repeat with aMatch in nameMatches
+    if shownCount ≥ 15 then
+      set matchList to matchList & return & "… more not shown"
+      exit repeat
+    end if
+    set matchTask to contents of aMatch
+    tell application "OmniFocus"
+      set matchLabel to name of matchTask
+      try
+        set matchProject to containing project of matchTask
+        if matchProject is not missing value then set matchLabel to matchLabel & " [" & (name of matchProject) & "]"
+      end try
+      set matchLabel to matchLabel & " [id:" & (id of matchTask) & "]"
+    end tell
+    set matchList to matchList & return & "• " & matchLabel
+    set shownCount to shownCount + 1
+  end repeat
+  return {foundTask:missing value, errorText:matchList}
+end resolveTask

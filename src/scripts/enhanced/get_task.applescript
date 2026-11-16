@@ -85,7 +85,23 @@ on run argv
             set repeatText to my repetitionText(targetTask)
             if repeatText is not "" then set taskInfo to taskInfo & "Repeats: " & repeatText & return
             set subtaskCount to number of tasks of targetTask
-            if subtaskCount > 0 then set taskInfo to taskInfo & "Subtasks: " & subtaskCount & return
+            if subtaskCount > 0 then
+                set groupNotes to {}
+                try
+                    if sequential of targetTask then set end of groupNotes to "one after another"
+                end try
+                try
+                    if completed by children of targetTask then set end of groupNotes to "completes with the last subtask"
+                end try
+                set taskInfo to taskInfo & "Subtasks: " & subtaskCount
+                if (count of groupNotes) > 0 then
+                    set oldDelims to AppleScript's text item delimiters
+                    set AppleScript's text item delimiters to ", "
+                    set taskInfo to taskInfo & " (" & (groupNotes as string) & ")"
+                    set AppleScript's text item delimiters to oldDelims
+                end if
+                set taskInfo to taskInfo & return
+            end if
             
             -- Note, shortened if very long
             set taskNote to note of targetTask

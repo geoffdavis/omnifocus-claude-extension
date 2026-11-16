@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `add_task` to create a subtask under an existing task
 - **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
   an existing task, `get_task` shows it
+- **Action groups**: `edit_task` moves a task (with its subtasks) below another open task (`parent_task`) and sets whether the
+  subtasks are done one after another (`sequential`) and whether the task completes with its last subtask
+  (`complete_with_last_item`). `get_task` and `get_project` show the behavior of an action group. The task lookup of
+  `add_task` (parent task) is shared with `edit_task`
 - **Projects**: `get_project` shows a project with status, type, dates, review interval and all its tasks as an indented
   list with subtasks, including blocked and deferred tasks (completed and dropped tasks on request)
 - **Tasks**: `get_task` (all details of one task) and `drop_task` (deleting needs the explicit `confirm_delete`)

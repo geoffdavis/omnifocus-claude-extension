@@ -578,13 +578,13 @@ end trimItem
 on resolveTask(queryText)
   -- Finds one open task: "id:<id>", or a name (an exact name wins, otherwise part of a name; case is ignored).
   -- Returns {foundTask, errorText}; foundTask is missing value if nothing or more than one task fits.
-  set searchText to my trimText(queryText)
+  set searchText to my trimItem(queryText)
   if searchText is "" then
     return {foundTask:missing value, errorText:"❌ Parent task cannot be empty."}
   end if
 
   if searchText starts with "id:" and (length of searchText) > 3 then
-    set wantedID to my trimText(text 4 thru -1 of searchText)
+    set wantedID to my trimItem(text 4 thru -1 of searchText)
     tell application "OmniFocus"
       tell default document
         set idMatches to every flattened task whose id is wantedID and effectively completed is false and effectively dropped is false

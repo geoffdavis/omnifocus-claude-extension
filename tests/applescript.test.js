@@ -8,6 +8,36 @@ describe('AppleScript Integration', () => {
     const enhancedScriptsDir = path.join(scriptsDir, 'enhanced');
 
     describe('Script Files', () => {
+        test('string literals are well formed in every script', () => {
+            // osacompile only runs on a Mac; this catches a lost backslash in an escaped quote
+            // (an unterminated string, or two string literals glued together)
+            const findProblem = line => {
+                let inString = false;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (inString) {
+                        if (ch === '\\') i++;
+                        else if (ch === '"') {
+                            inString = false;
+                            if (line[i + 1] === '"') return 'two string literals without an operator between them';
+                        }
+                    } else if (ch === '"') inString = true;
+                    else if (ch === '-' && line[i + 1] === '-') return null;
+                }
+                return inString ? 'unterminated string' : null;
+            };
+            const problems = [];
+            [scriptsDir, enhancedScriptsDir].forEach(dir => {
+                fs.readdirSync(dir).filter(f => f.endsWith('.applescript')).forEach(file => {
+                    fs.readFileSync(path.join(dir, file), 'utf8').split('\n').forEach((line, index) => {
+                        const problem = findProblem(line);
+                        if (problem) problems.push(`${file}:${index + 1} ${problem}`);
+                    });
+                });
+            });
+            expect(problems).toEqual([]);
+        });
+
         test('scripts directory exists', () => {
             expect(fs.existsSync(scriptsDir)).toBe(true);
         });
@@ -443,6 +473,48 @@ describe('AppleScript Integration', () => {
             const content = read('get_project.applescript');
             expect(content).toContain('on resolveProject(');
             expect(content).toContain('every flattened project whose id is wantedID');
+        });
+    });
+
+    describe('Action groups and moving tasks', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_task.applescript moves a task below another open task', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "parent_task"');
+            expect(content).toContain('my resolveTask(newValue)');
+            expect(content).toContain('move targetTask to end of tasks of newParent');
+            expect(content).toContain('Nothing was moved.');
+        });
+
+        test('edit_task.applescript refuses to move a task below itself or its own subtasks', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('set walkTask to parent task of walkTask');
+            expect(content).toContain('A task cannot be moved below itself or one of its own subtasks');
+        });
+
+        test('edit_task.applescript sets sequential and completed by children with a validated flag', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "sequential"');
+            expect(content).toContain('set sequential of targetTask to (flagValue is "true")');
+            expect(content).toContain('propertyName is "complete_with_last_item"');
+            expect(content).toContain('set completed by children of targetTask to (flagValue is "true")');
+            expect(content).toContain('Invalid value for sequential');
+            expect(content).toContain('on parseFlag(');
+            expect(content).toContain('Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, parent_task, sequential, complete_with_last_item');
+        });
+
+        test('get_task and get_project show how the subtasks of a task behave', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('one after another');
+            expect(task).toContain('completes with the last subtask');
+            const project = read('get_project.applescript');
+            expect(project).toContain('", sequential"');
+        });
+
+        test('the server offers the new edit_task properties', () => {
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(server).toContain("'repeat', 'parent_task', 'sequential', 'complete_with_last_item'");
         });
     });
 
