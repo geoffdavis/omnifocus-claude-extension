@@ -147,122 +147,6 @@ on projectLabel(aProject)
     return labelText & projectName
 end projectLabel
 
-on parseRepeatRule(ruleText)
-    -- Reads a repeat rule: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "1 month", "every 2 weeks".
-    -- "fixed" at the end means a fixed schedule instead of "after completion", for example "weekly fixed".
-    -- Returns {isValid, ruleString, useFixed, errorText}; ruleString is an iCalendar string such as FREQ=WEEKLY;INTERVAL=2
-    set problemText to "❌ Invalid repeat: " & ruleText & ". Use for example \"daily\", \"weekly\", \"2 weeks\", \"3 months\" or \"1 year\", add \"fixed\" for a fixed schedule (\"weekly fixed\"), or \"none\" to stop repeating."
-    set wordList to words of ruleText
-    set useFixed to false
-    ignoring case
-        if (count of wordList) > 1 and item 1 of wordList is "every" then set wordList to items 2 thru -1 of wordList
-        if (count of wordList) > 1 and item -1 of wordList is "fixed" then
-            set useFixed to true
-            set wordList to items 1 thru -2 of wordList
-        end if
-    end ignoring
-
-    set stepCount to 1
-    if (count of wordList) = 1 then
-        set unitWord to item 1 of wordList
-    else if (count of wordList) = 2 then
-        try
-            set stepCount to (item 1 of wordList) as integer
-        on error
-            return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
-        end try
-        set unitWord to item 2 of wordList
-    else
-        return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
-    end if
-    if stepCount < 1 or stepCount > 999 then return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
-
-    set frequencyText to ""
-    ignoring case
-        if unitWord is "daily" then set unitWord to "day"
-        if unitWord is "weekly" then set unitWord to "week"
-        if unitWord is "monthly" then set unitWord to "month"
-        if unitWord is "yearly" or unitWord is "annually" then set unitWord to "year"
-        if (length of unitWord) > 1 and unitWord ends with "s" then set unitWord to text 1 thru -2 of unitWord
-        if unitWord is "day" then set frequencyText to "DAILY"
-        if unitWord is "week" then set frequencyText to "WEEKLY"
-        if unitWord is "month" then set frequencyText to "MONTHLY"
-        if unitWord is "year" then set frequencyText to "YEARLY"
-    end ignoring
-    if frequencyText is "" then return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
-
-    set recurrenceText to "FREQ=" & frequencyText
-    if stepCount > 1 then set recurrenceText to recurrenceText & ";INTERVAL=" & stepCount
-    return {isValid:true, ruleString:recurrenceText, useFixed:useFixed, errorText:""}
-end parseRepeatRule
-
-on describeRecurrence(recurrenceText)
-    -- "FREQ=WEEKLY;INTERVAL=2" becomes "every 2 weeks"; rules with more parts are returned unchanged
-    set cleanText to recurrenceText
-    if cleanText starts with "RRULE:" then set cleanText to text 7 thru -1 of cleanText
-    set oldDelims to AppleScript's text item delimiters
-    set AppleScript's text item delimiters to ";"
-    set partList to text items of cleanText
-    set AppleScript's text item delimiters to oldDelims
-
-    set frequencyText to ""
-    set stepCount to 1
-    repeat with aPart in partList
-        set partText to aPart as text
-        if partText starts with "FREQ=" then
-            set frequencyText to text 6 thru -1 of partText
-        else if partText starts with "INTERVAL=" then
-            try
-                set stepCount to (text 10 thru -1 of partText) as integer
-            on error
-                return recurrenceText
-            end try
-        else
-            return recurrenceText
-        end if
-    end repeat
-
-    set unitName to ""
-    if frequencyText is "DAILY" then set unitName to "day"
-    if frequencyText is "WEEKLY" then set unitName to "week"
-    if frequencyText is "MONTHLY" then set unitName to "month"
-    if frequencyText is "YEARLY" then set unitName to "year"
-    if unitName is "" or stepCount < 1 then return recurrenceText
-    if stepCount is 1 then return "every " & unitName
-    return "every " & stepCount & " " & unitName & "s"
-end describeRecurrence
-
-on repetitionText(theTask)
-    -- Describes how a task repeats, for example "every 2 weeks, due date after completion", "" if it does not repeat
-    set recurrenceText to ""
-    set methodText to ""
-    tell application "OmniFocus"
-        try
-            set theRule to repetition rule of theTask
-        on error
-            return ""
-        end try
-        if theRule is missing value then return ""
-        try
-            set recurrenceText to recurrence of theRule
-        end try
-        try
-            set methodValue to repetition method of theRule
-            if methodValue is fixed repetition then
-                set methodText to "fixed schedule"
-            else if methodValue is start after completion then
-                set methodText to "defer date after completion"
-            else if methodValue is due after completion then
-                set methodText to "due date after completion"
-            end if
-        end try
-    end tell
-    set resultText to "repeats"
-    if recurrenceText is not "" then set resultText to my describeRecurrence(recurrenceText)
-    if methodText is not "" then set resultText to resultText & ", " & methodText
-    return resultText
-end repetitionText
-
 on attachmentLines(theItem)
     -- Returns "" when the note has no attachment, otherwise the lines that describe the attachments.
     -- OmniFocus gives scripts the path of a linked file, but not the name of an embedded file.
@@ -316,3 +200,206 @@ on markAttachments(noteText)
     set AppleScript's text item delimiters to oldDelims
     return markedText
 end markAttachments
+
+on describeRecurrence(recurrenceText)
+    -- "FREQ=WEEKLY;INTERVAL=2" becomes "every 2 weeks", "FREQ=WEEKLY;BYDAY=MO,TH" becomes "every week on Monday and Thursday",
+    -- "FREQ=MONTHLY;BYDAY=-1FR" becomes "every month on the last Friday"; rules with other parts are returned unchanged
+    set cleanText to recurrenceText
+    if cleanText starts with "RRULE:" then set cleanText to text 7 thru -1 of cleanText
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ";"
+    set partList to text items of cleanText
+    set AppleScript's text item delimiters to oldDelims
+
+    set frequencyText to ""
+    set stepCount to 1
+    set dayText to ""
+    set monthDayText to ""
+    set setPositionText to ""
+    repeat with aPart in partList
+        set partText to aPart as text
+        if partText starts with "FREQ=" then
+            set frequencyText to text 6 thru -1 of partText
+        else if partText starts with "INTERVAL=" then
+            try
+                set stepCount to (text 10 thru -1 of partText) as integer
+            on error
+                return recurrenceText
+            end try
+        else if partText starts with "BYDAY=" then
+            set dayText to text 7 thru -1 of partText
+        else if partText starts with "BYMONTHDAY=" then
+            set monthDayText to text 12 thru -1 of partText
+        else if partText starts with "BYSETPOS=" then
+            set setPositionText to text 10 thru -1 of partText
+        else
+            return recurrenceText
+        end if
+    end repeat
+
+    set unitName to ""
+    if frequencyText is "DAILY" then set unitName to "day"
+    if frequencyText is "WEEKLY" then set unitName to "week"
+    if frequencyText is "MONTHLY" then set unitName to "month"
+    if frequencyText is "YEARLY" then set unitName to "year"
+    if unitName is "" or stepCount < 1 then return recurrenceText
+    if stepCount is 1 then
+        set baseText to "every " & unitName
+    else
+        set baseText to "every " & stepCount & " " & unitName & "s"
+    end if
+    if dayText is "" and monthDayText is "" and setPositionText is "" then return baseText
+
+    if frequencyText is "WEEKLY" and dayText is not "" and monthDayText is "" and setPositionText is "" then
+        if dayText is "MO,TU,WE,TH,FR" and stepCount is 1 then return "every weekday"
+        set dayNames to {}
+        set oldDelims to AppleScript's text item delimiters
+        set AppleScript's text item delimiters to ","
+        set codeList to text items of dayText
+        set AppleScript's text item delimiters to oldDelims
+        repeat with aCode in codeList
+            set dayName to my weekdayName(aCode as text)
+            if dayName is "" then return recurrenceText
+            set end of dayNames to dayName
+        end repeat
+        return baseText & " on " & my joinNames(dayNames)
+    end if
+
+    if frequencyText is "MONTHLY" and monthDayText is not "" and dayText is "" and setPositionText is "" then
+        if monthDayText is "-1" then return baseText & " on the last day"
+        if my isDigits(monthDayText) then return baseText & " on day " & monthDayText
+        return recurrenceText
+    end if
+
+    if frequencyText is "MONTHLY" and dayText is not "" and monthDayText is "" then
+        -- "1MO" or "-1FR", or a weekday with BYSETPOS
+        set positionText to setPositionText
+        set codeText to dayText
+        if positionText is "" and (length of dayText) > 2 then
+            set positionText to text 1 thru -3 of dayText
+            set codeText to text -2 thru -1 of dayText
+        end if
+        set dayName to my weekdayName(codeText)
+        set ordinalWord to my ordinalName(positionText)
+        if dayName is "" or ordinalWord is "" then return recurrenceText
+        return baseText & " on the " & ordinalWord & " " & dayName
+    end if
+    return recurrenceText
+end describeRecurrence
+
+on weekdayName(codeText)
+    if codeText is "MO" then return "Monday"
+    if codeText is "TU" then return "Tuesday"
+    if codeText is "WE" then return "Wednesday"
+    if codeText is "TH" then return "Thursday"
+    if codeText is "FR" then return "Friday"
+    if codeText is "SA" then return "Saturday"
+    if codeText is "SU" then return "Sunday"
+    return ""
+end weekdayName
+
+on ordinalName(positionText)
+    if positionText is "1" or positionText is "+1" then return "first"
+    if positionText is "2" or positionText is "+2" then return "second"
+    if positionText is "3" or positionText is "+3" then return "third"
+    if positionText is "4" or positionText is "+4" then return "fourth"
+    if positionText is "5" or positionText is "+5" then return "fifth"
+    if positionText is "-1" then return "last"
+    return ""
+end ordinalName
+
+on joinNames(nameList)
+    -- "Monday", "Monday and Thursday", "Monday, Tuesday and Friday"
+    set nameCount to count of nameList
+    if nameCount = 1 then return item 1 of nameList
+    set headText to my joinText(items 1 thru (nameCount - 1) of nameList, ", ")
+    return headText & " and " & (item nameCount of nameList)
+end joinNames
+
+on joinText(textItems, separator)
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to separator
+    set joined to textItems as text
+    set AppleScript's text item delimiters to oldDelims
+    return joined
+end joinText
+
+on isDigits(theText)
+    -- True if the text is not empty and has only the digits 0 to 9
+    if theText is "" then return false
+    repeat with aChar in characters of theText
+        if "0123456789" does not contain (contents of aChar) then return false
+    end repeat
+    return true
+end isDigits
+
+on readRepetition(theItem)
+    -- The repetition of a task or project as {ruleExists, ruleRecurrence, ruleSchedule, ruleBasedOn, ruleCatchUp}
+    --   ruleSchedule is "regularly" or "from completion", ruleBasedOn is "due", "defer" or "planned"
+    set recurrenceText to ""
+    set scheduleName to "from completion"
+    set basedOnName to "due"
+    set catchValue to false
+    tell application "OmniFocus"
+        try
+            set theRule to repetition rule of theItem
+        on error
+            return {ruleExists:false, ruleRecurrence:"", ruleSchedule:"", ruleBasedOn:"", ruleCatchUp:false}
+        end try
+        if theRule is missing value then return {ruleExists:false, ruleRecurrence:"", ruleSchedule:"", ruleBasedOn:"", ruleCatchUp:false}
+        try
+            set recurrenceText to recurrence of theRule
+        end try
+        set readSchedule to false
+        try
+            set scheduleText to (repetition schedule of theRule) as text
+            if scheduleText contains "completion" then
+                set scheduleName to "from completion"
+            else
+                set scheduleName to "regularly"
+            end if
+            set basedOnText to (repetition based on of theRule) as text
+            if basedOnText contains "defer" then
+                set basedOnName to "defer"
+            else if basedOnText contains "planned" then
+                set basedOnName to "planned"
+            else
+                set basedOnName to "due"
+            end if
+            set readSchedule to true
+        end try
+        if not readSchedule then
+            -- the older way: a repetition method
+            try
+                set methodText to (repetition method of theRule) as text
+                if methodText contains "fixed" then
+                    set scheduleName to "regularly"
+                else if methodText contains "start" then
+                    set basedOnName to "defer"
+                end if
+            end try
+        end if
+        try
+            set catchValue to catch up automatically of theRule
+        end try
+    end tell
+    return {ruleExists:true, ruleRecurrence:recurrenceText, ruleSchedule:scheduleName, ruleBasedOn:basedOnName, ruleCatchUp:catchValue}
+end readRepetition
+
+on repetitionText(theItem)
+    -- Describes how a task or project repeats, for example "every 2 weeks, due date after completion" or
+    -- "every week on Monday and Thursday, fixed schedule"; "" if it does not repeat
+    set ruleInfo to my readRepetition(theItem)
+    if not (ruleExists of ruleInfo) then return ""
+    set resultText to "repeats"
+    if (ruleRecurrence of ruleInfo) is not "" then set resultText to my describeRecurrence(ruleRecurrence of ruleInfo)
+    set basedOnName to ruleBasedOn of ruleInfo
+    if (ruleSchedule of ruleInfo) is "regularly" then
+        set resultText to resultText & ", fixed schedule"
+        if basedOnName is not "due" then set resultText to resultText & ", based on the " & basedOnName & " date"
+        if ruleCatchUp of ruleInfo then set resultText to resultText & ", catches up automatically"
+    else
+        set resultText to resultText & ", " & basedOnName & " date after completion"
+    end if
+    return resultText
+end repetitionText

@@ -31,8 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nearby; fields that are not given keep their value. `list_tags` shows the location of a tag
 - **Tasks**: `reopen_task` (completed or dropped tasks), `planned_date` in `add_task` and `edit_task`, and `parent_task` in
   `add_task` to create a subtask under an existing task
-- **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
-  an existing task, `get_task` shows it
+- **Repetition**: `edit_task` and `edit_project` set (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or remove (`none`) the
+  repetition of an existing task or project, `get_task` and `get_project` show it
+- **Repetition rules**: `repeat` and `create_recurring_task` accept weekdays ("every monday and thursday", "weekdays"), days
+  of the month ("monthly on the 15th", "last day of the month"), the nth or last weekday of the month ("first monday of
+  the month", "last friday of the month") and iCalendar rules (`FREQ=WEEKLY;BYDAY=MO,TH`, with `COUNT` or `UNTIL`), on a
+  fixed schedule (`fixed`) or after completion (`from completion`). `repeat_based_on` (`due`, `defer`, `planned`) and
+  `repeat_catch_up` (`true`/`false`) change the date a repetition is based on and the automatic catching up of a
+  fixed schedule without touching the rest of the rule. A rule that OmniFocus does not accept changes nothing, and
+  `create_recurring_task` creates nothing (also without a name). OmniFocus has no yearly rule for a fixed month and
+  day: a yearly rule repeats on the date of the due date
 - **Undo**: `undo` undoes or redoes the last change(s) in OmniFocus (`action`, `steps` up to 20). OmniFocus reverts the last
   change whoever made it, so also changes made by hand
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that

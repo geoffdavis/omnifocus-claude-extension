@@ -260,34 +260,34 @@ describe('AppleScript Integration', () => {
     describe('Recurring Task Recurrence Strings', () => {
         const scriptPath = path.join(enhancedScriptsDir, 'create_recurring_task.applescript');
 
-        test('uses repetition rule with ICS recurrence strings instead of repetition interval', () => {
+        test('sets the repetition with the shared handlers and checks the rule before it creates anything', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            // Should set repetition rule on the task with a recurrence string
-            expect(content).toMatch(/set repetition rule of newTask to \{repetition method:.+, recurrence:/);
+            expect(content).toContain('set repeatInfo to my parseRepeatRule(repeatRule)');
+            expect(content).toContain('my applyRepetition(newTask, ruleString of repeatInfo, scheduleName of repeatInfo, "due", false)');
+            expect(content).toContain('Nothing was created.');
             // Should NOT use the old broken approach
             expect(content).not.toContain('repetition interval');
             expect(content).not.toContain('{unit:');
+            expect(content).not.toContain('buildRecurrenceString');
         });
 
-        test('buildRecurrenceString handles all standard repeat rules', () => {
+        test('refuses an empty name and does not report "changed" and "created" at once', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/return "FREQ=DAILY"/);
-            expect(content).toMatch(/return "FREQ=WEEKLY"/);
-            expect(content).toMatch(/return "FREQ=MONTHLY"/);
-            expect(content).toMatch(/return "FREQ=YEARLY"/);
+            expect(content).toContain('A recurring task needs a name. Nothing was created.');
+            expect(content).toContain('my removeText(problemText, " Nothing was changed.")');
         });
 
-        test('buildRecurrenceString supports custom intervals with INTERVAL parameter', () => {
+        test('parseRepeatRule builds the iCalendar strings for the standard repeat rules', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            // Should build FREQ=...;INTERVAL= strings for custom patterns like "3 days", "2 weeks"
-            expect(content).toMatch(/return "FREQ=DAILY;INTERVAL=" & stepCount/);
-            expect(content).toMatch(/return "FREQ=WEEKLY;INTERVAL=" & stepCount/);
+            ['"DAILY"', '"WEEKLY"', '"MONTHLY"', '"YEARLY"'].forEach(part => expect(content).toContain(part));
+            expect(content).toContain('";INTERVAL=" & intervalCount');
         });
 
-        test('supports both fixed and due-after-completion repetition methods', () => {
+        test('applyRepetition uses the schedule and the date a repetition is based on', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/repetition method:fixed repetition, recurrence:recurrenceString/);
-            expect(content).toMatch(/repetition method:due after completion, recurrence:recurrenceString/);
+            expect(content).toContain('repetition schedule:regularly, repetition based on:based on due, catch up automatically:catchValue');
+            expect(content).toContain('repetition schedule:from completion, repetition based on:based on defer');
+            expect(content).toContain('repetition based on:based on planned');
         });
     });
 
@@ -409,7 +409,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set planned date of targetProject');
             expect(content).toContain('set flagged of targetProject');
             expect(content).toContain('set completed by children of targetProject');
-            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item');
+            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, repeat, repeat_based_on, repeat_catch_up');
         });
 
         test('create_project.applescript checks the optional settings before it creates anything', () => {
@@ -799,7 +799,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set completed by children of targetTask to (flagValue is "true")');
             expect(content).toContain('Invalid value for sequential');
             expect(content).toContain('on parseFlag(');
-            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, parent_task, sequential, complete_with_last_item');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up, parent_task, sequential, complete_with_last_item');
         });
 
         test('get_task and get_project show how the subtasks of a task behave', () => {
@@ -812,41 +812,65 @@ describe('AppleScript Integration', () => {
 
         test('the server offers the new edit_task properties', () => {
             const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
-            expect(server).toContain("'repeat', 'parent_task', 'sequential', 'complete_with_last_item'");
+            expect(server).toContain("'repeat', 'repeat_based_on', 'repeat_catch_up', 'parent_task', 'sequential', 'complete_with_last_item'");
         });
     });
 
     describe('Task repetition', () => {
         const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
 
-        test('edit_task.applescript sets and removes the repetition', () => {
+        test('edit_task.applescript sets, changes and removes the repetition', () => {
             const content = read('edit_task.applescript');
             expect(content).toContain('propertyName is "repeat"');
-            expect(content).toContain('set repetition rule of targetTask to missing value');
-            expect(content).toContain('repetition method:fixed repetition, recurrence:ruleString of repeatInfo');
-            expect(content).toContain('repetition method:due after completion, recurrence:ruleString of repeatInfo');
-            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat');
+            expect(content).toContain('my setRepetition(targetTask, "task", originalName, newValue)');
+            expect(content).toContain('propertyName is "repeat_based_on"');
+            expect(content).toContain('my changeRepetition(targetTask, "task", originalName, "based_on", newValue)');
+            expect(content).toContain('propertyName is "repeat_catch_up"');
+            expect(content).toContain('my changeRepetition(targetTask, "task", originalName, "catch_up", newValue)');
+            expect(content).toContain('set repetition rule of theItem to missing value');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up');
         });
 
-        test('edit_task.applescript refuses to repeat a task without a date and rejects unknown rules', () => {
+        test('edit_project.applescript repeats projects as well', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('my setRepetition(targetProject, "project", originalLabel, newValue)');
+            expect(content).toContain('my changeRepetition(targetProject, "project", originalLabel, "based_on", newValue)');
+            expect(content).toContain('my changeRepetition(targetProject, "project", originalLabel, "catch_up", newValue)');
+        });
+
+        test('setRepetition refuses an item without a date and rejects unknown rules', () => {
             const content = read('edit_task.applescript');
-            expect(content).toContain('A repeating task needs a due, defer or planned date');
+            expect(content).toContain('needs a due, defer or planned date');
             expect(content).toContain('Invalid repeat');
             expect(content).toContain('on parseRepeatRule(');
+            expect(content).toContain('does not understand the repeat rule');
+            expect(content).toContain('Catching up only works for a fixed schedule');
         });
 
-        test('parseRepeatRule builds the iCalendar strings for all units', () => {
+        test('parseRepeatRule understands weekdays, days of the month and iCalendar rules', () => {
             const content = read('edit_task.applescript');
-            ['"DAILY"', '"WEEKLY"', '"MONTHLY"', '"YEARLY"', '";INTERVAL=" & stepCount'].forEach(part => {
+            ['"BYDAY="', '"BYMONTHDAY=-1"', '"BYMONTHDAY="', 'on weekdayCode(', 'on unitCode(', 'on ordinalValue(', 'on upperText(',
+                '"MO", "TU", "WE", "TH", "FR"', 'starts with "FREQ="', 'starts with "RRULE:"'].forEach(part => {
                 expect(content).toContain(part);
             });
         });
 
-        test('get_task.applescript shows how a task repeats', () => {
+        test('describeRecurrence puts weekdays and days of the month into words', () => {
             const content = read('get_task.applescript');
-            expect(content).toContain('my repetitionText(targetTask)');
-            expect(content).toContain('"Repeats: "');
-            expect(content).toContain('repetition rule of theTask');
+            ['every weekday', ' on the last day', ' on day ', ' on the ', 'on weekdayName(', 'on ordinalName(', 'on joinNames('].forEach(part => {
+                expect(content).toContain(part);
+            });
+        });
+
+        test('get_task and get_project show how an item repeats', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('my repetitionText(targetTask)');
+            expect(task).toContain('"Repeats: "');
+            expect(task).toContain('repetition rule of theItem');
+            expect(task).toContain('repetition schedule of theRule');
+            const project = read('get_project.applescript');
+            expect(project).toContain('my repetitionText(targetProject)');
+            expect(project).toContain('"Repeats: "');
         });
     });
 

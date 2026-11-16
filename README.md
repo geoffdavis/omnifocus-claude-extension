@@ -15,7 +15,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Search Tasks**: Search across all projects, contexts, and notes
 - **Edit Tasks**: Modify any task property including defer dates and tags
 - **Batch Task Creation**: Create multiple tasks with subtasks in one command
-- **Recurring Tasks**: Create tasks with daily, weekly, monthly, or custom repeat patterns
+- **Recurring Tasks and Projects**: Repeat by interval, on weekdays, on a day of the month or on the last Friday of the month, on a fixed schedule or after completion, based on the due, defer or planned date, with or without catching up; for tasks and projects
 - **Text to tasks**: Turn a list of lines (or the note of a task) into tasks and subtasks, with the inline syntax of OmniFocus
 - **Undo**: Undo or redo the last change(s) in OmniFocus (it reverts changes made by hand too)
 - **Sync and clean up**: Synchronize OmniFocus on request, and run Clean Up (inbox items with a project move into their projects)
@@ -91,13 +91,31 @@ npm run build
 ```
 Note: Use `|` to separate tasks and `-` prefix for subtasks
 
-### Recurring Tasks
+### Recurring Tasks and Projects
 ```
 "Create weekly recurring task 'Process inbox' due every Sunday"
 "Add monthly recurring 'Review finances' on the 15th"
 "Make the task 'Water plants' repeat every 3 days"
+"Repeat 'Team meeting' every Monday and Thursday"
+"Repeat 'Invoices' on the last Friday of the month, fixed schedule"
+"Let 'Water plants' repeat 2 weeks after I complete it, based on the defer date"
+"Repeat the project 'Monthly closing' on the 1st of every month"
 "Stop the repetition of 'Process inbox'"
 ```
+`create_recurring_task`, `edit_task` and `edit_project` take the repeat rule in words or as an iCalendar rule
+(`FREQ=WEEKLY;BYDAY=MO,TH`, upper case, optionally with `COUNT` or `UNTIL`). In words: `daily`, `weekly`, `monthly`,
+`yearly`, `3 days`, `2 weeks`, `every monday and thursday`, `weekdays`, `every 2 weeks on monday`, `monthly on the 15th`,
+`last day of the month`, `first monday of the month`, `last friday of the month`. `fixed` at the end follows the calendar
+(the next occurrence does not depend on when you complete the task), `from completion` follows the completion; without
+either, a rule that only has an interval follows the completion and a rule with weekdays or days of the month follows
+the calendar. `none` stops the repetition. A repeating task or project needs a due, defer or planned date.
+
+Two more properties change a rule that exists, without touching the rest of it: `repeat_based_on` (`due`, `defer` or
+`planned`: the date the next occurrence is calculated from; the task needs this date) and `repeat_catch_up` (`true` or
+`false`: a fixed schedule skips the occurrences in the past instead of creating them one after the other). `get_task`
+and `get_project` show the rule, for example `every week on Monday and Thursday, fixed schedule, based on the defer date,
+catches up automatically`. A rule that OmniFocus does not accept changes nothing. OmniFocus has no yearly rule for a fixed
+month and day: a yearly rule repeats on the date of the due date.
 
 ### Text to Tasks
 ```
@@ -238,9 +256,9 @@ to include them.
 |---------|-------------|---------|
 | `add_task` | Add a task with full properties | "Add task to buy milk due tomorrow, defer until morning" |
 | `search_tasks` | Search across all tasks | "Search for budget tasks" |
-| `edit_task` | Modify existing task, including its repetition, its parent task, the behavior of its subtasks and file attachments in its note | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
+| `edit_task` | Modify existing task, including its repetition (`repeat`, `repeat_based_on`, `repeat_catch_up`), its parent task, the behavior of its subtasks and file attachments in its note | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
 | `batch_add_tasks` | Create multiple tasks | "Add tasks: Task1\|Task2\|-Subtask" |
-| `create_recurring_task` | Set up repeating task | "Create daily task 'Review email'" |
+| `create_recurring_task` | Set up a repeating task with a repeat rule in words or as an iCalendar rule | "Create daily task 'Review email'", "Repeat 'Invoices' on the last Friday of the month" |
 | `list_inbox` | Show inbox tasks | "Show my inbox" |
 | `today_tasks` | List due today | "What's due today?" |
 | `list_projects` | Show all projects | "List projects with counts" |
@@ -251,7 +269,7 @@ to include them.
 | `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
 | `get_task` | Show all details of one task, including its repetition and attachments | "Show details of 'Report'" |
-| `get_project` | Show a project with its properties and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
+| `get_project` | Show a project with its properties, repetition and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
 | `list_tags` | Show all tags with hierarchy, IDs, hidden / no-next-action flags and locations | "List my tags" |
 | `create_tag` | Create a new tag, optionally below another tag | "Create tag 'Urgent'" |
@@ -259,7 +277,7 @@ to include them.
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 | `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
-| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
+| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `save_attachment` | Save an embedded attachment of a task, project or folder as a file | "Save the attachment of 'Answer the offer' to ~/Downloads/offer.pdf" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
