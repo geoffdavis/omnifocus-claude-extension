@@ -204,6 +204,50 @@ describe('MCP Server', () => {
             expect(isJsonRpcError || isContentError).toBe(true);
         });
 
+        test('GTD query tools are listed and list_tasks_by_tag requires a tag', async () => {
+            serverProcess = spawn('node', [serverPath]);
+            let responseData = '';
+            let toolsRequestSent = false;
+            let callRequestSent = false;
+
+            await new Promise((resolve, reject) => {
+                serverProcess.stdout.on('data', (data) => {
+                    responseData += data.toString();
+                    if (!toolsRequestSent && responseData.includes('"id":1')) {
+                        toolsRequestSent = true;
+                        serverProcess.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'tools/list', params: {}, id: 2 }) + '\n');
+                    }
+                    if (!callRequestSent && responseData.includes('"id":2')) {
+                        callRequestSent = true;
+                        // Without a tag the tool must answer with a message and never reach OmniFocus
+                        const callRequest = {
+                            jsonrpc: '2.0', method: 'tools/call',
+                            params: { name: 'list_tasks_by_tag', arguments: {} }, id: 5
+                        };
+                        serverProcess.stdin.write(JSON.stringify(callRequest) + '\n');
+                        serverProcess.stdin.end();
+                    }
+                });
+                serverProcess.on('close', resolve);
+                serverProcess.on('error', reject);
+
+                const initRequest = {
+                    jsonrpc: '2.0', method: 'initialize',
+                    params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1
+                };
+                serverProcess.stdin.write(JSON.stringify(initRequest) + '\n');
+            });
+
+            const responses = responseData.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
+            const toolNames = responses.find(r => r.id === 2).result.tools.map(t => t.name);
+            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks', 'edit_tag', 'reopen_task', 'get_project', 'list_due_soon', 'parse_tasks', 'list_perspectives', 'get_selected_link'].forEach(name => {
+                expect(toolNames).toContain(name);
+            });
+
+            const callResponse = responses.find(r => r.id === 5);
+            expect(callResponse.result.content[0].text).toContain('Tag name is required');
+        });
+
         test('handles invalid method gracefully', async () => {
             const request = {
                 jsonrpc: '2.0',

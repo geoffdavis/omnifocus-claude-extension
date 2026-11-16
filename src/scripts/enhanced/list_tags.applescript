@@ -59,7 +59,7 @@ on formatTags(tagList, depth)
             repeat depth times
                 set indent to indent & "  "
             end repeat
-            set output to output & indent & "• " & name of aTag & return
+            set output to output & indent & "• " & name of aTag & my tagSuffix(aTag) & return
             set childTags to every tag of aTag
             if (count of childTags) > 0 then
                 set output to output & my formatTags(childTags, depth + 1)
@@ -91,7 +91,7 @@ on formatTagsWithCounts(tagList, depth, tagCountRecord)
             if taggedCount > 0 then
                 set output to output & " (" & taggedCount & " tasks)"
             end if
-            set output to output & return
+            set output to output & my tagSuffix(aTag) & return
             set childTags to every tag of aTag
             if (count of childTags) > 0 then
                 set output to output & my formatTagsWithCounts(childTags, depth + 1, tagCountRecord)
@@ -100,3 +100,18 @@ on formatTagsWithCounts(tagList, depth, tagCountRecord)
     end tell
     return output
 end formatTagsWithCounts
+
+-- Flags and id shown behind a tag name: hidden tags, tags that do not allow next actions, "[id:...]"
+on tagSuffix(aTag)
+    set suffixText to ""
+    tell application "OmniFocus"
+        try
+            if hidden of aTag then set suffixText to suffixText & " ⏸ hidden"
+        end try
+        try
+            if not (allows next action of aTag) then set suffixText to suffixText & " 🚫 no next action"
+        end try
+        set suffixText to suffixText & " [id:" & (id of aTag) & "]"
+    end tell
+    return suffixText
+end tagSuffix
