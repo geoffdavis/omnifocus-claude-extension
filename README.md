@@ -132,13 +132,16 @@ Apple Notes cannot be linked this way: scripts get no link to a note.
 "Link the file /Users/me/Contracts/lease.pdf in the note of the project 'Rental'"
 "Show the attachments of the task 'Answer the offer'"
 "Remove attachment 2 from the task 'Answer the offer'"
+"Save the attachment of the task 'Answer the offer' to ~/Downloads/offer.pdf"
 ```
 `edit_task`, `edit_project` and `edit_folder` take the properties `attach_file` (the full path of a file; a copy is stored
 in the note and synchronized to all devices), `link_file` (the note only links to the file, which has to stay where it is
 and opens on this Mac only) and `remove_attachment` (the number shown by `get_task`, `get_project`; 1 is the first one).
 The file goes to the end of the note in its own line, the text of the note stays as it is. `get_task` and `get_project`
 list the attachments (linked files with their path) and show a paperclip in the note where an attachment sits. OmniFocus
-does not give scripts the name of an embedded file. Notes with attachments are not changed by `append_note`.
+does not give scripts the name of an embedded file. `save_attachment` writes an embedded attachment to a new file
+(the path is up to you and must not exist yet), a linked file is not copied. Notes with attachments are not changed by
+`append_note`.
 
 ### Action Groups
 ```
@@ -240,6 +243,7 @@ to include them.
 | `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
 | `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
+| `save_attachment` | Save an embedded attachment of a task, project or folder as a file | "Save the attachment of 'Answer the offer' to ~/Downloads/offer.pdf" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
 | `list_folders` | Show all folders as a hierarchy with IDs, project counts, hidden folders and notes | "List my folders" |
 | `edit_folder` | Rename, move (with everything in it), hide or show a folder, change or extend its note, attach or remove files | "Move the folder 'Old clients' below 'Archive'" |
@@ -298,6 +302,7 @@ omnifocus-claude-extension/
 │   │   │   ├── create_folder.applescript
 │   │   │   ├── rename_folder.applescript
 │   │   │   ├── list_folders.applescript
+│   │   │   ├── save_attachment.applescript
 │   │   │   ├── edit_folder.applescript
 │   │   │   ├── delete_folder.applescript
 │   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag

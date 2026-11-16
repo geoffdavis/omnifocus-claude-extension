@@ -40,7 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a project are moved into their projects, completed tasks are hidden) and reports how many inbox items were moved
 - **Attachments in notes**: `edit_task`, `edit_project` and `edit_folder` attach a file (`attach_file`: a copy is stored in the
   note, `link_file`: the note links to the file) at the end of the note and remove an attachment (`remove_attachment`, by number).
-  `get_task` and `get_project` list the attachments (path of linked files) and mark them in the note text
+  `get_task` and `get_project` list the attachments (path of linked files) and mark them in the note text;
+  `save_attachment` writes an embedded attachment to a new file
 - **Folder actions**: `list_folders` shows all folders as a hierarchy (project counts, hidden folders, notes, IDs),
   `edit_folder` changes the name, note (`note`, `append_note`), parent (`parent`, `none` = top level; the folder is moved
   with everything in it; cycles and duplicate names are refused) and visibility (`hidden`) of a folder, `delete_folder`

@@ -94,6 +94,7 @@ describe('AppleScript Integration', () => {
                 'list_perspectives.applescript',
                 'get_selected_link.applescript',
                 'synchronize.applescript',
+                'save_attachment.applescript',
                 'clean_up.applescript',
                 'undo.applescript',
                 'list_folders.applescript',
@@ -522,6 +523,20 @@ describe('AppleScript Integration', () => {
 
     describe('Attachments in notes', () => {
         const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('save_attachment.applescript saves an embedded attachment to a new file and never overwrites', () => {
+            const content = read('save_attachment.applescript');
+            expect(content).toContain('save (file attachment attachmentNumber of (note of targetItem)) in (POSIX file destinationPath)');
+            expect(content).toContain('/bin/test -e');
+            expect(content).toContain('exists already. Nothing was saved.');
+            expect(content).toContain('/bin/test -d');
+            expect(content).toContain('starting with / or ~');
+            expect(content).toContain('it is not copied');
+            ['resolveTask', 'resolveProject', 'resolveFolder', 'attachmentPath', 'attachmentSizeText'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+            ['task', 'project', 'folder'].forEach(type => expect(content).toContain(`itemType is "${type}"`));
+        });
 
         test('edit_task, edit_project and edit_folder attach, link and remove files', () => {
             ['edit_task.applescript', 'edit_project.applescript', 'edit_folder.applescript'].forEach(file => {

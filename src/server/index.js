@@ -702,6 +702,34 @@ const tools = [
         }
     },
     {
+        name: 'save_attachment',
+        description: 'Save an embedded attachment of the note of a task, project or folder as a file, for example to read it. The file must not exist yet. A linked file is not copied, its path is shown instead. The number of an attachment is shown by get_task and get_project (OmniFocus does not give scripts the name of an embedded file, so the name of the new file is up to you).',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                item_type: {
+                    type: 'string',
+                    enum: ['task', 'project', 'folder'],
+                    description: 'What the attachment belongs to'
+                },
+                item: {
+                    type: 'string',
+                    description: 'Task (open, by name or "id:<id>"), project (name, path "Folder > Subfolder > Project" or "id:<id>") or folder (name, path or "id:<id>")'
+                },
+                number: {
+                    type: 'number',
+                    description: 'Number of the attachment as shown by get_task or get_project (1 is the first one)',
+                    default: 1
+                },
+                destination: {
+                    type: 'string',
+                    description: 'Full path of the new file on this Mac (or starting with ~); its folder must exist'
+                }
+            },
+            required: ['item_type', 'item', 'destination']
+        }
+    },
+    {
         name: 'rename_folder',
         description: 'Rename an existing folder. Fails without changes if the folder name is ambiguous.',
         inputSchema: {
@@ -1269,6 +1297,15 @@ async function executeTool(name, args) {
                     args.folder || '',
                     String(args.confirm_delete === true),
                     String(args.delete_contents === true)
+                ]);
+                break;
+
+            case 'save_attachment':
+                result = executeAppleScriptFile('save_attachment', [
+                    args.item_type || '',
+                    args.item || '',
+                    String(Math.floor(Number(args.number)) || 1),
+                    args.destination || ''
                 ]);
                 break;
 
