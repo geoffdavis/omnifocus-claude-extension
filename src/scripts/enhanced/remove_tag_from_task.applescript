@@ -26,16 +26,22 @@ on run argv
             set theTag to item 1 of matchingTags
 
             -- Find the task
-            set foundTasks to every flattened task whose name contains searchTerm and completed is false
+            -- "id:<id>" addresses exactly one task; otherwise search open tasks by name
+            if searchTerm starts with "id:" and (length of searchTerm) > 3 then
+                set wantedID to text 4 thru -1 of searchTerm
+                set foundTasks to every flattened task whose id is wantedID
+            else
+                set foundTasks to every flattened task whose name contains searchTerm and completed is false
+            end if
 
             if (count of foundTasks) = 0 then
                 return "❌ No matching tasks found for: " & searchTerm
             else if (count of foundTasks) > 1 then
                 set taskList to "🔍 Multiple tasks found (" & (count of foundTasks) & "):" & return
                 repeat with aTask in foundTasks
-                    set taskList to taskList & "• " & name of aTask & return
+                    set taskList to taskList & "• " & name of aTask & " [id:" & (id of aTask) & "]" & return
                 end repeat
-                set taskList to taskList & return & "Please be more specific."
+                set taskList to taskList & return & "Please be more specific or use id:<id>."
                 return taskList
             end if
 
