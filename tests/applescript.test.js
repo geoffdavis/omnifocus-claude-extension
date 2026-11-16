@@ -8,6 +8,36 @@ describe('AppleScript Integration', () => {
     const enhancedScriptsDir = path.join(scriptsDir, 'enhanced');
 
     describe('Script Files', () => {
+        test('string literals are well formed in every script', () => {
+            // osacompile only runs on a Mac; this catches a lost backslash in an escaped quote
+            // (an unterminated string, or two string literals glued together)
+            const findProblem = line => {
+                let inString = false;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (inString) {
+                        if (ch === '\\') i++;
+                        else if (ch === '"') {
+                            inString = false;
+                            if (line[i + 1] === '"') return 'two string literals without an operator between them';
+                        }
+                    } else if (ch === '"') inString = true;
+                    else if (ch === '-' && line[i + 1] === '-') return null;
+                }
+                return inString ? 'unterminated string' : null;
+            };
+            const problems = [];
+            [scriptsDir, enhancedScriptsDir].forEach(dir => {
+                fs.readdirSync(dir).filter(f => f.endsWith('.applescript')).forEach(file => {
+                    fs.readFileSync(path.join(dir, file), 'utf8').split('\n').forEach((line, index) => {
+                        const problem = findProblem(line);
+                        if (problem) problems.push(`${file}:${index + 1} ${problem}`);
+                    });
+                });
+            });
+            expect(problems).toEqual([]);
+        });
+
         test('scripts directory exists', () => {
             expect(fs.existsSync(scriptsDir)).toBe(true);
         });
@@ -43,9 +73,38 @@ describe('AppleScript Integration', () => {
                 'search_tasks.applescript',
                 'list_tags.applescript',
                 'create_tag.applescript',
-                'delete_tag.applescript',
                 'add_tag_to_task.applescript',
-                'remove_tag_from_task.applescript'
+                'remove_tag_from_task.applescript',
+                'create_project.applescript',
+                'edit_project.applescript',
+                'create_folder.applescript',
+                'rename_folder.applescript',
+                'drop_task.applescript',
+                'get_task.applescript',
+                'list_projects_for_review.applescript',
+                'mark_project_reviewed.applescript',
+                'list_stalled_projects.applescript',
+                'list_tasks_filtered.applescript',
+                'list_completed_tasks.applescript',
+                'list_tasks_by_date.applescript',
+                'edit_tag.applescript',
+                'reopen_task.applescript',
+                'get_project.applescript',
+                'list_due_soon.applescript',
+                'parse_tasks.applescript',
+                'list_perspectives.applescript',
+                'get_selected_link.applescript',
+                'synchronize.applescript',
+                'save_attachment.applescript',
+                'get_selection.applescript',
+                'set_view.applescript',
+                'show_item.applescript',
+                'duplicate_item.applescript',
+                'clean_up.applescript',
+                'undo.applescript',
+                'list_folders.applescript',
+                'edit_folder.applescript',
+                'delete_folder.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -200,37 +259,50 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('edit_task estimate', () => {
+        const scriptPath = path.join(enhancedScriptsDir, 'edit_task.applescript');
+
+        test('checks the number of minutes and clears the estimate with none', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toContain('set estimated minutes of targetTask to missing value');
+            expect(content).toContain('Cleared the estimate for:');
+            expect(content).toContain('Invalid value for estimated_minutes:');
+            expect(content).toContain('my isDigits(minutesText)');
+            expect(content).not.toContain('(newValue as integer)');
+        });
+    });
+
     describe('Recurring Task Recurrence Strings', () => {
         const scriptPath = path.join(enhancedScriptsDir, 'create_recurring_task.applescript');
 
-        test('uses repetition rule with ICS recurrence strings instead of repetition interval', () => {
+        test('sets the repetition with the shared handlers and checks the rule before it creates anything', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            // Should set repetition rule on the task with a recurrence string
-            expect(content).toMatch(/set repetition rule of newTask to \{repetition method:.+, recurrence:/);
+            expect(content).toContain('set repeatInfo to my parseRepeatRule(repeatRule)');
+            expect(content).toContain('my applyRepetition(newTask, ruleString of repeatInfo, scheduleName of repeatInfo, "due", false)');
+            expect(content).toContain('Nothing was created.');
             // Should NOT use the old broken approach
             expect(content).not.toContain('repetition interval');
             expect(content).not.toContain('{unit:');
+            expect(content).not.toContain('buildRecurrenceString');
         });
 
-        test('buildRecurrenceString handles all standard repeat rules', () => {
+        test('refuses an empty name and does not report "changed" and "created" at once', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/return "FREQ=DAILY"/);
-            expect(content).toMatch(/return "FREQ=WEEKLY"/);
-            expect(content).toMatch(/return "FREQ=MONTHLY"/);
-            expect(content).toMatch(/return "FREQ=YEARLY"/);
+            expect(content).toContain('A recurring task needs a name. Nothing was created.');
+            expect(content).toContain('my removeText(problemText, " Nothing was changed.")');
         });
 
-        test('buildRecurrenceString supports custom intervals with INTERVAL parameter', () => {
+        test('parseRepeatRule builds the iCalendar strings for the standard repeat rules', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            // Should build FREQ=...;INTERVAL= strings for custom patterns like "3 days", "2 weeks"
-            expect(content).toMatch(/return "FREQ=DAILY;INTERVAL=" & stepCount/);
-            expect(content).toMatch(/return "FREQ=WEEKLY;INTERVAL=" & stepCount/);
+            ['"DAILY"', '"WEEKLY"', '"MONTHLY"', '"YEARLY"'].forEach(part => expect(content).toContain(part));
+            expect(content).toContain('";INTERVAL=" & intervalCount');
         });
 
-        test('supports both fixed and due-after-completion repetition methods', () => {
+        test('applyRepetition uses the schedule and the date a repetition is based on', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/repetition method:fixed repetition, recurrence:recurrenceString/);
-            expect(content).toMatch(/repetition method:due after completion, recurrence:recurrenceString/);
+            expect(content).toContain('repetition schedule:regularly, repetition based on:based on due, catch up automatically:catchValue');
+            expect(content).toContain('repetition schedule:from completion, repetition based on:based on defer');
+            expect(content).toContain('repetition based on:based on planned');
         });
     });
 
@@ -274,6 +346,709 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('GTD query tools', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('list_tasks_filtered.applescript reads all 6 arguments', () => {
+            const content = read('list_tasks_filtered.applescript');
+            for (let i = 1; i <= 6; i++) {
+                expect(content).toContain(`item ${i} of argv`);
+            }
+        });
+
+        test('list_tasks_filtered.applescript leaves out completed, dropped and hidden-folder tasks', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('effectively completed is false and effectively dropped is false');
+            expect(content).toContain('every flattened folder whose hidden is true');
+        });
+
+        test('list_tasks_filtered.applescript does not list a project without tasks as a task', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('(id of theProject) is taskID');
+        });
+
+        test('list_tasks_filtered.applescript reports ambiguous tags instead of guessing', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('Ambiguous tag');
+            expect(content).toContain('Tag not found');
+        });
+
+        test('list_tasks_filtered.applescript filters by estimated minutes', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('item 7 of argv');
+            expect(content).toContain('estimated minutes of theTask');
+            expect(content).toContain('estimateValue > maxMinutes');
+            expect(content).toContain('includeUnestimated');
+        });
+
+        test('list_tasks_filtered.applescript shows the age and sorts oldest first', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('item 9 of argv');
+            expect(content).toContain('creation date of theTask');
+            expect(content).toContain('on ageText(');
+            expect(content).toContain('oldest first');
+            // the limit applies after sorting
+            expect(content).toContain('matchCount ≥ maxResults and not showAge');
+        });
+
+        test('list_completed_tasks.applescript filters by completion date', () => {
+            const content = read('list_completed_tasks.applescript');
+            expect(content).toContain('completion date');
+            expect(content).toContain('every flattened folder whose hidden is true');
+        });
+
+        test('list_tasks_by_date.applescript queries by creation, modification and drop date', () => {
+            const content = read('list_tasks_by_date.applescript');
+            // bulk queries (one per property) instead of one query per item
+            expect(content).toContain('creation date of every flattened task of scopeRef');
+            expect(content).toContain('modification date of every flattened task of scopeRef');
+            expect(content).toContain('dropped date of every flattened task of scopeRef');
+            expect(content).toContain('whenDate ≥ sinceDate and whenDate < untilDate');
+            // tasks and projects, one project as scope
+            expect(content).toContain('every flattened task of scopeRef');
+            expect(content).toContain('status of every flattened project');
+            expect(content).toContain('changed while the');
+            expect(content).toContain('on resolveProject(');
+            // hidden folders are left out, newest first, the limit applies after sorting
+            expect(content).toContain('on projectInHiddenFolder(');
+            // the root task of a project (same ID as the project) is not a task of the list
+            expect(content).toContain('projectIDs contains (item i of idList)');
+            expect(content).toContain('on sortPositions(');
+            expect(content).toContain('shownCount ≥ maxResults');
+            // every value is checked before OmniFocus is read; read errors are reported
+            expect(content).toContain('Invalid date_field');
+            expect(content).toContain('Dropped items are never open');
+            expect(content).toContain('since must be before until');
+            expect(content).toContain('could not read the');
+        });
+
+        test('edit_project.applescript supports the project types', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('propertyName is "type"');
+            expect(content).toContain('singleton action holder');
+            expect(content).toContain('set sequential of targetProject');
+        });
+    });
+
+    describe('Project review properties', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_project.applescript sets the review interval and the next review date', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('propertyName is "review_interval"');
+            expect(content).toContain('set review interval of aProject to {unit:week, steps:stepCount, fixed:true}');
+            expect(content).toContain('propertyName is "next_review_date"');
+            expect(content).toContain('set next review date of targetProject to missing value');
+            expect(content).toContain('Invalid review interval');
+        });
+
+        test('edit_project.applescript sets dates, flag and completion behaviour of a project', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('set due date of targetProject');
+            expect(content).toContain('set defer date of targetProject');
+            expect(content).toContain('set planned date of targetProject');
+            expect(content).toContain('set flagged of targetProject');
+            expect(content).toContain('set completed by children of targetProject');
+            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, repeat, repeat_based_on, repeat_catch_up');
+        });
+
+        test('create_project.applescript checks the optional settings before it creates anything', () => {
+            const content = read('create_project.applescript');
+            expect(content).toContain('item 4 of argv');
+            expect(content).toContain('item 7 of argv');
+            expect(content).toContain('Nothing was created.');
+            expect(content.indexOf('parseReviewInterval(intervalText)')).toBeLessThan(content.indexOf('make new project'));
+            expect(content).toContain('set singleton action holder of newProject to true');
+        });
+
+        test('list_projects_for_review.applescript shows the review interval', () => {
+            const content = read('list_projects_for_review.applescript');
+            expect(content).toContain('reviewIntervalText(theProject)');
+            expect(content).toContain('every " & stepCount');
+        });
+
+        test('the review interval parser knows all units', () => {
+            const content = read('edit_project.applescript');
+            ['"day"', '"week"', '"month"', '"year"', '"weekly"', '"monthly"'].forEach(word => {
+                expect(content).toContain(word);
+            });
+        });
+    });
+
+    describe('Due soon', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('list_due_soon.applescript lists open tasks due between now and the end of the last day', () => {
+            const content = read('list_due_soon.applescript');
+            expect(content).toContain('due date ≥ nowDate and due date ≤ endDate');
+            expect(content).toContain('effectively completed is false and effectively dropped is false');
+            expect(content).toContain('set hours of endDate to 23');
+            expect(content).toContain('hiddenFolderTaskIDs()');
+        });
+
+        test('list_due_soon.applescript groups by tag, day or project and sorts by due date', () => {
+            const content = read('list_due_soon.applescript');
+            expect(content).toContain('groupMode is "tag"');
+            expect(content).toContain('groupMode is "day"');
+            expect(content).toContain('Unknown grouping');
+            expect(content).toContain('(no tag)');
+            expect(content).toContain('(item i of sortedDates) > taskDue');
+        });
+
+        test('list_due_soon.applescript passes through the days, grouping and limit arguments', () => {
+            const content = read('list_due_soon.applescript');
+            expect(content).toContain('item 1 of argv');
+            expect(content).toContain('item 2 of argv');
+            expect(content).toContain('item 3 of argv');
+        });
+    });
+
+    describe('Project filter and perspectives', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('list_tasks_filtered.applescript can be limited to one project', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('set projectQuery to my trimItem(item 10 of argv)');
+            expect(content).toContain('my resolveProject(projectQuery)');
+            expect(content).toContain('projectTaskIDs does not contain taskID');
+            expect(content).toContain('in the project');
+        });
+
+        test('the server passes the project to both task list tools', () => {
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect((server.match(/args\.project \|\| ''\n                \]\);/g) || []).length).toBeGreaterThanOrEqual(2);
+        });
+
+        test('list_perspectives.applescript separates built-in and custom perspectives', () => {
+            const content = read('list_perspectives.applescript');
+            expect(content).toContain('set perspectiveList to every perspective');
+            expect(content).toContain('(class of thePerspective) is custom perspective');
+            expect(content).toContain('set end of customNames to perspectiveName');
+        });
+    });
+
+    describe('Links for tasks', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_task.applescript and edit_project.applescript can add to the note', () => {
+            ['edit_task.applescript', 'edit_project.applescript'].forEach(file => {
+                const content = read(file);
+                expect(content).toContain('propertyName is "append_note"');
+                expect(content).toContain('currentNote & linefeed & newValue');
+                expect(content).toContain('my noteFormattingProblem(');
+                expect(content).toContain('on noteFormattingProblem(theItem)');
+                expect(content).toContain('The note contains attachments that would be lost.');
+                expect(content).toContain('The note contains formatting that would be lost.');
+                expect(content).toContain('append_note needs a text to add');
+                expect(content).toContain('Valid properties: name, note, append_note,');
+                expect(content).not.toContain('insert (linefeed');
+            });
+        });
+
+        test('get_task.applescript and get_project.applescript show the omnifocus:// link', () => {
+            expect(read('get_task.applescript')).toContain('"Link: omnifocus:///task/" & (id of targetTask)');
+            expect(read('get_project.applescript')).toContain('"Link: omnifocus:///task/" & (id of targetProject)');
+        });
+
+        test('get_selected_link.applescript supports several apps without starting them or reading content', () => {
+            const content = read('get_selected_link.applescript');
+            ['Mail', 'Safari', 'Google Chrome', 'Finder', 'Contacts'].forEach(app => expect(content).toContain(app));
+            expect(content).toContain('/usr/bin/pgrep -x');
+            expect(content).toContain('run script sourceText with parameters');
+            expect(content).toContain('"message://%3C"');
+            expect(content).toContain('"file://"');
+            expect(content).toContain('"addressbook://"');
+            expect(content).toContain('Apple Notes cannot be linked');
+            expect(content).toContain('Automation');
+            expect(content).not.toContain('content of m');
+        });
+    });
+
+    describe('Attachments in notes', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('save_attachment.applescript saves an embedded attachment to a new file and never overwrites', () => {
+            const content = read('save_attachment.applescript');
+            expect(content).toContain('save (file attachment attachmentNumber of (note of targetItem)) in (POSIX file destinationPath)');
+            expect(content).toContain('/bin/test -e');
+            expect(content).toContain('exists already. Nothing was saved.');
+            expect(content).toContain('/bin/test -d');
+            expect(content).toContain('starting with / or ~');
+            expect(content).toContain('it is not copied');
+            ['resolveTask', 'resolveProject', 'resolveFolder', 'attachmentPath', 'attachmentSizeText'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+            ['task', 'project', 'folder'].forEach(type => expect(content).toContain(`itemType is "${type}"`));
+        });
+
+        test('edit_task, edit_project and edit_folder attach, link and remove files', () => {
+            ['edit_task.applescript', 'edit_project.applescript', 'edit_folder.applescript'].forEach(file => {
+                const content = read(file);
+                ['attach_file', 'link_file', 'remove_attachment'].forEach(property => {
+                    expect(content).toContain(`propertyName is "${property}"`);
+                });
+                expect(content).toContain('my attachFileToNote(');
+                expect(content).toContain('my removeAttachmentFromNote(');
+                expect(content).toContain('on attachFileToNote(theItem, itemLabel, pathText, embedFile)');
+                expect(content).toContain('on removeAttachmentFromNote(theItem, itemLabel, numberText)');
+                expect(content).toContain('make new file attachment at after last character of (note of theItem) with properties {file name:theFile, embedded:embedFile}');
+                expect(content).toContain('/bin/test -f');
+                expect(content).toContain('starting with / or ~');
+                expect(content).toContain('delete (file attachment attachmentNumber of (note of theItem))');
+                expect(content).toContain('attach_file, link_file, remove_attachment');
+            });
+        });
+
+        test('attachFileToNote starts a new line only when the note can be rewritten as plain text', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('if my noteFormattingProblem(theItem) is "" then');
+            expect(content).toContain('set note of theItem to noteText & linefeed');
+            expect(content).toContain('OmniFocus did not attach the file.');
+        });
+
+        test('get_task.applescript and get_project.applescript list the attachments and mark them in the note', () => {
+            ['get_task.applescript', 'get_project.applescript'].forEach(file => {
+                const content = read(file);
+                expect(content).toContain('my attachmentLines(');
+                expect(content).toContain('my markAttachments((note of');
+                expect(content).toContain('on attachmentLines(theItem)');
+                expect(content).toContain('embedded of (file attachment i of (note of theItem))');
+                expect(content).toContain('set fileReference to file name of (file attachment i of (note of theItem))');
+                expect(content).toContain('set thePath to POSIX path of fileReference');
+                expect(content).toContain('character id 65532');
+                expect(content).toContain('"Attachments: " & attachmentCount');
+            });
+        });
+    });
+
+    describe('Selection and view', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('get_selection.applescript reads the view and the selected rows without changing anything', () => {
+            const content = read('get_selection.applescript');
+            expect(content).toContain('every selected tree of (content of theWindow)');
+            expect(content).toContain('every selected tree of (sidebar of theWindow)');
+            expect(content).toContain('perspective name of theWindow');
+            expect(content).toContain('search term of theWindow');
+            expect(content).toContain('focus of theWindow');
+            expect(content).toContain('OmniFocus has no open window');
+            expect(content).toContain('[id:');
+            expect(content).not.toMatch(/set (perspective name|search term|focus) of/);
+        });
+
+        test('set_view.applescript checks the perspective, the search term and the focus after setting them', () => {
+            const content = read('set_view.applescript');
+            expect(content).toContain('set perspective name of theWindow to wantedName');
+            expect(content).toContain('set search term of theWindow to searchText');
+            expect(content).toContain('set focus of theWindow to {focusItem}');
+            expect(content).toContain('set focus of theWindow to {}');
+            expect(content).toContain('Perspective not found');
+            expect(content).toContain('on waitForFocus(');
+            expect(content).toContain('on itemStateNote(');
+            expect(content).toContain('on withEarlier(');
+            expect(content).toContain('did not switch to the perspective');
+            expect(content).toContain('No project or folder found');
+            ['resolveProject', 'resolveFolder', 'focusItemCount'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+        });
+
+        test('show_item.applescript opens the link of the item and checks the selection', () => {
+            const content = read('show_item.applescript');
+            expect(content).toContain('"omnifocus:///" & itemType & "/" & itemID');
+            expect(content).toContain('open location linkText');
+            expect(content).toContain('on isItemSelected(');
+            expect(content).toContain('on itemStateNote(');
+            expect(content).toContain('hidden of currentFolder');
+            ['resolveTask', 'resolveProject', 'resolveFolder', 'resolveTag'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+            ['task', 'project', 'folder', 'tag'].forEach(type => expect(content).toContain(`itemType is "${type}"`));
+        });
+
+        test('duplicate_item.applescript checks everything first, duplicates and restores the dropped tasks', () => {
+            const content = read('duplicate_item.applescript');
+            ['resolveTask', 'resolveProject', 'resolveFolder', 'itemStateNote', 'restoreStates', 'copyLocation', 'projectNameTaken', 'firstOf'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+            expect(content).toContain('duplicate sourceItem to after sourceItem');
+            expect(content).toContain('duplicate sourceItem to end of inbox tasks');
+            expect(content).toContain('duplicate sourceItem to end of tasks of destItem');
+            expect(content).toContain('duplicate sourceItem to end of projects of destItem');
+            expect(content).toContain('duplicate sourceItem to end of projects');
+            expect(content).toContain('mark dropped copyTask');
+            expect(content).toContain('mark incomplete copyTask');
+            expect(content).toContain('Nothing was duplicated.');
+            expect(content).toContain('Folders cannot be duplicated');
+            expect(content).toContain('sourceName & " copy"');
+            // The checks come before the first change
+            expect(content.indexOf('Nothing was duplicated.')).toBeLessThan(content.indexOf('set dupResult to duplicate'));
+        });
+
+        test('set_view passes the search term and a flag, so that an empty term can clear the search', () => {
+            const serverContent = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(serverContent).toContain("executeAppleScriptFile('set_view', [");
+            expect(serverContent).toContain("args.search === undefined || args.search === null ? 'no' : 'yes'");
+        });
+    });
+
+    describe('Synchronize and clean up', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('synchronize.applescript starts the sync and waits for it with a limit', () => {
+            const content = read('synchronize.applescript');
+            expect(content).toContain('synchronize default document');
+            expect(content).toContain('syncing of default document');
+            expect(content).toContain('if waitSeconds > 120 then set waitSeconds to 120');
+            expect(content).toContain('Could not synchronize');
+            expect(content).toContain('A synchronization is already running');
+        });
+
+        test('clean_up.applescript compacts the document and reports the inbox change', () => {
+            const content = read('clean_up.applescript');
+            expect(content).toContain('compact default document');
+            expect(content).toContain('every inbox task of default document whose completed is false');
+            expect(content).not.toContain('tell default document');
+            expect(content).toContain('moved into projects');
+        });
+    });
+
+    describe('Folder actions', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('every script that takes a folder finds it by id too', () => {
+            ['rename_folder', 'create_folder', 'create_project', 'edit_project', 'edit_folder', 'delete_folder'].forEach(name => {
+                const content = read(`${name}.applescript`);
+                expect(content).toContain('if queryText starts with "id:" then');
+                expect(content).toContain('every flattened folder whose id is wantedID');
+            });
+        });
+
+        test('list_folders.applescript shows the hierarchy with IDs, hidden folders and notes', () => {
+            const content = read('list_folders.applescript');
+            expect(content).toContain('on formatFolders(folderList, depth)');
+            expect(content).toContain('hidden of aFolder');
+            expect(content).toContain('" [id:" & (id of aFolder) & "]"');
+        });
+
+        test('edit_folder.applescript supports all properties and does not create a loop or a duplicate name', () => {
+            const content = read('edit_folder.applescript');
+            ['name', 'note', 'append_note', 'parent', 'hidden'].forEach(property => {
+                expect(content).toContain(`propertyName is "${property}"`);
+            });
+            expect(content).toContain('move targetFolder to end of folders of newParent');
+            expect(content).toContain('move targetFolder to end of folders');
+            expect(content).toContain('ownIDs contains newParentID');
+            expect(content).toContain('on hasFolderNamed(parentFolder, wantedName, ignoreID)');
+            expect(content).toContain('my noteFormattingProblem(targetFolder)');
+            expect(content).toContain('Valid properties: name, note, append_note, parent, hidden');
+        });
+
+        test('delete_folder.applescript needs a confirmation and refuses a folder with content by default', () => {
+            const content = read('delete_folder.applescript');
+            expect(content).toContain('if not confirmDelete then');
+            expect(content).toContain('not deleteContents');
+            expect(content).toContain('delete targetFolder');
+            expect(content).toContain('every flattened project of targetFolder');
+            expect(content).toContain('my countText(projectCount');
+        });
+    });
+
+    describe('Undo', () => {
+        test('undo.applescript undoes and redoes only while the document can and limits the steps', () => {
+            const content = fs.readFileSync(path.join(enhancedScriptsDir, 'undo.applescript'), 'utf8');
+            expect(content).toContain('undo default document');
+            expect(content).toContain('redo default document');
+            expect(content).toContain('can undo of default document');
+            expect(content).toContain('can redo of default document');
+            expect(content).toContain('if stepCount > 20 then set stepCount to 20');
+            expect(content).toContain('Nothing to undo');
+            expect(content).not.toContain('tell default document');
+        });
+    });
+
+    describe('Text to tasks', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('parse_tasks.applescript lets OmniFocus parse every line as one task', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('parse tasks into default document with transport text lineText as single task true');
+            // OmniFocus makes one task out of a multi-line text, so the lines are split in the script
+            expect(content).toContain('on splitIntoLines(sourceText)');
+            expect(content).toContain('repeat with aLine in (paragraphs of sourceText)');
+        });
+
+        test('parse_tasks.applescript checks everything before it creates tasks', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('Give either text or from_note');
+            expect(content).toContain('Use either text or from_note, not both');
+            expect(content).toContain('Use either project or parent_task, not both');
+            expect(content).toContain('clear_note only works together with from_note');
+            expect(content).toContain('has no note. Nothing was created.');
+            const firstParse = content.indexOf('parse tasks into default document');
+            expect(content.indexOf('my resolveProject(projectQuery)')).toBeLessThan(firstParse);
+            expect(content.indexOf('my resolveTask(parentQuery)')).toBeLessThan(firstParse);
+        });
+
+        test('parse_tasks.applescript builds the hierarchy from the indentation', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('set indentWidth to indentWidth + 4');
+            expect(content).toContain('set end of levelList to (count of openWidths) - 1');
+            expect(content).toContain('move newTask to end of tasks of levelParent');
+            expect(content).toContain('move newTask to end of tasks of destinationProject');
+            expect(content).toContain('move newTask to end of tasks of destinationTask');
+        });
+
+        test('parse_tasks.applescript removes list markers and can use the note of a task', () => {
+            const content = read('parse_tasks.applescript');
+            expect(content).toContain('cleanLine starts with "- " or cleanLine starts with "* " or cleanLine starts with "• "');
+            expect(content).toContain('set sourceText to (note of sourceTask) as text');
+            expect(content).toContain('set note of sourceTask to ""');
+        });
+    });
+
+    describe('Project contents', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('get_project.applescript lists the tasks recursively, including blocked and deferred ones', () => {
+            const content = read('get_project.applescript');
+            expect(content).toContain('on taskTree(');
+            expect(content).toContain('my taskTree(theTask, depth + 1');
+            expect(content).toContain('effective defer date');
+            expect(content).toContain('blocked of theTask');
+            expect(content).toContain('number of tasks of theTask');
+        });
+
+        test('get_project.applescript hides completed and dropped tasks unless asked and has a limit', () => {
+            const content = read('get_project.applescript');
+            expect(content).toContain('(isDone or isDropped) and not includeDone');
+            expect(content).toContain('Limit of');
+            expect(content).toContain('item 3 of argv');
+        });
+
+        test('get_project.applescript finds projects in all folders and by id', () => {
+            const content = read('get_project.applescript');
+            expect(content).toContain('on resolveProject(');
+            expect(content).toContain('every flattened project whose id is wantedID');
+        });
+    });
+
+    describe('Action groups and moving tasks', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_task.applescript moves a task below another open task', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "parent_task"');
+            expect(content).toContain('my resolveTask(newValue)');
+            expect(content).toContain('move targetTask to end of tasks of newParent');
+            expect(content).toContain('Nothing was moved.');
+        });
+
+        test('edit_task.applescript refuses to move a task below itself or its own subtasks', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('set walkTask to parent task of walkTask');
+            expect(content).toContain('A task cannot be moved below itself or one of its own subtasks');
+        });
+
+        test('edit_task.applescript sets sequential and completed by children with a validated flag', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "sequential"');
+            expect(content).toContain('set sequential of targetTask to (flagValue is "true")');
+            expect(content).toContain('propertyName is "complete_with_last_item"');
+            expect(content).toContain('set completed by children of targetTask to (flagValue is "true")');
+            expect(content).toContain('Invalid value for sequential');
+            expect(content).toContain('on parseFlag(');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up, parent_task, sequential, complete_with_last_item');
+        });
+
+        test('get_task and get_project show how the subtasks of a task behave', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('one after another');
+            expect(task).toContain('completes with the last subtask');
+            const project = read('get_project.applescript');
+            expect(project).toContain('", sequential"');
+        });
+
+        test('the server offers the new edit_task properties', () => {
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(server).toContain("'repeat', 'repeat_based_on', 'repeat_catch_up', 'parent_task', 'sequential', 'complete_with_last_item'");
+        });
+    });
+
+    describe('Task repetition', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_task.applescript sets, changes and removes the repetition', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "repeat"');
+            expect(content).toContain('my setRepetition(targetTask, "task", originalName, newValue)');
+            expect(content).toContain('propertyName is "repeat_based_on"');
+            expect(content).toContain('my changeRepetition(targetTask, "task", originalName, "based_on", newValue)');
+            expect(content).toContain('propertyName is "repeat_catch_up"');
+            expect(content).toContain('my changeRepetition(targetTask, "task", originalName, "catch_up", newValue)');
+            expect(content).toContain('set repetition rule of theItem to missing value');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up');
+        });
+
+        test('edit_project.applescript repeats projects as well', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('my setRepetition(targetProject, "project", originalLabel, newValue)');
+            expect(content).toContain('my changeRepetition(targetProject, "project", originalLabel, "based_on", newValue)');
+            expect(content).toContain('my changeRepetition(targetProject, "project", originalLabel, "catch_up", newValue)');
+        });
+
+        test('setRepetition refuses an item without a date and rejects unknown rules', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('needs a due, defer or planned date');
+            expect(content).toContain('Invalid repeat');
+            expect(content).toContain('on parseRepeatRule(');
+            expect(content).toContain('does not understand the repeat rule');
+            expect(content).toContain('Catching up only works for a fixed schedule');
+        });
+
+        test('parseRepeatRule understands weekdays, days of the month and iCalendar rules', () => {
+            const content = read('edit_task.applescript');
+            ['"BYDAY="', '"BYMONTHDAY=-1"', '"BYMONTHDAY="', 'on weekdayCode(', 'on unitCode(', 'on ordinalValue(', 'on upperText(',
+                '"MO", "TU", "WE", "TH", "FR"', 'starts with "FREQ="', 'starts with "RRULE:"'].forEach(part => {
+                expect(content).toContain(part);
+            });
+        });
+
+        test('describeRecurrence puts weekdays and days of the month into words', () => {
+            const content = read('get_task.applescript');
+            ['every weekday', ' on the last day', ' on day ', ' on the ', 'on weekdayName(', 'on ordinalName(', 'on joinNames('].forEach(part => {
+                expect(content).toContain(part);
+            });
+        });
+
+        test('get_task and get_project show how an item repeats', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('my repetitionText(targetTask)');
+            expect(task).toContain('"Repeats: "');
+            expect(task).toContain('repetition rule of theItem');
+            expect(task).toContain('repetition schedule of theRule');
+            const project = read('get_project.applescript');
+            expect(project).toContain('my repetitionText(targetProject)');
+            expect(project).toContain('"Repeats: "');
+        });
+    });
+
+    describe('Task lifecycle tools', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('reopen_task.applescript reopens completed and dropped tasks and checks the result', () => {
+            const content = read('reopen_task.applescript');
+            expect(content).toContain('mark incomplete');
+            expect(content).toContain('completed is true');
+            expect(content).toContain('dropped is true');
+            expect(content).toContain('Please be more specific or use id:<id>');
+            expect(content).toContain('Task is already open');
+        });
+
+        test('edit_task.applescript supports the planned date', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "planned_date"');
+            expect(content).toContain('set planned date of targetTask');
+        });
+
+        test('add_task.applescript reads planned_date and parent_task and never combines parent_task with a project', () => {
+            const content = fs.readFileSync(path.join(scriptsDir, 'add_task.applescript'), 'utf8');
+            expect(content).toContain('item 9 of argv');
+            expect(content).toContain('item 10 of argv');
+            expect(content).toContain('set planned date of newTask');
+            expect(content).toContain('at end of tasks of parentTaskObject');
+            expect(content).toContain('Use either project or parent_task, not both');
+        });
+    });
+
+    describe('Tag hierarchy tools', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+        const tagScripts = [
+            path.join('..', 'add_task.applescript'),
+            'batch_add_tasks.applescript',
+            'edit_task.applescript',
+            'add_tag_to_task.applescript',
+            'remove_tag_from_task.applescript',
+            'create_tag.applescript',
+            'edit_tag.applescript',
+            'list_tasks_filtered.applescript'
+        ];
+
+        test('tags are looked up at every level, not only at top level', () => {
+            tagScripts.forEach(script => {
+                const content = read(script);
+                expect(content).toContain('on resolveTag(queryText, allowPartial)');
+                expect(content).toContain('every flattened tag');
+                // The old lookup only saw top-level tags and created duplicates of nested ones
+                expect(content).not.toContain('every tag whose name is');
+            });
+        });
+
+        test('scripts that attach tags create missing tags only through findOrCreateTag', () => {
+            ['add_task.applescript', 'batch_add_tasks.applescript', 'edit_task.applescript', 'add_tag_to_task.applescript'].forEach(script => {
+                const content = script === 'add_task.applescript'
+                    ? fs.readFileSync(path.join(enhancedScriptsDir, '..', script), 'utf8')
+                    : read(script);
+                expect(content).toContain('my findOrCreateTag(');
+                expect(content).not.toContain('make new tag with properties {name:tagName}');
+            });
+        });
+
+        test('create_tag.applescript checks for duplicates below the same parent', () => {
+            const content = read('create_tag.applescript');
+            expect(content).toContain('my hasTagNamed(parentTag, tagName');
+            expect(content).toContain('Parent tag not found');
+        });
+
+        test('edit_tag.applescript supports all properties', () => {
+            const content = read('edit_tag.applescript');
+            ['name', 'note', 'parent', 'hidden', 'allows_next_action'].forEach(property => {
+                expect(content).toContain(`propertyName is "${property}"`);
+            });
+            expect(content).toContain('set hidden of targetTag');
+            expect(content).toContain('set allows next action of targetTag');
+        });
+
+        test('edit_tag.applescript sets and removes the location with checked values', () => {
+            const content = read('edit_tag.applescript');
+            expect(content).toContain('propertyName is "location"');
+            expect(content).toContain('set location of targetTag to missing value');
+            expect(content).toContain('set location of aTag to locationRecord');
+            ['name:locName', 'latitude:latValue', 'longitude:lonValue', 'altitude:altValue', 'radius:radiusValue', 'trigger:notify when arriving', 'trigger:notify when leaving'].forEach(term => {
+                expect(content).toContain(term);
+            });
+            expect(content).toContain('Latitude must be between -90 and 90');
+            expect(content).toContain('Longitude must be between -180 and 180');
+            expect(content).toContain('The radius must be between 0.1 and 10 kilometers');
+            expect(content).toContain('A location needs a latitude and a longitude');
+            expect(content).toContain('Valid properties: name, note, parent, hidden, allows_next_action, location');
+            // numbers are parsed and written by the script, not by the language setting of the Mac
+            expect(content).toContain('on parseDecimal(valueText)');
+            expect(content).toContain('on formatDecimal(numberValue)');
+        });
+
+        test('edit_tag.applescript does not move a tag below itself and resolves names exactly', () => {
+            const content = read('edit_tag.applescript');
+            expect(content).toContain('ownIDs contains newParentID');
+            expect(content).toContain('my resolveTag(tagText, false)');
+        });
+
+        test('list_tags.applescript shows IDs, hidden tags and tags without next actions', () => {
+            const content = read('list_tags.applescript');
+            expect(content).toContain('on tagSuffix(aTag)');
+            expect(content).toContain('hidden of aTag');
+            expect(content).toContain('allows next action of aTag');
+        });
+
+        test('list_tags.applescript shows the location of a tag', () => {
+            const content = read('list_tags.applescript');
+            expect(content).toContain('my tagLocationText(aTag)');
+            expect(content).toContain('location of aTag');
+            expect(content).toContain('📍');
+            expect(content).toContain('on singleLineText(theText)');
+        });
+    });
+
     describe('Tool-Script Coverage', () => {
         const serverPath = path.join(__dirname, '..', 'src', 'server', 'index.js');
 
@@ -288,9 +1063,16 @@ describe('AppleScript Integration', () => {
 
             expect(toolNames.length).toBeGreaterThan(0);
 
+            // Tools that share one script are mapped here
+            const sharedScripts = {
+                list_available_tasks: 'list_tasks_filtered',
+                list_tasks_by_tag: 'list_tasks_filtered'
+            };
+
             toolNames.forEach(toolName => {
-                const enhancedPath = path.join(enhancedScriptsDir, `${toolName}.applescript`);
-                const corePath = path.join(scriptsDir, `${toolName}.applescript`);
+                const scriptName = sharedScripts[toolName] || toolName;
+                const enhancedPath = path.join(enhancedScriptsDir, `${scriptName}.applescript`);
+                const corePath = path.join(scriptsDir, `${scriptName}.applescript`);
                 const found = fs.existsSync(enhancedPath) || fs.existsSync(corePath);
                 expect(found).toBe(true);
             });
