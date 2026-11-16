@@ -327,6 +327,51 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Project review properties', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_project.applescript sets the review interval and the next review date', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('propertyName is "review_interval"');
+            expect(content).toContain('set review interval of aProject to {unit:week, steps:stepCount, fixed:true}');
+            expect(content).toContain('propertyName is "next_review_date"');
+            expect(content).toContain('set next review date of targetProject to missing value');
+            expect(content).toContain('Invalid review interval');
+        });
+
+        test('edit_project.applescript sets dates, flag and completion behaviour of a project', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('set due date of targetProject');
+            expect(content).toContain('set defer date of targetProject');
+            expect(content).toContain('set planned date of targetProject');
+            expect(content).toContain('set flagged of targetProject');
+            expect(content).toContain('set completed by children of targetProject');
+            expect(content).toContain('Valid properties: name, note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item');
+        });
+
+        test('create_project.applescript checks the optional settings before it creates anything', () => {
+            const content = read('create_project.applescript');
+            expect(content).toContain('item 4 of argv');
+            expect(content).toContain('item 7 of argv');
+            expect(content).toContain('Nothing was created.');
+            expect(content.indexOf('parseReviewInterval(intervalText)')).toBeLessThan(content.indexOf('make new project'));
+            expect(content).toContain('set singleton action holder of newProject to true');
+        });
+
+        test('list_projects_for_review.applescript shows the review interval', () => {
+            const content = read('list_projects_for_review.applescript');
+            expect(content).toContain('reviewIntervalText(theProject)');
+            expect(content).toContain('every " & stepCount');
+        });
+
+        test('the review interval parser knows all units', () => {
+            const content = read('edit_project.applescript');
+            ['"day"', '"week"', '"month"', '"year"', '"weekly"', '"monthly"'].forEach(word => {
+                expect(content).toContain(word);
+            });
+        });
+    });
+
     describe('Task lifecycle tools', () => {
         const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
 

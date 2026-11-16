@@ -1,7 +1,13 @@
 on run argv
     -- Edit an existing project
     -- Usage: edit_project.applescript "project name or Folder > Project" "property" "new value"
-    -- Properties: name, note, folder, status, type
+    -- Properties: name, note, folder, status, type, review_interval, next_review_date,
+    --             due_date, defer_date, planned_date, flagged, complete_with_last_item
+    --   review_interval: "1 week", "2 weeks", "1 month", "1 year", "weekly", ...
+    --     (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead)
+    --   next_review_date: a date, or "none" to derive it again from the last review and the interval
+    --   due_date, defer_date, planned_date: a date, or "none" to clear it
+    --   flagged, complete_with_last_item: true or false
     
     if (count of argv) < 3 then
         return "❌ Project, property and value are required."
@@ -91,8 +97,92 @@ on run argv
                         return "❌ Unknown project type: " & newValue & ". Valid values: sequential, parallel, single_action"
                     end if
 
+                else if propertyName is "review_interval" then
+                    -- How often the project is reviewed
+                    set intervalInfo to my parseReviewInterval(newValue)
+                    if not (isValid of intervalInfo) then
+                        return errorText of intervalInfo
+                    end if
+                    my setReviewInterval(targetProject, stepCount of intervalInfo, unitName of intervalInfo)
+                    set intervalText to my reviewIntervalText(targetProject)
+                    if intervalText is "" then set intervalText to newValue
+                    set nextText to ""
+                    try
+                        set nextReview to next review date of targetProject
+                        if nextReview is not missing value then set nextText to " (next review: " & (date string of nextReview) & ")"
+                    end try
+                    return "🔎 Review interval of project \"" & originalLabel & "\": " & intervalText & nextText
+
+                else if propertyName is "next_review_date" or propertyName is "next_review" then
+                    if newValue is "none" or newValue is "clear" then
+                        -- OmniFocus derives the date again from the last review and the review interval
+                        set next review date of targetProject to missing value
+                        set nextReview to next review date of targetProject
+                        if nextReview is missing value then
+                            return "🔎 Next review of project \"" & originalLabel & "\" is derived from the review interval"
+                        end if
+                        return "🔎 Next review of project \"" & originalLabel & "\" is derived from the review interval: " & (date string of nextReview)
+                    else
+                        set parsedDate to my parseDate(newValue)
+                        set next review date of targetProject to parsedDate
+                        return "🔎 Next review of project \"" & originalLabel & "\" set to " & (parsedDate as string)
+                    end if
+
+                else if propertyName is "due_date" or propertyName is "due" then
+                    if newValue is "none" or newValue is "clear" then
+                        set due date of targetProject to missing value
+                        return "✏️ Cleared due date for project: " & originalLabel
+                    else
+                        set parsedDate to my parseDate(newValue)
+                        set due date of targetProject to parsedDate
+                        return "✏️ Set due date to " & (parsedDate as string) & " for project: " & originalLabel
+                    end if
+
+                else if propertyName is "defer_date" or propertyName is "defer" then
+                    if newValue is "none" or newValue is "clear" then
+                        set defer date of targetProject to missing value
+                        return "✏️ Cleared defer date for project: " & originalLabel
+                    else
+                        set parsedDate to my parseDate(newValue)
+                        set defer date of targetProject to parsedDate
+                        return "✏️ Set defer date to " & (parsedDate as string) & " for project: " & originalLabel
+                    end if
+
+                else if propertyName is "planned_date" or propertyName is "planned" then
+                    if newValue is "none" or newValue is "clear" then
+                        set planned date of targetProject to missing value
+                        return "✏️ Cleared planned date for project: " & originalLabel
+                    else
+                        set parsedDate to my parseDate(newValue)
+                        set planned date of targetProject to parsedDate
+                        return "✏️ Set planned date to " & (parsedDate as string) & " for project: " & originalLabel
+                    end if
+
+                else if propertyName is "flagged" or propertyName is "flag" then
+                    set flagValue to my parseFlag(newValue)
+                    if flagValue is "" then return "❌ Invalid value for flagged: " & newValue & ". Use true or false."
+                    if flagValue is "true" then
+                        set flagged of targetProject to true
+                        return "🚩 Flagged project: " & originalLabel
+                    else
+                        set flagged of targetProject to false
+                        return "🏳️ Unflagged project: " & originalLabel
+                    end if
+
+                else if propertyName is "complete_with_last_item" or propertyName is "complete_with_last_action" then
+                    -- The project is completed automatically when its last open task is completed
+                    set flagValue to my parseFlag(newValue)
+                    if flagValue is "" then return "❌ Invalid value for complete_with_last_item: " & newValue & ". Use true or false."
+                    if flagValue is "true" then
+                        set completed by children of targetProject to true
+                        return "☑️ Project will complete with its last item: " & originalLabel
+                    else
+                        set completed by children of targetProject to false
+                        return "☑️ Project no longer completes with its last item: " & originalLabel
+                    end if
+
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, folder, status, type"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item"
                 end if
             on error errMsg
                 return "❌ Error updating project: " & errMsg
@@ -234,22 +324,6 @@ on projectLabel(aProject)
     return labelText & projectName
 end projectLabel
 
-on trimItem(theText)
-    set whitespaceChars to {" ", tab}
-    set textLength to length of theText
-    if textLength is 0 then return ""
-    set textStart to 1
-    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
-        set textStart to textStart + 1
-    end repeat
-    if textStart > textLength then return ""
-    set textEnd to textLength
-    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
-        set textEnd to textEnd - 1
-    end repeat
-    return text textStart thru textEnd of theText
-end trimItem
-
 on resolveFolder(queryText)
     -- Finds a folder at any depth by name, or by "Folder > Subfolder".
     -- Names match exactly or as a substring, ignoring case.
@@ -369,3 +443,181 @@ on trimText(theText)
     return text textStart thru textEnd of theText
 end trimText
 
+on parseDate(dateString)
+    set todayDate to current date
+
+    -- ISO dates are built from their numeric parts, independent of the system language
+    set isoDate to my parseISODate(dateString)
+    if isoDate is not missing value then return isoDate
+
+    if dateString is "today" then
+        return todayDate
+    else if dateString is "tomorrow" then
+        return todayDate + 1 * days
+    else if dateString is "next week" then
+        return todayDate + 7 * days
+    else if dateString contains "days" then
+        try
+            set dayCount to word 1 of dateString as integer
+            return todayDate + dayCount * days
+        on error
+            return todayDate
+        end try
+    else
+        -- Try to parse as date directly
+        try
+            return date dateString
+        on error
+            return todayDate
+        end try
+    end if
+end parseDate
+
+on parseISODate(dateString)
+    -- Parses "YYYY-MM-DD", "YYYY-MM-DD HH:MM" or "YYYY-MM-DDTHH:MM".
+    -- Returns missing value if dateString is not in ISO form, raises an error for impossible dates.
+    set isoText to my trimItem(dateString)
+    set isoLength to length of isoText
+    if isoLength is not 10 and isoLength is not 16 then return missing value
+    if character 5 of isoText is not "-" or character 8 of isoText is not "-" then return missing value
+    
+    set hourNum to 0
+    set minuteNum to 0
+    try
+        set yearNum to (text 1 thru 4 of isoText) as integer
+        set monthNum to (text 6 thru 7 of isoText) as integer
+        set dayNum to (text 9 thru 10 of isoText) as integer
+        if isoLength is 16 then
+            if character 11 of isoText is not " " and character 11 of isoText is not "T" then return missing value
+            if character 14 of isoText is not ":" then return missing value
+            set hourNum to (text 12 thru 13 of isoText) as integer
+            set minuteNum to (text 15 thru 16 of isoText) as integer
+        end if
+    on error
+        return missing value
+    end try
+    
+    if monthNum < 1 or monthNum > 12 or dayNum < 1 or dayNum > 31 or hourNum < 0 or hourNum > 23 or minuteNum < 0 or minuteNum > 59 then
+        error "Invalid date: " & dateString
+    end if
+    
+    set isoDate to current date
+    set day of isoDate to 1
+    set year of isoDate to yearNum
+    set month of isoDate to monthNum
+    set day of isoDate to dayNum
+    set time of isoDate to hourNum * hours + minuteNum * minutes
+    -- A day that does not exist in that month (e.g. 2026-02-30) rolls over; reject it
+    if day of isoDate is not dayNum then error "Invalid date: " & dateString
+    return isoDate
+end parseISODate
+
+on trimItem(theText)
+    set whitespaceChars to {" ", tab, return, linefeed}
+    set textLength to length of theText
+    if textLength is 0 then return ""
+    set textStart to 1
+    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
+        set textStart to textStart + 1
+    end repeat
+    if textStart > textLength then return ""
+    set textEnd to textLength
+    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
+        set textEnd to textEnd - 1
+    end repeat
+    return text textStart thru textEnd of theText
+end trimItem
+
+on parseReviewInterval(valueText)
+    -- Reads a review interval: "2 weeks", "1 month", "every 2 weeks", "week", "weekly".
+    -- Units: day, week, month, year (plural allowed). OmniFocus has no "no review" setting.
+    -- Returns {isValid, stepCount, unitName, errorText}
+    set cleanText to my trimItem(valueText)
+    set problemText to "❌ Invalid review interval: " & valueText & ". Use for example \"1 week\", \"2 weeks\", \"1 month\" or \"1 year\"."
+    ignoring case
+        if cleanText is "daily" then return {isValid:true, stepCount:1, unitName:"day", errorText:""}
+        if cleanText is "weekly" then return {isValid:true, stepCount:1, unitName:"week", errorText:""}
+        if cleanText is "monthly" then return {isValid:true, stepCount:1, unitName:"month", errorText:""}
+        if cleanText is "yearly" then return {isValid:true, stepCount:1, unitName:"year", errorText:""}
+    end ignoring
+
+    set wordList to words of cleanText
+    -- "every 2 weeks" is the same as "2 weeks"
+    ignoring case
+        if (count of wordList) > 1 and item 1 of wordList is "every" then set wordList to items 2 thru -1 of wordList
+    end ignoring
+    set stepCount to 1
+    if (count of wordList) = 1 then
+        set unitWord to item 1 of wordList
+    else if (count of wordList) = 2 then
+        try
+            set stepCount to (item 1 of wordList) as integer
+        on error
+            return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
+        end try
+        set unitWord to item 2 of wordList
+    else
+        return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
+    end if
+    if stepCount < 1 or stepCount > 999 then return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
+
+    ignoring case
+        if (length of unitWord) > 1 and unitWord ends with "s" then set unitWord to text 1 thru -2 of unitWord
+        if unitWord is "day" then return {isValid:true, stepCount:stepCount, unitName:"day", errorText:""}
+        if unitWord is "week" then return {isValid:true, stepCount:stepCount, unitName:"week", errorText:""}
+        if unitWord is "month" then return {isValid:true, stepCount:stepCount, unitName:"month", errorText:""}
+        if unitWord is "year" then return {isValid:true, stepCount:stepCount, unitName:"year", errorText:""}
+    end ignoring
+    return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
+end parseReviewInterval
+
+on setReviewInterval(aProject, stepCount, unitName)
+    -- Sets the review interval of a project (stepCount of at least 1)
+    tell application "OmniFocus"
+        if unitName is "day" then
+            set review interval of aProject to {unit:day, steps:stepCount, fixed:true}
+        else if unitName is "week" then
+            set review interval of aProject to {unit:week, steps:stepCount, fixed:true}
+        else if unitName is "month" then
+            set review interval of aProject to {unit:month, steps:stepCount, fixed:true}
+        else
+            set review interval of aProject to {unit:year, steps:stepCount, fixed:true}
+        end if
+    end tell
+end setReviewInterval
+
+on reviewIntervalText(aProject)
+    -- "every 2 weeks", or "" if the interval cannot be read
+    set stepCount to 0
+    set unitName to "?"
+    tell application "OmniFocus"
+        try
+            set intervalRecord to review interval of aProject
+            set stepCount to steps of intervalRecord
+            set unitValue to unit of intervalRecord
+            if unitValue is day then
+                set unitName to "day"
+            else if unitValue is week then
+                set unitName to "week"
+            else if unitValue is month then
+                set unitName to "month"
+            else if unitValue is year then
+                set unitName to "year"
+            end if
+        on error
+            return ""
+        end try
+    end tell
+    if stepCount < 1 then return ""
+    if stepCount is 1 then return "every " & unitName
+    return "every " & stepCount & " " & unitName & "s"
+end reviewIntervalText
+
+on parseFlag(valueText)
+    -- "true" or "false" for the usual spellings, "" for anything else
+    ignoring case
+        if valueText is "true" or valueText is "yes" or valueText is "1" then return "true"
+        if valueText is "false" or valueText is "no" or valueText is "0" then return "false"
+    end ignoring
+    return ""
+end parseFlag

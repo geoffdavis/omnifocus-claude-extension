@@ -37,6 +37,8 @@ on run argv
                 set reviewList to reviewList & " [id:" & (id of theProject) & "]" & return
                 set reviewList to reviewList & "  Last reviewed: " & my formatDate(last review date of theProject)
                 set reviewList to reviewList & " | Review due: " & my formatDate(next review date of theProject)
+                set intervalText to my reviewIntervalText(theProject)
+                if intervalText is not "" then set reviewList to reviewList & " | " & intervalText
                 set hintText to my projectHint(theProject)
                 if hintText is not "" then set reviewList to reviewList & " | ⚠️ " & hintText
                 set reviewList to reviewList & return
@@ -93,7 +95,6 @@ on projectHint(aProject)
     return ""
 end projectHint
 
-
 on hiddenFolderProjectIDs()
     -- IDs of all projects below a hidden (dropped) folder, at any depth
     set idList to {}
@@ -149,3 +150,30 @@ on countVisible(idList, hiddenIDs)
     end repeat
     return visibleCount
 end countVisible
+
+on reviewIntervalText(aProject)
+    -- "every 2 weeks", or "" if the interval cannot be read
+    set stepCount to 0
+    set unitName to "?"
+    tell application "OmniFocus"
+        try
+            set intervalRecord to review interval of aProject
+            set stepCount to steps of intervalRecord
+            set unitValue to unit of intervalRecord
+            if unitValue is day then
+                set unitName to "day"
+            else if unitValue is week then
+                set unitName to "week"
+            else if unitValue is month then
+                set unitName to "month"
+            else if unitValue is year then
+                set unitName to "year"
+            end if
+        on error
+            return ""
+        end try
+    end tell
+    if stepCount < 1 then return ""
+    if stepCount is 1 then return "every " & unitName
+    return "every " & stepCount & " " & unitName & "s"
+end reviewIntervalText

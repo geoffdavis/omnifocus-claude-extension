@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Review tools**: `list_projects_for_review`, `mark_project_reviewed`, `list_stalled_projects`
 - **Projects and folders**: `create_project`, `edit_project` (name, note, folder, status, type), `create_folder`,
   `rename_folder`
+- **Project properties**: `edit_project` sets the review interval (`1 week`, `2 weeks`, `1 month`, `1 year`), the next
+  review date, due, defer and planned date, the flag and "complete with last item".
+  `create_project` takes a review interval, due and defer date and a type and checks them before it creates anything.
+  `list_projects_for_review` shows the review interval of each project
 - **Tags**: `edit_tag` (name, note, parent, hidden, allows next action)
 - **Tasks**: `reopen_task` (completed or dropped tasks), `planned_date` in `add_task` and `edit_task`, and `parent_task` in
   `add_task` to create a subtask under an existing task

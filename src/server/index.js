@@ -438,7 +438,7 @@ const tools = [
     },
     {
         name: 'create_project',
-        description: 'Create a new project, at top level or inside an existing folder',
+        description: 'Create a new project, at top level or inside an existing folder, optionally with a review interval, due and defer date and a project type. All values are checked first; an invalid value creates nothing.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -453,6 +453,23 @@ const tools = [
                 note: {
                     type: 'string',
                     description: 'Optional note for the project'
+                },
+                review_interval: {
+                    type: 'string',
+                    description: 'Optional review interval, for example "1 week", "2 weeks", "1 month" or "1 year"'
+                },
+                due_date: {
+                    type: 'string',
+                    description: 'Optional due date, ISO format (e.g. 2026-12-31 or 2026-12-31T17:00)'
+                },
+                defer_date: {
+                    type: 'string',
+                    description: 'Optional defer date, ISO format (e.g. 2026-12-01)'
+                },
+                type: {
+                    type: 'string',
+                    enum: ['sequential', 'parallel', 'single_action'],
+                    description: 'Optional project type'
                 }
             },
             required: ['name']
@@ -460,7 +477,7 @@ const tools = [
     },
     {
         name: 'edit_project',
-        description: 'Edit an existing project: rename it, change its note, move it to another folder, set its status (active, on hold, completed, dropped) or its type (sequential, parallel, single action list). Fails without changes if the project name is ambiguous.',
+        description: 'Edit an existing project: rename it, change its note, move it to another folder, set its status (active, on hold, completed, dropped) or its type (sequential, parallel, single action list), set its review interval and next review date, due, defer and planned date, flag it, or let it complete with its last item. Fails without changes if the project name is ambiguous.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -470,12 +487,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'folder', 'status', 'type'],
+                    enum: ['name', 'note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action".'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false".'
                 }
             },
             required: ['project', 'property', 'value']
@@ -521,7 +538,7 @@ const tools = [
     // Review tools
     {
         name: 'list_projects_for_review',
-        description: 'List active and on-hold projects whose review is due, with last and next review date, ID and a hint if the project has no next action',
+        description: 'List active and on-hold projects whose review is due, with last and next review date, review interval, ID and a hint if the project has no next action',
         inputSchema: {
             type: 'object',
             properties: {
@@ -838,7 +855,11 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('create_project', [
                     args.name || '',
                     args.folder || '',
-                    args.note || ''
+                    args.note || '',
+                    args.review_interval || '',
+                    args.due_date || '',
+                    args.defer_date || '',
+                    args.type || ''
                 ]);
                 break;
 

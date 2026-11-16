@@ -14,7 +14,7 @@ Copy everything below the `---START PROMPT---` line and paste it into Claude Des
 - The OmniFocus MCP server is connected and OmniFocus is open
 - A project named **"Smoke Test"** exists (the same one as in the base smoke test)
 
-**Safety:** All synthetic data uses the `SMOKETEST` + YYMMDDHHMMSS prefix. Tasks are created in the "Smoke Test" project and are deleted again at the end with `drop_task` and `confirm_delete`. The tags created in Phases 2 and 3, and the folder and project created in Phase 4, cannot be removed with the tools and have to be deleted by hand in OmniFocus. No existing data is modified.
+**Safety:** All synthetic data uses the `SMOKETEST` + YYMMDDHHMMSS prefix. Tasks are created in the "Smoke Test" project and are deleted again at the end with `drop_task` and `confirm_delete`. The tags created in Phases 2 and 3, and the folder and projects created in Phase 4, cannot be removed with the tools and have to be deleted by hand in OmniFocus. No existing data is modified.
 
 ---START PROMPT---
 
@@ -69,7 +69,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | T07 | `edit_tag` | `tag: "{PREFIX}-Child"`, `property: "name"`, `value: "{PREFIX}-Child2"`. PASS if confirmed. Then `edit_tag` with `tag: "{PREFIX}-Parent"`, `property: "parent"`, `value: "{PREFIX}-Child2"` must FAIL with a message that a tag cannot be moved below one of its child tags. |
 | T08 | `edit_tag` | `tag: "{PREFIX}-Grandchild"`, `property: "hidden"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed and `list_tags` shows the tag as hidden in between. |
 
-## Phase 4: Folders and projects (7 tests)
+## Phase 4: Folders and projects (13 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -79,7 +79,13 @@ All tasks MUST use `project: "Smoke Test"`.
 | P04 | `get_task` | `task_name: "{PREFIX} Task B"`. PASS if the project is shown as `{PREFIX} Folder > {PREFIX} Project`. FAIL if the task is in the inbox. |
 | P05 | `edit_project` | `project: "{PREFIX} Project"`, `property: "type"`, `value: "sequential"`. PASS if confirmed. |
 | P06 | `mark_project_reviewed` | `project: "{PREFIX} Folder > {PREFIX} Project"`. PASS if a next review date is shown. |
-| P07 | `rename_folder` | Rename `{PREFIX} Folder` to `{PREFIX} Folder Renamed`. PASS if confirmed. |
+| P07 | `edit_project` | `project: "{PREFIX} Project"`, `property: "review_interval"`, `value: "2 weeks"`. PASS if confirmed with "every 2 weeks". |
+| P08 | `edit_project` | `project: "{PREFIX} Project"`, `property: "review_interval"`, `value: "fortnight"`. PASS if it FAILS with an "Invalid review interval" message and the interval stays unchanged. |
+| P09 | `edit_project` | `project: "{PREFIX} Project"`, `property: "next_review_date"`, `value: "2030-01-15"`, then `value: "none"`. PASS if the first call confirms the date and the second one reports that the next review is derived from the review interval again. |
+| P10 | `edit_project` | `project: "{PREFIX} Project"`, `property: "due_date"` with `value: "2030-01-15"`, then `property: "defer_date"` with `value: "2029-12-01"`, then `property: "flagged"` with `value: "true"`. PASS if all three are confirmed. Then `due_date` with `value: "none"` must clear the due date. |
+| P11 | `edit_project` | `project: "{PREFIX} Project"`, `property: "complete_with_last_item"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed. |
+| P12 | `create_project` | Create `{PREFIX} Project 2` with `folder: "{PREFIX} Folder"`, `review_interval: "1 month"`, `type: "single_action"` and `due_date: "2030-01-15"`. PASS if created and the answer lists the review interval, the type and the due date. Then `create_project` with `name: "{PREFIX} Project 3"` and `review_interval: "fortnight"` must FAIL with "Invalid review interval ... Nothing was created." and `list_projects` must not show `{PREFIX} Project 3`. |
+| P13 | `rename_folder` | Rename `{PREFIX} Folder` to `{PREFIX} Folder Renamed`. PASS if confirmed. |
 
 ## Phase 5: Drop and delete (3 tests)
 
@@ -93,7 +99,7 @@ All tasks MUST use `project: "Smoke Test"`.
 
 1. Delete `{PREFIX} Subtask A`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
-3. Delete the folder `{PREFIX} Folder Renamed` with its project `{PREFIX} Project` in OmniFocus by hand, because the tools cannot delete folders or projects.
+3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` in OmniFocus by hand, because the tools cannot delete folders or projects.
 4. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.
 
 ## Phase 7: Report

@@ -122,6 +122,9 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Move the project 'Website 2.0' to the folder 'Clients > Active'"
 "Put the project 'Website 2.0' on hold"
 "Make 'Website 2.0' a sequential project"
+"Review 'Website 2.0' every 2 weeks"
+"Keep 'Someday' out of the reviews until 2027-01-01"
+"Set the due date of 'Website 2.0' to 2026-12-31 and complete it with its last item"
 "Drop the task 'Old idea'"
 ```
 Projects in any folder can be addressed by name or by path (`Folder > Subfolder > Project`). If a name matches
@@ -168,14 +171,14 @@ to include them.
 | `edit_tag` | Rename, move, hide a tag, change its note or next-action behavior | "Rename tag 'Waiting' to 'Waiting for'" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
-| `create_project` | Create a project, optionally in a folder | "Create project 'Website 2.0' in 'Clients'" |
-| `edit_project` | Rename, change note, folder, status or type of a project | "Put 'Website 2.0' on hold" |
+| `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
+| `edit_project` | Rename, change note, folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag or folder | "What can I work on now?" |
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project | "Show tasks tagged 'Waiting for'" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
-| `list_projects_for_review` | Projects whose review is due | "Which projects need a review?" |
+| `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
 | `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
 | `list_stalled_projects` | Active projects without a next action | "Which projects are stalled?" |
 
