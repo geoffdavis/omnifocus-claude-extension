@@ -1,6 +1,6 @@
 on run argv
     -- List open tasks, optionally filtered by tag, folder and availability
-    -- Usage: list_tasks_filtered.applescript "tag" "folder" "available_only" "include_subtags" "include_inbox" "limit"
+    -- Usage: list_tasks_filtered.applescript "tag" "folder" "available_only" "include_subtags" "include_inbox" "limit" "max_minutes" "include_unestimated" "show_age"
     --   tag:             tag name, part of a name or path "Parent > Tag" ("" = no tag filter)
     --   folder:          only projects whose folder path contains this text ("" = all folders)
     --   available_only:  "true" leaves out blocked and deferred tasks, tasks of projects that are
@@ -8,6 +8,10 @@ on run argv
     --   include_subtags: "true" also counts tasks that carry a child tag of the tag
     --   include_inbox:   "true" also lists inbox tasks (never together with a folder filter)
     --   limit:           maximum number of tasks to list (default 100)
+    --   max_minutes:     only tasks with an estimate of at most this many minutes (0 or "" = no time filter)
+    --   include_unestimated: "true" keeps tasks without an estimate when max_minutes is set
+    --   show_age:        "true" shows how long each task exists (creation date) and lists the tasks as one
+    --                    flat list, oldest first, with the project of each task
     -- Dropped items and items below dropped (hidden) folders are always left out.
 
     set tagQuery to ""
@@ -16,6 +20,9 @@ on run argv
     set includeSubtags to true
     set includeInbox to true
     set maxResults to 100
+    set maxMinutes to 0
+    set includeUnestimated to false
+    set showAge to false
     if (count of argv) > 0 then set tagQuery to my trimItem(item 1 of argv)
     if (count of argv) > 1 then set folderQuery to my trimItem(item 2 of argv)
     if (count of argv) > 2 then set availableOnly to (item 3 of argv is "true")
@@ -27,6 +34,14 @@ on run argv
         end try
     end if
     if maxResults < 1 then set maxResults to 100
+    if (count of argv) > 6 then
+        try
+            set maxMinutes to (item 7 of argv) as integer
+        end try
+    end if
+    if maxMinutes < 0 then set maxMinutes to 0
+    if (count of argv) > 7 then set includeUnestimated to (item 8 of argv is "true")
+    if (count of argv) > 8 then set showAge to (item 9 of argv is "true")
 
     -- Resolve the tag, including its child tags if requested
     set tagObjects to {}
@@ -73,12 +88,15 @@ on run argv
             set groupKeys to {}
             set groupHeadings to {}
             set groupTexts to {}
+            set flatTexts to {}
+            set flatDates to {}
             set projectCacheIDs to {}
             set projectCacheLabels to {}
             set projectCacheFolders to {}
 
             repeat with aTask in candidateTasks
-                if matchCount ≥ maxResults then
+                -- With show_age all matches are collected first, the limit applies after sorting
+                if matchCount ≥ maxResults and not showAge then
                     set hitLimit to true
                     exit repeat
                 end if
@@ -108,6 +126,19 @@ on run argv
                     try
                         if (count of (tasks of theTask whose effectively completed is false and effectively dropped is false)) > 0 then set keepTask to false
                     end try
+                end if
+
+                -- Time filter
+                if keepTask and maxMinutes > 0 then
+                    set estimateValue to missing value
+                    try
+                        set estimateValue to estimated minutes of theTask
+                    end try
+                    if estimateValue is missing value or estimateValue is 0 then
+                        if not includeUnestimated then set keepTask to false
+                    else if estimateValue > maxMinutes then
+                        set keepTask to false
+                    end if
                 end if
 
                 -- Project, folder filter and group
@@ -194,15 +225,39 @@ on run argv
                         set tagNames to name of tags of theTask
                         if (count of tagNames) > 0 then set entry to entry & " 🏷 " & my joinText(tagNames, ", ")
                     end try
+                    set createdDate to missing value
+                    if showAge then
+                        try
+                            set createdDate to creation date of theTask
+                        end try
+                        if createdDate is not missing value then set entry to entry & " 🕒 " & my ageText(createdDate, nowDate)
+                    end if
                     set entry to entry & " [id:" & taskID & "]"
 
-                    set groupIndex to my indexOfItem(groupKey, groupKeys)
-                    if groupIndex = 0 then
-                        set end of groupKeys to groupKey
-                        set end of groupHeadings to groupHeading
-                        set end of groupTexts to entry
+                    if showAge then
+                        -- One flat list, oldest first (tasks without a creation date last), with the project
+                        set entry to entry & " " & groupHeading
+                        set insertAt to (count of flatTexts) + 1
+                        if createdDate is not missing value then
+                            repeat with i from 1 to count of flatDates
+                                set otherDate to item i of flatDates
+                                if otherDate is missing value or otherDate > createdDate then
+                                    set insertAt to i
+                                    exit repeat
+                                end if
+                            end repeat
+                        end if
+                        set flatTexts to my insertAtIndex(flatTexts, entry, insertAt)
+                        set flatDates to my insertAtIndex(flatDates, createdDate, insertAt)
                     else
-                        set item groupIndex of groupTexts to (item groupIndex of groupTexts) & return & entry
+                        set groupIndex to my indexOfItem(groupKey, groupKeys)
+                        if groupIndex = 0 then
+                            set end of groupKeys to groupKey
+                            set end of groupHeadings to groupHeading
+                            set end of groupTexts to entry
+                        else
+                            set item groupIndex of groupTexts to (item groupIndex of groupTexts) & return & entry
+                        end if
                     end if
                 end if
             end repeat
@@ -219,14 +274,31 @@ on run argv
     end if
     if folderQuery is not "" then set filterText to filterText & " in folders matching \"" & folderQuery & "\""
 
+    if maxMinutes > 0 then
+        set filterText to filterText & " with an estimate of up to " & maxMinutes & " min"
+        if includeUnestimated then set filterText to filterText & " (or none)"
+    end if
+
     if matchCount = 0 then
         return titleText & filterText & ": none found"
     end if
 
-    set reportText to titleText & filterText & " (" & matchCount & ")"
-    repeat with i from 1 to count of groupKeys
-        set reportText to reportText & return & return & (item i of groupHeadings) & return & (item i of groupTexts)
-    end repeat
+    if showAge then
+        if (count of flatTexts) > maxResults then
+            set flatTexts to items 1 thru maxResults of flatTexts
+            set hitLimit to true
+        end if
+        set matchCount to count of flatTexts
+        set reportText to titleText & filterText & " (" & matchCount & "), oldest first"
+        repeat with i from 1 to count of flatTexts
+            set reportText to reportText & return & (item i of flatTexts)
+        end repeat
+    else
+        set reportText to titleText & filterText & " (" & matchCount & ")"
+        repeat with i from 1 to count of groupKeys
+            set reportText to reportText & return & return & (item i of groupHeadings) & return & (item i of groupTexts)
+        end repeat
+    end if
     if hitLimit then
         set reportText to reportText & return & return & "… Limit of " & maxResults & " tasks reached, more tasks may match."
     end if
@@ -509,3 +581,21 @@ on trimItem(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimItem
+
+on ageText(createdDate, nowDate)
+    -- How long ago a task was created: "today", "3 days", "5 weeks", "4 months", "3 years"
+    set dayCount to (nowDate - createdDate) div days
+    if dayCount < 1 then return "today"
+    if dayCount is 1 then return "1 day"
+    if dayCount < 14 then return (dayCount as string) & " days"
+    if dayCount < 90 then return ((dayCount div 7) as string) & " weeks"
+    if dayCount < 730 then return ((dayCount div 30) as string) & " months"
+    return ((dayCount div 365) as string) & " years"
+end ageText
+
+on insertAtIndex(aList, anItem, slotIndex)
+    -- A copy of aList with anItem inserted before the item at slotIndex (at the end if slotIndex is past the end)
+    if slotIndex ≤ 1 then return {anItem} & aList
+    if slotIndex > (count of aList) then return aList & {anItem}
+    return (items 1 thru (slotIndex - 1) of aList) & {anItem} & (items slotIndex thru -1 of aList)
+end insertAtIndex

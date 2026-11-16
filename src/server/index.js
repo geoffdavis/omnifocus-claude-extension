@@ -615,7 +615,7 @@ const tools = [
     // GTD query tools
     {
         name: 'list_available_tasks',
-        description: 'List the tasks that can be worked on now (next actions) across all projects, grouped by project: open tasks that are not blocked, not deferred, belong to an active project and are not action groups. Optionally filter by tag (for example a context) or folder.',
+        description: 'List the tasks that can be worked on now (next actions) across all projects, grouped by project: open tasks that are not blocked, not deferred, belong to an active project and are not action groups. Optionally filter by tag (for example a context), folder or time (max_minutes).',
         inputSchema: {
             type: 'object',
             properties: {
@@ -627,6 +627,20 @@ const tools = [
                     type: 'string',
                     description: 'Optional folder, by name or path "Folder > Subfolder". Only projects whose folder path contains this text are listed.'
                 },
+                max_minutes: {
+                    type: 'number',
+                    description: 'Only tasks with an estimate of at most this many minutes, for example to fill a gap of 15 minutes'
+                },
+                include_unestimated: {
+                    type: 'boolean',
+                    description: 'With max_minutes: also list tasks that have no estimate',
+                    default: false
+                },
+                show_age: {
+                    type: 'boolean',
+                    description: 'Show how long each task exists (creation date) and list the tasks as one flat list, oldest first, with their project. Useful for a "waiting for" list to see what to follow up on.',
+                    default: false
+                },
                 limit: {
                     type: 'number',
                     description: 'Maximum number of tasks to return',
@@ -637,7 +651,7 @@ const tools = [
     },
     {
         name: 'list_tasks_by_tag',
-        description: 'List the open tasks that carry a tag, grouped by project. Works for contexts, people or a "waiting for" tag. Shows deferred and blocked tasks as well unless available_only is set.',
+        description: 'List the open tasks that carry a tag, grouped by project. Works for contexts, people or a "waiting for" tag. Shows deferred and blocked tasks as well unless available_only is set. With show_age the tasks are listed oldest first with their age, to see what to follow up on in a "waiting for" list.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -653,6 +667,20 @@ const tools = [
                 available_only: {
                     type: 'boolean',
                     description: 'Only tasks that can be worked on now (not blocked, not deferred, active project, no action group)',
+                    default: false
+                },
+                max_minutes: {
+                    type: 'number',
+                    description: 'Only tasks with an estimate of at most this many minutes, for example to fill a gap of 15 minutes'
+                },
+                include_unestimated: {
+                    type: 'boolean',
+                    description: 'With max_minutes: also list tasks that have no estimate',
+                    default: false
+                },
+                show_age: {
+                    type: 'boolean',
+                    description: 'Show how long each task exists (creation date) and list the tasks as one flat list, oldest first, with their project. Useful for a "waiting for" list to see what to follow up on.',
                     default: false
                 },
                 limit: {
@@ -936,7 +964,10 @@ async function executeTool(name, args) {
                     'true',
                     'true',
                     'false',
-                    String(sanitizeLimit(args.limit, 100))
+                    String(sanitizeLimit(args.limit, 100)),
+                    String(sanitizeLimit(args.max_minutes, 0, 100000)),
+                    String(args.include_unestimated === true),
+                    String(args.show_age === true)
                 ]);
                 break;
 
@@ -951,7 +982,10 @@ async function executeTool(name, args) {
                     String(args.available_only === true),
                     String(args.include_subtags !== false),
                     'true',
-                    String(sanitizeLimit(args.limit, 100))
+                    String(sanitizeLimit(args.limit, 100)),
+                    String(sanitizeLimit(args.max_minutes, 0, 100000)),
+                    String(args.include_unestimated === true),
+                    String(args.show_age === true)
                 ]);
                 break;
 

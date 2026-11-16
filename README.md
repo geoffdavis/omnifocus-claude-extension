@@ -139,6 +139,8 @@ several projects the tool lists the matches and changes nothing. Tasks and proje
 "What can I work on now?"
 "What can I work on in the folder 'Clients'?"
 "Show all tasks tagged 'Waiting for'"
+"Which waiting-for items are the oldest?"
+"What can I do in 15 minutes?"
 "Show the available tasks tagged 'Phone'"
 "What did I complete in the last 7 days?"
 "Which projects are due for review?"
@@ -179,8 +181,8 @@ to include them.
 | `edit_project` | Rename, change note, folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
-| `list_available_tasks` | Next actions across all projects, optionally by tag or folder | "What can I work on now?" |
-| `list_tasks_by_tag` | Open tasks with a tag, grouped by project | "Show tasks tagged 'Waiting for'" |
+| `list_available_tasks` | Next actions across all projects, optionally by tag, folder or time (`max_minutes`) | "What can I work on now?" |
+| `list_tasks_by_tag` | Open tasks with a tag, grouped by project, or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
 | `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
 | `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |

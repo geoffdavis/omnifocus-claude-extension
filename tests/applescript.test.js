@@ -314,6 +314,24 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('Tag not found');
         });
 
+        test('list_tasks_filtered.applescript filters by estimated minutes', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('item 7 of argv');
+            expect(content).toContain('estimated minutes of theTask');
+            expect(content).toContain('estimateValue > maxMinutes');
+            expect(content).toContain('includeUnestimated');
+        });
+
+        test('list_tasks_filtered.applescript shows the age and sorts oldest first', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('item 9 of argv');
+            expect(content).toContain('creation date of theTask');
+            expect(content).toContain('on ageText(');
+            expect(content).toContain('oldest first');
+            // the limit applies after sorting
+            expect(content).toContain('matchCount ≥ maxResults and not showAge');
+        });
+
         test('list_completed_tasks.applescript filters by completion date', () => {
             const content = read('list_completed_tasks.applescript');
             expect(content).toContain('completion date');

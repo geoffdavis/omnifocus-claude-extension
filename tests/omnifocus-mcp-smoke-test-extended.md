@@ -24,7 +24,7 @@ You are executing a structured smoke test of the OmniFocus MCP plugin. Follow ev
 
 Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and time (example: `SMOKETEST260324130501`). Refer to it as `{PREFIX}`. Record for each test: ID, tool, result (PASS/FAIL) and error message.
 
-## Phase 1: Read-only tools (9 tests)
+## Phase 1: Read-only tools (11 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -37,6 +37,8 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q07 | `list_stalled_projects` | No parameters. PASS if it returns a list or a message that none are stalled. |
 | Q08 | `list_projects` | `include_dropped: true`. PASS if it returns the projects plus a "Dropped Projects" section when dropped projects exist. |
 | Q09 | `list_inbox` | `include_dropped: false`. PASS if every listed task has an `[id:...]`. |
+| Q10 | `list_available_tasks` | `max_minutes: 15`, `limit: 5`. PASS if every listed task shows a `⏱` estimate of 15 min or less, or a message that none were found. |
+| Q11 | `list_tasks_by_tag` | `tag: "{PREFIX} NO SUCH TAG"`, `show_age: true`. PASS if it returns the "Tag not found" error. Then call `list_available_tasks` with `show_age: true`, `limit: 3`. PASS if at most three tasks are listed, each with a `🕒` age and its project, the oldest first. |
 
 ## Phase 2: Tasks and tags (15 tests)
 
