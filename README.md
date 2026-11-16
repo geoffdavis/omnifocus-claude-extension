@@ -140,6 +140,7 @@ several projects the tool lists the matches and changes nothing. Tasks and proje
 "What can I work on in the folder 'Clients'?"
 "Show all tasks tagged 'Waiting for'"
 "Which waiting-for items are the oldest?"
+"What is due in the next 7 days, grouped by tag?"
 "What can I do in 15 minutes?"
 "Show the available tasks tagged 'Phone'"
 "What did I complete in the last 7 days?"
@@ -183,6 +184,7 @@ to include them.
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag, folder or time (`max_minutes`) | "What can I work on now?" |
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project, or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
+| `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
 | `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
 | `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
@@ -215,6 +217,7 @@ omnifocus-claude-extension/
 │   │   │   ├── remove_tag_from_task.applescript
 │   │   │   ├── get_task.applescript
 │   │   │   ├── get_project.applescript
+│   │   │   ├── list_due_soon.applescript
 │   │   │   ├── drop_task.applescript
 │   │   │   ├── create_project.applescript
 │   │   │   ├── edit_project.applescript

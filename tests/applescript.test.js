@@ -58,7 +58,8 @@ describe('AppleScript Integration', () => {
                 'list_completed_tasks.applescript',
                 'edit_tag.applescript',
                 'reopen_task.applescript',
-                'get_project.applescript'
+                'get_project.applescript',
+                'list_due_soon.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -388,6 +389,34 @@ describe('AppleScript Integration', () => {
             ['"day"', '"week"', '"month"', '"year"', '"weekly"', '"monthly"'].forEach(word => {
                 expect(content).toContain(word);
             });
+        });
+    });
+
+    describe('Due soon', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('list_due_soon.applescript lists open tasks due between now and the end of the last day', () => {
+            const content = read('list_due_soon.applescript');
+            expect(content).toContain('due date ≥ nowDate and due date ≤ endDate');
+            expect(content).toContain('effectively completed is false and effectively dropped is false');
+            expect(content).toContain('set hours of endDate to 23');
+            expect(content).toContain('hiddenFolderTaskIDs()');
+        });
+
+        test('list_due_soon.applescript groups by tag, day or project and sorts by due date', () => {
+            const content = read('list_due_soon.applescript');
+            expect(content).toContain('groupMode is "tag"');
+            expect(content).toContain('groupMode is "day"');
+            expect(content).toContain('Unknown grouping');
+            expect(content).toContain('(no tag)');
+            expect(content).toContain('(item i of sortedDates) > taskDue');
+        });
+
+        test('list_due_soon.applescript passes through the days, grouping and limit arguments', () => {
+            const content = read('list_due_soon.applescript');
+            expect(content).toContain('item 1 of argv');
+            expect(content).toContain('item 2 of argv');
+            expect(content).toContain('item 3 of argv');
         });
     });
 

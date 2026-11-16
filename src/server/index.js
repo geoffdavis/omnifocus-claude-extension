@@ -322,6 +322,32 @@ const tools = [
         }
     },
 
+    {
+        name: 'list_due_soon',
+        description: 'List the open tasks that are due in the next days (from now until the end of the day N days from today), soonest first, grouped by tag, day or project. Overdue tasks are not included, use list_overdue_tasks for those.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                days: {
+                    type: 'number',
+                    description: 'Number of days ahead, counted from today (1 = through tomorrow)',
+                    default: 7
+                },
+                group_by: {
+                    type: 'string',
+                    enum: ['tag', 'day', 'project'],
+                    description: 'Grouping of the list. With tag, a task that carries several tags appears under each of them, tasks without a tag under "(no tag)".',
+                    default: 'tag'
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of tasks to return (the soonest come first)',
+                    default: 100
+                }
+            }
+        }
+    },
+
     // Tag management tools
     {
         name: 'list_tags',
@@ -867,6 +893,14 @@ async function executeTool(name, args) {
             case 'list_flagged_tasks':
             case 'list_overdue_tasks':
                 result = executeAppleScriptFile(name, [String(args.include_dropped === true)]);
+                break;
+
+            case 'list_due_soon':
+                result = executeAppleScriptFile('list_due_soon', [
+                    String(sanitizeLimit(args.days, 7, 365)),
+                    ['tag', 'day', 'project'].includes(args.group_by) ? args.group_by : 'tag',
+                    String(sanitizeLimit(args.limit, 100))
+                ]);
                 break;
 
             case 'list_tags':

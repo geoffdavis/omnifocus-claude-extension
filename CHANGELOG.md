@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     no action groups), grouped by project, optionally filtered by tag or folder
   - `list_tasks_by_tag`: open tasks with a tag (and optionally its child tags), for contexts, people or "waiting for"
   - `list_completed_tasks`: tasks completed in the last N days, grouped by day
+  - `list_due_soon`: open tasks due in the next N days, soonest first, grouped by tag, day or project
 - `list_available_tasks` and `list_tasks_by_tag`: `max_minutes` (with `include_unestimated`) filters by estimated minutes,
   `show_age` lists the tasks oldest first with their age since creation (for example for a "waiting for" list)
 - **Review tools**: `list_projects_for_review`, `mark_project_reviewed`, `list_stalled_projects`
