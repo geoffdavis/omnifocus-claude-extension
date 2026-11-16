@@ -5,6 +5,49 @@ All notable changes to the OmniFocus Claude Extension will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **GTD queries**
+  - `list_available_tasks`: next actions across all projects (open, not blocked, not deferred, active project,
+    no action groups), grouped by project, optionally filtered by tag or folder
+  - `list_tasks_by_tag`: open tasks with a tag (and optionally its child tags), for contexts, people or "waiting for"
+  - `list_completed_tasks`: tasks completed in the last N days, grouped by day
+- **Review tools**: `list_projects_for_review`, `mark_project_reviewed`, `list_stalled_projects`
+- **Projects and folders**: `create_project`, `edit_project` (name, note, folder, status, type), `create_folder`,
+  `rename_folder`
+- **Tags**: `edit_tag` (name, note, parent, hidden, allows next action)
+- **Tasks**: `get_task` (all details of one task) and `drop_task` (deleting needs the explicit `confirm_delete`)
+- **ID addressing**: task and project tools accept `id:<id>`; list outputs, search results and ambiguity messages
+  show the IDs
+- **`include_dropped` parameter** on the read tools. Without it, dropped items and items below dropped (hidden)
+  folders are left out
+- Date-only ISO dates (`YYYY-MM-DD`) in `add_task`, `batch_add_tasks` and `create_recurring_task` (midnight)
+
+### Changed
+- Projects are found in all folders, not only at the top level, by name or path `Folder > Subfolder > Project`
+  (`edit_task`, `add_task`, `batch_add_tasks`, `create_recurring_task`). Ambiguous or unknown projects return an
+  error and change nothing; tasks are no longer silently put into the inbox
+- `edit_task` parses ISO dates (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM`) and rejects impossible dates
+- `list_projects` shows the folder path, lists on hold projects and counts available tasks correctly
+- `list_inbox`, `list_overdue_tasks` and `search_tasks` list open tasks only
+- Tool output uses line feeds instead of carriage returns
+- Tags are found at every level of the tag hierarchy, by name, path `Parent > Child` or `id:<id>`
+  (`add_task`, `batch_add_tasks`, `edit_task`, `add_tag_to_task`, `remove_tag_from_task`, `create_tag`). An ambiguous
+  tag name returns the matches and changes nothing
+- `create_tag` looks for an existing tag with the same name below the same parent only, and accepts a nested tag as parent
+- `list_tags` shows IDs, hidden tags and tags that do not allow next actions
+
+### Fixed
+- `search_tasks` with `filter: "remaining"` or `"available"` failed
+- Completed tasks showed up in `list_inbox` and `list_overdue_tasks`
+- Adding a nested tag to a task created a second tag with the same name at top level
+
+### Security
+- Tool output is wrapped in a block marked as untrusted data, so that task names and notes are not read as instructions
+- The server log contains metadata only, no task content
+- `delete_tag` was removed
+
 ## [2.0.3] - 2026-03-21
 
 ### Changed
