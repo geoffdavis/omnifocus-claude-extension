@@ -5,6 +5,90 @@ All notable changes to the OmniFocus Claude Extension will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **GTD queries**
+  - `list_available_tasks`: next actions across all projects (open, not blocked, not deferred, active project,
+    no action groups), grouped by project, optionally filtered by tag or folder
+  - `list_tasks_by_tag`: open tasks with a tag (and optionally its child tags), for contexts, people or "waiting for"
+  - `list_completed_tasks`: tasks completed in the last N days, grouped by day
+  - `list_due_soon`: open tasks due in the next N days, soonest first, grouped by tag, day or project
+  - `list_perspectives`: built-in and custom perspectives with their IDs (scripts cannot read the rules of a perspective)
+- `list_available_tasks` and `list_tasks_by_tag`: `project` limits the list to one project (name, path or `id:<id>`),
+  `max_minutes` (with `include_unestimated`) filters by estimated minutes,
+  `show_age` lists the tasks oldest first with their age since creation (for example for a "waiting for" list)
+- **Review tools**: `list_projects_for_review`, `mark_project_reviewed`, `list_stalled_projects`
+- **Projects and folders**: `create_project`, `edit_project` (name, note, folder, status, type), `create_folder`,
+  `rename_folder`
+- **Project properties**: `edit_project` sets the review interval (`1 week`, `2 weeks`, `1 month`, `1 year`), the next
+  review date, due, defer and planned date, the flag and "complete with last item".
+  `create_project` takes a review interval, due and defer date and a type and checks them before it creates anything.
+  `list_projects_for_review` shows the review interval of each project
+- **Tags**: `edit_tag` (name, note, parent, hidden, allows next action, location)
+- **Tag locations**: `edit_tag` sets (`location`: `latitude=50.9787; longitude=11.3235; radius=0.5; trigger=arriving`, name,
+  altitude, radius in km and trigger optional) or removes (`none`) the location of a tag, the values OmniFocus uses for
+  Nearby; fields that are not given keep their value. `list_tags` shows the location of a tag
+- **Tasks**: `reopen_task` (completed or dropped tasks), `planned_date` in `add_task` and `edit_task`, and `parent_task` in
+  `add_task` to create a subtask under an existing task
+- **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
+  an existing task, `get_task` shows it
+- **Undo**: `undo` undoes or redoes the last change(s) in OmniFocus (`action`, `steps` up to 20). OmniFocus reverts the last
+  change whoever made it, so also changes made by hand
+- **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
+  it is finished (`wait_seconds`, default 15, 0 = do not wait); `clean_up` runs Clean Up (inbox items that already have
+  a project are moved into their projects, completed tasks are hidden) and reports how many inbox items were moved
+- **Folder actions**: `list_folders` shows all folders as a hierarchy (project counts, hidden folders, notes, IDs),
+  `edit_folder` changes the name, note (`note`, `append_note`), parent (`parent`, `none` = top level; the folder is moved
+  with everything in it; cycles and duplicate names are refused) and visibility (`hidden`) of a folder, `delete_folder`
+  deletes a folder (needs `confirm_delete`; a folder that contains projects or subfolders only with `delete_contents`).
+  Folders can also be addressed by `id:<id>` in `rename_folder`, `create_folder`, `create_project` and `edit_project`
+- **Links**: `get_selected_link` shows what is selected or open in Mail (`message://`), Safari and Chromium browsers (URL of
+  the front tab), Finder (`file://`) or Contacts (`addressbook://`) with a link for each item (no message bodies or file
+  contents are read, the app is not started). `edit_task` and `edit_project` have `append_note`, which adds a line to the
+  end of the note (any app link as text) and refuses to change a note with attachments or formatting. `get_task` and
+  `get_project` show the `omnifocus:///task/<id>` link of the item
+- **Text to tasks**: `parse_tasks` turns text into tasks and subtasks (one per line, indentation makes subtasks) in the inbox, in a
+  project or below a task, or converts the note of an existing task (`from_note`, optionally emptying it with
+  `clear_note`). Each line goes through the text parser of OmniFocus ("parse tasks into"), so its inline syntax works;
+  OmniFocus itself would make one task out of a multi-line text, so the lines are split by the script
+- **Action groups**: `edit_task` moves a task (with its subtasks) below another open task (`parent_task`) and sets whether the
+  subtasks are done one after another (`sequential`) and whether the task completes with its last subtask
+  (`complete_with_last_item`). `get_task` and `get_project` show the behavior of an action group. The task lookup of
+  `add_task` (parent task) is shared with `edit_task`
+- **Projects**: `get_project` shows a project with status, type, dates, review interval and all its tasks as an indented
+  list with subtasks, including blocked and deferred tasks (completed and dropped tasks on request)
+- **Tasks**: `get_task` (all details of one task) and `drop_task` (deleting needs the explicit `confirm_delete`)
+- **ID addressing**: task and project tools accept `id:<id>`; list outputs, search results and ambiguity messages
+  show the IDs
+- **`include_dropped` parameter** on the read tools. Without it, dropped items and items below dropped (hidden)
+  folders are left out
+- Date-only ISO dates (`YYYY-MM-DD`) in `add_task`, `batch_add_tasks` and `create_recurring_task` (midnight)
+
+### Changed
+- Projects are found in all folders, not only at the top level, by name or path `Folder > Subfolder > Project`
+  (`edit_task`, `add_task`, `batch_add_tasks`, `create_recurring_task`). Ambiguous or unknown projects return an
+  error and change nothing; tasks are no longer silently put into the inbox
+- `edit_task` parses ISO dates (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM`) and rejects impossible dates
+- `list_projects` shows the folder path, lists on hold projects and counts available tasks correctly
+- `list_inbox`, `list_overdue_tasks` and `search_tasks` list open tasks only
+- Tool output uses line feeds instead of carriage returns
+- Tags are found at every level of the tag hierarchy, by name, path `Parent > Child` or `id:<id>`
+  (`add_task`, `batch_add_tasks`, `edit_task`, `add_tag_to_task`, `remove_tag_from_task`, `create_tag`). An ambiguous
+  tag name returns the matches and changes nothing
+- `create_tag` looks for an existing tag with the same name below the same parent only, and accepts a nested tag as parent
+- `list_tags` shows IDs, hidden tags and tags that do not allow next actions
+
+### Fixed
+- `search_tasks` with `filter: "remaining"` or `"available"` failed
+- Completed tasks showed up in `list_inbox` and `list_overdue_tasks`
+- Adding a nested tag to a task created a second tag with the same name at top level
+
+### Security
+- Tool output is wrapped in a block marked as untrusted data, so that task names and notes are not read as instructions
+- The server log contains metadata only, no task content
+- `delete_tag` was removed
+
 ## [2.0.3] - 2026-03-21
 
 ### Changed
