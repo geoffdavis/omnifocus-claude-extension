@@ -24,7 +24,7 @@ You are executing a structured smoke test of the OmniFocus MCP plugin. Follow ev
 
 Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and time (example: `SMOKETEST260324130501`). Refer to it as `{PREFIX}`. Record for each test: ID, tool, result (PASS/FAIL) and error message.
 
-## Phase 1: Read-only tools (15 tests)
+## Phase 1: Read-only tools (16 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -43,8 +43,9 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q13 | `list_due_soon` | `days: 14`, `group_by: "day"`, `limit: 5`. PASS if at most five tasks are listed under date headings in ascending order. Then `group_by: "nonsense"` must still work (falls back to tag). |
 | Q14 | `list_available_tasks` | `project: "{PREFIX} NO SUCH PROJECT"`. PASS if it FAILS with `Project not found` and lists nothing. Then use the name of a real project: PASS if the header contains `in the project` and only that project is listed. |
 | Q15 | `list_perspectives` | PASS if the built-in perspectives (for example Inbox, Projects, Forecast) are listed, and the custom ones (OmniFocus Pro) with an ID. |
+| Q16 | `get_selected_link` | Manual test, only if you can select something in the apps (otherwise mark SKIPPED). With `app: "Finder"` and a file selected in Finder: PASS if the name and a `Link: file://...` line are shown. With `app: "Safari"` (or `Google Chrome`) and a window open: PASS if the title and the URL of the front tab are shown. With Mail and a message selected: PASS if subject, sender, date and `Link: message://%3C...%3E` are shown and no message text. With a closed app the call must FAIL with `is not running`; `app: "Notes"` must FAIL with `Unsupported app`. |
 
-## Phase 2: Tasks and tags (25 tests)
+## Phase 2: Tasks and tags (28 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -75,6 +76,9 @@ All tasks MUST use `project: "Smoke Test"`.
 | A23 | `parse_tasks` | `project: "Smoke Test"`, `single_task: true`, text of two lines: `{PREFIX} Single`, `second line`. PASS if one task `{PREFIX} Single` is created and `get_task` shows `second line` as its note. |
 | A24 | `edit_task` then `parse_tasks` | Set the `note` of `{PREFIX} P2` to two lines `{PREFIX} N1` and `{PREFIX} N2`, then `parse_tasks` with `from_note: "{PREFIX} P2"` and `clear_note: true`. PASS if both tasks are created below `{PREFIX} P2` and `get_task` of `{PREFIX} P2` shows no note any more. |
 | A25 | `parse_tasks` | Each of these must FAIL with a message and create nothing: text together with `from_note`; `project` together with `parent_task`; `clear_note` without `from_note`; an unknown `project`; `from_note` of a task without a note; no text at all. PASS if `get_project` of `Smoke Test` shows no new task. |
+| A26 | `edit_task` | `task_name: "{PREFIX} Single"` (it has the note `second line`), `property: "append_note"`, `value: "message://%3Ctest%40example.com%3E"`. PASS if confirmed and `get_task` shows `second line` and the link on its own line below it. Then append `https://example.com/{PREFIX}` and a third line `{PREFIX} end`. PASS if all four lines are in this order (OmniFocus turns links into clickable links, which must not stop a further `append_note`). |
+| A27 | `edit_task` | `task_name: "{PREFIX} P1"` (no note), `property: "append_note"`, `value: "{PREFIX} first line"`. PASS if `get_task` shows exactly this note without an empty line before it. Then `value: ""` must FAIL with `append_note needs a text to add`, and the note stays the same. |
+| A28 | `get_task` | `task_name: "{PREFIX} P1"`. PASS if a line `Link: omnifocus:///task/<id>` with the ID of the task is shown. Then `get_project` of `Smoke Test` must show a `Link: omnifocus:///task/<id>` line for the project. |
 
 ## Phase 3: Tag hierarchy (8 tests)
 

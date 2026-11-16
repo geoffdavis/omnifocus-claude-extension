@@ -1,8 +1,9 @@
 on run argv
     -- Edit an existing task
     -- Usage: edit_task.applescript "task name" "property" "new value"
-    -- Properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat,
+    -- Properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat,
     --   parent_task, sequential, complete_with_last_item
+    --   append_note: adds the text as a new line at the end of the note (note replaces the whole note)
     --   parent_task: moves the task (with its subtasks) below another open task, given by name or "id:<id>"
     --   sequential: "true" = the subtasks are done one after another, "false" = in any order
     --   complete_with_last_item: "true" = the task completes when its last subtask is completed
@@ -49,6 +50,24 @@ on run argv
                     set note of targetTask to newValue
                     return "✏️ Updated note for: " & originalName
                     
+                else if propertyName is "append_note" then
+                    -- Add text at the end of the note without touching what is already there
+                    if newValue is "" then
+                        return "❌ append_note needs a text to add. Nothing was changed."
+                    end if
+                    set currentNote to (note of targetTask) as text
+                    if currentNote is "" then
+                        set note of targetTask to newValue
+                    else
+                        -- Setting the note as plain text would lose attachments and formatting, so refuse in that case
+                        set noteProblem to my noteFormattingProblem(targetTask)
+                        if noteProblem is not "" then
+                            return "❌ " & noteProblem & " Nothing was changed."
+                        end if
+                        set note of targetTask to currentNote & linefeed & newValue
+                    end if
+                    return "📝 Added to the note of: " & originalName
+
                 else if propertyName is "due_date" or propertyName is "due" then
                     if newValue is "none" or newValue is "clear" then
                         set due date of targetTask to missing value
@@ -240,7 +259,7 @@ on run argv
                     end if
 
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, parent_task, sequential, complete_with_last_item"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, parent_task, sequential, complete_with_last_item"
                 end if
                 
             on error errMsg
@@ -870,3 +889,34 @@ on resolveTask(queryText)
   end repeat
   return {foundTask:missing value, errorText:matchList}
 end resolveTask
+
+on noteFormattingProblem(theItem)
+    -- Returns "" when the note of a task or project can be rewritten as plain text without losing anything
+    -- that matters, otherwise the reason. Attachments and formatting (bold, colors, fonts, ...) would be lost.
+    -- Links are fine: OmniFocus makes them again from the text.
+    set referenceSignature to missing value
+    tell application "OmniFocus"
+        try
+            if (count of attachment of (note of theItem)) > 0 then
+                return "The note contains attachments that would be lost."
+            end if
+            set runCount to count of attribute run of (note of theItem)
+            if runCount > 1 then
+                repeat with i from 1 to runCount
+                    set runText to text of attribute run i of (note of theItem)
+                    if runText does not contain "://" then
+                        set runSignature to {font of attribute run i of (note of theItem), size of attribute run i of (note of theItem), color of attribute run i of (note of theItem), underlined of attribute run i of (note of theItem)}
+                        if referenceSignature is missing value then
+                            set referenceSignature to runSignature
+                        else if runSignature is not referenceSignature then
+                            return "The note contains formatting that would be lost."
+                        end if
+                    end if
+                end repeat
+            end if
+        on error errMsg
+            return "The formatting of the note could not be checked (" & errMsg & ")."
+        end try
+    end tell
+    return ""
+end noteFormattingProblem

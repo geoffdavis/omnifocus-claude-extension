@@ -91,7 +91,8 @@ describe('AppleScript Integration', () => {
                 'get_project.applescript',
                 'list_due_soon.applescript',
                 'parse_tasks.applescript',
-                'list_perspectives.applescript'
+                'list_perspectives.applescript',
+                'get_selected_link.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -398,7 +399,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set planned date of targetProject');
             expect(content).toContain('set flagged of targetProject');
             expect(content).toContain('set completed by children of targetProject');
-            expect(content).toContain('Valid properties: name, note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item');
+            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item');
         });
 
         test('create_project.applescript checks the optional settings before it creates anything', () => {
@@ -473,6 +474,43 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set perspectiveList to every perspective');
             expect(content).toContain('(class of thePerspective) is custom perspective');
             expect(content).toContain('set end of customNames to perspectiveName');
+        });
+    });
+
+    describe('Links for tasks', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_task.applescript and edit_project.applescript can add to the note', () => {
+            ['edit_task.applescript', 'edit_project.applescript'].forEach(file => {
+                const content = read(file);
+                expect(content).toContain('propertyName is "append_note"');
+                expect(content).toContain('currentNote & linefeed & newValue');
+                expect(content).toContain('my noteFormattingProblem(');
+                expect(content).toContain('on noteFormattingProblem(theItem)');
+                expect(content).toContain('The note contains attachments that would be lost.');
+                expect(content).toContain('The note contains formatting that would be lost.');
+                expect(content).toContain('append_note needs a text to add');
+                expect(content).toContain('Valid properties: name, note, append_note,');
+                expect(content).not.toContain('insert (linefeed');
+            });
+        });
+
+        test('get_task.applescript and get_project.applescript show the omnifocus:// link', () => {
+            expect(read('get_task.applescript')).toContain('"Link: omnifocus:///task/" & (id of targetTask)');
+            expect(read('get_project.applescript')).toContain('"Link: omnifocus:///task/" & (id of targetProject)');
+        });
+
+        test('get_selected_link.applescript supports several apps without starting them or reading content', () => {
+            const content = read('get_selected_link.applescript');
+            ['Mail', 'Safari', 'Google Chrome', 'Finder', 'Contacts'].forEach(app => expect(content).toContain(app));
+            expect(content).toContain('/usr/bin/pgrep -x');
+            expect(content).toContain('run script sourceText with parameters');
+            expect(content).toContain('"message://%3C"');
+            expect(content).toContain('"file://"');
+            expect(content).toContain('"addressbook://"');
+            expect(content).toContain('Apple Notes cannot be linked');
+            expect(content).toContain('Automation');
+            expect(content).not.toContain('content of m');
         });
     });
 
@@ -567,7 +605,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set completed by children of targetTask to (flagValue is "true")');
             expect(content).toContain('Invalid value for sequential');
             expect(content).toContain('on parseFlag(');
-            expect(content).toContain('Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, parent_task, sequential, complete_with_last_item');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, parent_task, sequential, complete_with_last_item');
         });
 
         test('get_task and get_project show how the subtasks of a task behave', () => {
@@ -593,7 +631,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set repetition rule of targetTask to missing value');
             expect(content).toContain('repetition method:fixed repetition, recurrence:ruleString of repeatInfo');
             expect(content).toContain('repetition method:due after completion, recurrence:ruleString of repeatInfo');
-            expect(content).toContain('Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat');
         });
 
         test('edit_task.applescript refuses to repeat a task without a date and rejects unknown rules', () => {

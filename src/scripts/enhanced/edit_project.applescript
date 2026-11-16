@@ -1,7 +1,7 @@
 on run argv
     -- Edit an existing project
     -- Usage: edit_project.applescript "project name or Folder > Project" "property" "new value"
-    -- Properties: name, note, folder, status, type, review_interval, next_review_date,
+    -- Properties: name, note, append_note, folder, status, type, review_interval, next_review_date,
     --             due_date, defer_date, planned_date, flagged, complete_with_last_item
     --   review_interval: "1 week", "2 weeks", "1 month", "1 year", "weekly", ...
     --     (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead)
@@ -39,6 +39,24 @@ on run argv
                     set note of targetProject to newValue
                     return "✏️ Updated note for project: " & originalLabel
                     
+                else if propertyName is "append_note" then
+                    -- Add text at the end of the note without touching what is already there
+                    if newValue is "" then
+                        return "❌ append_note needs a text to add. Nothing was changed."
+                    end if
+                    set currentNote to (note of targetProject) as text
+                    if currentNote is "" then
+                        set note of targetProject to newValue
+                    else
+                        -- Setting the note as plain text would lose attachments and formatting, so refuse in that case
+                        set noteProblem to my noteFormattingProblem(targetProject)
+                        if noteProblem is not "" then
+                            return "❌ " & noteProblem & " Nothing was changed."
+                        end if
+                        set note of targetProject to currentNote & linefeed & newValue
+                    end if
+                    return "📝 Added to the note of project: " & originalLabel
+
                 else if propertyName is "folder" then
                     if newValue is "none" or newValue is "top level" then
                         try
@@ -182,7 +200,7 @@ on run argv
                     end if
 
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item"
                 end if
             on error errMsg
                 return "❌ Error updating project: " & errMsg
@@ -621,3 +639,34 @@ on parseFlag(valueText)
     end ignoring
     return ""
 end parseFlag
+
+on noteFormattingProblem(theItem)
+    -- Returns "" when the note of a task or project can be rewritten as plain text without losing anything
+    -- that matters, otherwise the reason. Attachments and formatting (bold, colors, fonts, ...) would be lost.
+    -- Links are fine: OmniFocus makes them again from the text.
+    set referenceSignature to missing value
+    tell application "OmniFocus"
+        try
+            if (count of attachment of (note of theItem)) > 0 then
+                return "The note contains attachments that would be lost."
+            end if
+            set runCount to count of attribute run of (note of theItem)
+            if runCount > 1 then
+                repeat with i from 1 to runCount
+                    set runText to text of attribute run i of (note of theItem)
+                    if runText does not contain "://" then
+                        set runSignature to {font of attribute run i of (note of theItem), size of attribute run i of (note of theItem), color of attribute run i of (note of theItem), underlined of attribute run i of (note of theItem)}
+                        if referenceSignature is missing value then
+                            set referenceSignature to runSignature
+                        else if runSignature is not referenceSignature then
+                            return "The note contains formatting that would be lost."
+                        end if
+                    end if
+                end repeat
+            end if
+        on error errMsg
+            return "The formatting of the note could not be checked (" & errMsg & ")."
+        end try
+    end tell
+    return ""
+end noteFormattingProblem

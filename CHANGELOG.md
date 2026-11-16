@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `add_task` to create a subtask under an existing task
 - **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
   an existing task, `get_task` shows it
+- **Links**: `get_selected_link` shows what is selected or open in Mail (`message://`), Safari and Chromium browsers (URL of
+  the front tab), Finder (`file://`) or Contacts (`addressbook://`) with a link for each item (no message bodies or file
+  contents are read, the app is not started). `edit_task` and `edit_project` have `append_note`, which adds a line to the
+  end of the note (any app link as text) and refuses to change a note with attachments or formatting. `get_task` and
+  `get_project` show the `omnifocus:///task/<id>` link of the item
 - **Text to tasks**: `parse_tasks` turns text into tasks and subtasks (one per line, indentation makes subtasks) in the inbox, in a
   project or below a task, or converts the note of an existing task (`from_note`, optionally emptying it with
   `clear_note`). Each line goes through the text parser of OmniFocus ("parse tasks into"), so its inline syntax works;

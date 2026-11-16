@@ -34,6 +34,7 @@ on run argv
             set targetTask to item 1 of foundTasks
             set taskInfo to "📝 " & (name of targetTask) & return
             set taskInfo to taskInfo & "ID: " & (id of targetTask) & return
+            set taskInfo to taskInfo & "Link: omnifocus:///task/" & (id of targetTask) & return
             
             -- State
             set stateText to "open"

@@ -17,6 +17,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Batch Task Creation**: Create multiple tasks with subtasks in one command
 - **Recurring Tasks**: Create tasks with daily, weekly, monthly, or custom repeat patterns
 - **Text to tasks**: Turn a list of lines (or the note of a task) into tasks and subtasks, with the inline syntax of OmniFocus
+- **Links**: Put a link to anything in another app into the note of a task (any URL or app link), take it from Mail, Safari, Chrome, Finder or Contacts, and get the `omnifocus:///task/<id>` link of a task or project
 - **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
 
 ### Tags
@@ -104,6 +105,23 @@ One task per line, indented lines become subtasks of the closest line above that
 (`- `, `* ` or `• `) at the start of a line is removed, and every line goes through the text parser of OmniFocus, so
 its inline syntax works (for example `Call Max //number 123` puts the number in the note). `single_task` makes the whole
 text one task, `clear_note` empties the note after `from_note` was converted.
+
+### Links to Other Apps
+```
+"Create a task 'Answer the offer' with the link to the selected mail in its note"
+"Add the link to the page I have open in Safari to the note of 'Plan offsite'"
+"Add the link to the file selected in Finder to the project 'Taxes 2026'"
+"Show me the link to the task 'Answer the offer'"
+```
+A link is only text in the note, so any app link works: `add_task` (`note`) and `edit_task` / `edit_project` with
+`append_note` accept `message://`, `https://`, `file://`, `things:///`, `x-devonthink-item://` and so on. `append_note`
+adds a line to the end of the note and keeps the existing text; it refuses to change a note with attachments or
+formatting instead of losing them. `get_selected_link` reads the link from the app: for the messages selected in Mail
+(`message://`), the front tab of Safari or a Chromium browser (Chrome, Brave, Edge, Arc, Vivaldi), the files selected in
+Finder (`file://`) and the contacts selected in Contacts (`addressbook://`). It reads titles, senders and IDs, never the
+text of a message or a file, does not start the app, and the first use of each app asks for permission to control it.
+`get_task` and `get_project` show the `omnifocus:///task/<id>` link of the item, which you can paste into other apps.
+Apple Notes cannot be linked this way: scripts get no link to a note.
 
 ### Action Groups
 ```
@@ -200,12 +218,13 @@ to include them.
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 | `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
-| `edit_project` | Rename, change note, folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
+| `edit_project` | Rename, change or extend note (`append_note`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag, folder, a single project or time (`max_minutes`) | "What can I work on now?" |
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
 | `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
+| `get_selected_link` | What is selected or open in Mail, Safari, Chrome and other Chromium browsers, Finder or Contacts, with a link that opens it again | "Put the link to the selected mail in the note of 'Answer the offer'" |
 | `list_perspectives` | Built-in and custom perspectives with their IDs (the rules of a perspective are not available to scripts) | "Which perspectives do I have?" |
 | `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
@@ -241,6 +260,7 @@ omnifocus-claude-extension/
 │   │   │   ├── get_task.applescript
 │   │   │   ├── get_project.applescript
 │   │   │   ├── list_due_soon.applescript
+│   │   │   ├── get_selected_link.applescript
 │   │   │   ├── list_perspectives.applescript
 │   │   │   ├── parse_tasks.applescript
 │   │   │   ├── drop_task.applescript

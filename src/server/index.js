@@ -204,7 +204,7 @@ const tools = [
     },
     {
         name: 'edit_task',
-        description: 'Edit properties of an existing task, including its repetition (repeat), moving it below another task (parent_task) and the behavior of its subtasks (sequential, complete_with_last_item)',
+        description: 'Edit properties of an existing task, including adding to its note (append_note), its repetition (repeat), moving it below another task (parent_task) and the behavior of its subtasks (sequential, complete_with_last_item)',
         inputSchema: {
             type: 'object',
             properties: {
@@ -214,12 +214,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags', 'repeat', 'parent_task', 'sequential', 'complete_with_last_item'],
+                    enum: ['name', 'note', 'append_note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags', 'repeat', 'parent_task', 'sequential', 'complete_with_last_item'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For repeat: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks" and so on; the next occurrence follows the completion, add "fixed" ("weekly fixed") for a fixed schedule; "none" stops the repetition. The task needs a due, defer or planned date. For parent_task: an open task by name or "id:<id>"; the task is moved below it together with its own subtasks (use project to move it to a project or the inbox instead); a task cannot be moved below itself or one of its subtasks. For sequential: "true" if the subtasks are to be done one after another, "false" for any order. For complete_with_last_item: "true" if the task completes when its last subtask is completed, "false" otherwise.'
+                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For repeat: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks" and so on; the next occurrence follows the completion, add "fixed" ("weekly fixed") for a fixed schedule; "none" stops the repetition. The task needs a due, defer or planned date. For parent_task: an open task by name or "id:<id>"; the task is moved below it together with its own subtasks (use project to move it to a project or the inbox instead); a task cannot be moved below itself or one of its subtasks. For sequential: "true" if the subtasks are to be done one after another, "false" for any order. For complete_with_last_item: "true" if the task completes when its last subtask is completed, "false" otherwise. For append_note: text that is added as a new line at the end of the note (note replaces the whole note), for example a link of any app (message://, https://, file://, things:///, ...), see get_selected_link.'
                 }
             },
             required: ['task_name', 'property', 'value']
@@ -357,6 +357,25 @@ const tools = [
         }
     },
 
+    {
+        name: 'get_selected_link',
+        description: 'Show what is selected (or open) in another app together with a link that opens it again: message:// links for the messages selected in Mail, the URL of the front tab in Safari or Chromium browsers (Chrome, Brave, Edge, Arc, Vivaldi), file:// links for the selection in Finder, addressbook:// links for the contacts selected in Contacts. Use the link in the note of a task (add_task with note, or edit_task / edit_project with append_note). Reads titles, senders and IDs only, never message bodies or file contents. The app must be running, and the first use of each app asks for permission to control it. Apple Notes is not supported (scripts get no link to a note); links of any other app can be given to add_task or edit_task as plain text.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                app: {
+                    type: 'string',
+                    description: 'The app: Mail, Safari, Google Chrome (or Brave Browser, Microsoft Edge, Arc, Vivaldi, Chromium), Finder or Contacts',
+                    default: 'Mail'
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of selected items to show',
+                    default: 10
+                }
+            }
+        }
+    },
     {
         name: 'list_perspectives',
         description: 'List the perspectives of OmniFocus, the built-in ones and the custom ones (OmniFocus Pro) with their IDs. Scripts can only read the names and IDs, not the rules of a perspective or the tasks it shows.',
@@ -556,12 +575,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item'],
+                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false".'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For append_note: text that is added as a new line at the end of the note (note replaces the whole note).'
                 }
             },
             required: ['project', 'property', 'value']
@@ -954,6 +973,13 @@ async function executeTool(name, args) {
                     String(args.single_task === true),
                     args.from_note || '',
                     String(args.clear_note === true)
+                ]);
+                break;
+
+            case 'get_selected_link':
+                result = executeAppleScriptFile('get_selected_link', [
+                    typeof args.app === 'string' ? args.app : '',
+                    String(sanitizeLimit(args.limit, 10, 50))
                 ]);
                 break;
 

@@ -35,6 +35,7 @@ on run argv
     set reportText to "📂 " & my projectLabel(targetProject)
     tell application "OmniFocus"
         set reportText to reportText & " [id:" & (id of targetProject) & "]" & return
+        set reportText to reportText & "Link: omnifocus:///task/" & (id of targetProject) & return
 
         set statusText to "active"
         set projectStatus to status of targetProject
