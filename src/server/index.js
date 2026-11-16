@@ -1019,6 +1019,55 @@ const tools = [
                 }
             }
         }
+    },
+    {
+        name: 'list_tasks_by_date',
+        description: 'List tasks or projects by the date they were created, last modified or dropped, newest first and grouped by day. For example "what did I add this week" or "what changed since Monday". The period is the last days, or a range from since to until. Completed tasks: list_completed_tasks. Items below hidden (dropped) folders are left out.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                date_field: {
+                    type: 'string',
+                    enum: ['created', 'modified', 'dropped'],
+                    description: 'Which date counts: when the item was created, last modified or dropped'
+                },
+                item_type: {
+                    type: 'string',
+                    enum: ['tasks', 'projects'],
+                    description: 'What to list',
+                    default: 'tasks'
+                },
+                days: {
+                    type: 'number',
+                    description: 'How many days to look back (default 7). Together with only "until": the days before that date',
+                    default: 7
+                },
+                since: {
+                    type: 'string',
+                    description: 'Start of the period: YYYY-MM-DD (from the start of that day), YYYY-MM-DD HH:MM, "today" or "yesterday". Replaces days'
+                },
+                until: {
+                    type: 'string',
+                    description: 'End of the period: YYYY-MM-DD, "today" or "yesterday" (each through the end of that day), or YYYY-MM-DD HH:MM (up to that time). Default: now'
+                },
+                status: {
+                    type: 'string',
+                    enum: ['all', 'open'],
+                    description: '"open" leaves out completed and dropped tasks (projects: only active and on hold). Not for date_field dropped',
+                    default: 'all'
+                },
+                project: {
+                    type: 'string',
+                    description: 'Only tasks of this project (name, "Folder > Subfolder > Project" or "id:<id>"). Tasks only'
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of items to return',
+                    default: 100
+                }
+            },
+            required: ['date_field']
+        }
     }
 ];
 
@@ -1350,6 +1399,19 @@ async function executeTool(name, args) {
             case 'list_completed_tasks':
                 result = executeAppleScriptFile('list_completed_tasks', [
                     String(sanitizeLimit(args.days, 7, 3650)),
+                    String(sanitizeLimit(args.limit, 100))
+                ]);
+                break;
+
+            case 'list_tasks_by_date':
+                result = executeAppleScriptFile('list_tasks_by_date', [
+                    args.date_field || '',
+                    args.item_type || '',
+                    args.days === undefined || args.days === null || args.days === '' ? '' : String(sanitizeLimit(args.days, 7, 36500)),
+                    args.since || '',
+                    args.until || '',
+                    args.status || '',
+                    args.project || '',
                     String(sanitizeLimit(args.limit, 100))
                 ]);
                 break;

@@ -86,6 +86,7 @@ describe('AppleScript Integration', () => {
                 'list_stalled_projects.applescript',
                 'list_tasks_filtered.applescript',
                 'list_completed_tasks.applescript',
+                'list_tasks_by_date.applescript',
                 'edit_tag.applescript',
                 'reopen_task.applescript',
                 'get_project.applescript',
@@ -394,6 +395,31 @@ describe('AppleScript Integration', () => {
             const content = read('list_completed_tasks.applescript');
             expect(content).toContain('completion date');
             expect(content).toContain('every flattened folder whose hidden is true');
+        });
+
+        test('list_tasks_by_date.applescript queries by creation, modification and drop date', () => {
+            const content = read('list_tasks_by_date.applescript');
+            // bulk queries (one per property) instead of one query per item
+            expect(content).toContain('creation date of every flattened task of scopeRef');
+            expect(content).toContain('modification date of every flattened task of scopeRef');
+            expect(content).toContain('dropped date of every flattened task of scopeRef');
+            expect(content).toContain('whenDate ≥ sinceDate and whenDate < untilDate');
+            // tasks and projects, one project as scope
+            expect(content).toContain('every flattened task of scopeRef');
+            expect(content).toContain('status of every flattened project');
+            expect(content).toContain('changed while the');
+            expect(content).toContain('on resolveProject(');
+            // hidden folders are left out, newest first, the limit applies after sorting
+            expect(content).toContain('on projectInHiddenFolder(');
+            // the root task of a project (same ID as the project) is not a task of the list
+            expect(content).toContain('projectIDs contains (item i of idList)');
+            expect(content).toContain('on sortPositions(');
+            expect(content).toContain('shownCount ≥ maxResults');
+            // every value is checked before OmniFocus is read; read errors are reported
+            expect(content).toContain('Invalid date_field');
+            expect(content).toContain('Dropped items are never open');
+            expect(content).toContain('since must be before until');
+            expect(content).toContain('could not read the');
         });
 
         test('edit_project.applescript supports the project types', () => {

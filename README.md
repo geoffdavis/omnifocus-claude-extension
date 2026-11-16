@@ -22,6 +22,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Links**: Put a link to anything in another app into the note of a task (any URL or app link), take it from Mail, Safari, Chrome, Finder or Contacts, and get the `omnifocus:///task/<id>` link of a task or project
 - **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
 - **Duplicate**: Copy a task with its subtasks or a project with all its tasks (for example as a template), into another project, folder or the inbox
+- **Queries by date**: List tasks or projects by the date they were created, last modified or dropped, for the last days or a period, newest first
 
 ### Tags
 - **List Tags**: View all tags with hierarchy
@@ -259,6 +260,10 @@ cannot duplicate folders.
 "What can I do in 15 minutes?"
 "Show the available tasks tagged 'Phone'"
 "What did I complete in the last 7 days?"
+"What did I add this week?"
+"Which open tasks of the project 'Website 2.0' changed since Monday?"
+"Which projects did I create in October?"
+"What did I drop yesterday?"
 "Which projects are due for review?"
 "Mark the project 'Website 2.0' as reviewed"
 "Which perspectives do I have?"
@@ -267,6 +272,14 @@ cannot duplicate folders.
 
 Dropped items and items below dropped (hidden) folders are left out of all read tools. Pass `include_dropped: true`
 to include them.
+
+`list_tasks_by_date` lists tasks (or `item_type: projects`) by one of three dates: `created`, `modified` (OmniFocus
+updates it with every change, also with the completion or the drop of a task) or `dropped`. Completed tasks stay with
+`list_completed_tasks`. The period is the last `days` (default 7) or a range from `since` to `until`
+(`YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, `today` or `yesterday`; a date as `until` counts through the end of that day).
+`status: open` leaves out completed and dropped tasks (for projects: only active and on hold), `project` limits the list
+to one project, `limit` caps the number of items. The list is sorted newest first and grouped by day; tasks show their
+project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dropped) folders are always left out.
 
 ## Available Commands
 
@@ -316,6 +329,7 @@ to include them.
 | `list_perspectives` | Built-in and custom perspectives with their IDs (the rules of a perspective are not available to scripts) | "Which perspectives do I have?" |
 | `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
+| `list_tasks_by_date` | Tasks or projects by creation, modification or drop date, for the last days or a period, optionally one project or only open items | "What did I add this week?" |
 | `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
 | `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
 | `list_stalled_projects` | Active projects without a next action | "Which projects are stalled?" |
@@ -369,6 +383,7 @@ omnifocus-claude-extension/
 │   │   │   ├── delete_folder.applescript
 │   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag
 │   │   │   ├── list_completed_tasks.applescript
+│   │   │   ├── list_tasks_by_date.applescript
 │   │   │   ├── list_projects_for_review.applescript
 │   │   │   ├── mark_project_reviewed.applescript
 │   │   │   └── list_stalled_projects.applescript

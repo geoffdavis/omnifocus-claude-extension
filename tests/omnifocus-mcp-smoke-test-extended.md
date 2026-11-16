@@ -24,7 +24,7 @@ You are executing a structured smoke test of the OmniFocus MCP plugin. Follow ev
 
 Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and time (example: `SMOKETEST260324130501`). Refer to it as `{PREFIX}`. Record for each test: ID, tool, result (PASS/FAIL) and error message.
 
-## Phase 1: Read-only tools and view (20 tests)
+## Phase 1: Read-only tools and view (21 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -48,8 +48,9 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q18 | `get_selection` | PASS if it answers with the lines `Perspective:`, `Search:` and `Focus:` and either `Selected: nothing` or a list of selected items, each ending in `[id:...]`. If it answers `OmniFocus has no open window`, mark Q18 to Q20 SKIPPED. Remember the perspective for Q19 and Q20. |
 | Q19 | `set_view` | Changes only the view of the window. `perspective: "Inbox"`: PASS if it answers `Perspective: Inbox`. `perspective: "{PREFIX} NO SUCH PERSPECTIVE"` must FAIL with `Perspective not found` and list the available perspectives. `search: "{PREFIX}"`: PASS if it answers `Search: "{PREFIX}"`; `search: ""`: PASS if it answers `Search cleared`. `perspective: "Projects"` and `focus: "Smoke Test"`: PASS if it answers `Focus: Smoke Test`, then `focus: "none"`: PASS if it answers `Focus removed` (a `⚠️` answer that OmniFocus kept the focus is a FAIL, remove it by hand in the window). Finally restore the perspective from Q18. Calling it without any argument must FAIL with `Give a perspective, a search term or a focus`. |
 | Q20 | `show_item` | `item_type: "project"`, `item: "Smoke Test"`: PASS if it answers `Showing project in OmniFocus: Smoke Test`, and `get_selection` then lists the project as selected (an answer starting with `Opened project` is also a PASS if the Projects perspective is not shown). `item_type: "task"`, `item: "{PREFIX} NO SUCH TASK"` must FAIL with `Open task not found`. `item_type: "tag"`, `item: "{PREFIX} NO SUCH TAG"` must FAIL with `Tag not found`. Finally restore the perspective from Q18 with `set_view`. |
+| Q21 | `list_tasks_by_date` | Read-only. `date_field: "modified"`, `days: 1`, `limit: 5`. PASS if it returns at most five tasks under date headings, newest first, each with a project (or `Inbox`) and an `[id:...]`, or a message that nothing was modified. Then each of these must FAIL with a message and list nothing: `date_field: "nonsense"`; no `date_field`; `date_field: "dropped"` with `status: "open"`; `date_field: "created"` with `since: "2026-02-30"`; `since: "2026-11-16"` with `until: "2026-11-10"`; `item_type: "projects"` with `project: "Smoke Test"`. Then `date_field: "created"`, `item_type: "projects"`, `since: "2000-01-01"`, `limit: 3`: PASS if at most three projects are listed with their folder path and a state. |
 
-## Phase 2: Tasks and tags (39 tests)
+## Phase 2: Tasks and tags (40 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -94,6 +95,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | A37 | `add_task` then `duplicate_item` | Create `{PREFIX} Dup` in `Smoke Test` with `note: "{PREFIX} dup note"`, `due_date: "2030-02-01"`, `estimated_minutes: 30` and `tags: "{PREFIX}-Tag"`. Then `duplicate_item` with `item_type: "task"`, `item: "{PREFIX} Dup"`, `project: "Smoke Test"`, `new_name: "{PREFIX} Dup Copy"`. PASS if confirmed with the ID of the copy, and `get_task` of `{PREFIX} Dup Copy` shows the same due date, estimate, tag and note. `{PREFIX} Dup` must still exist unchanged. |
 | A38 | `duplicate_item` | `item: "{PREFIX} Dup"`, `project: "inbox"`, `new_name: "{PREFIX} Dup Inbox"`: PASS if confirmed "in the inbox". Then each of these must FAIL with a message and "Nothing was duplicated": `project` together with `parent_task`; `folder` for a task; `project` for a project (`item_type: "project"`, `item: "Smoke Test"`); `item_type: "folder"`; an unknown `project`; an empty `item`. Finally `search_tasks` with `query: "{PREFIX} Dup"` must find exactly three tasks (`{PREFIX} Dup`, `{PREFIX} Dup Copy`, `{PREFIX} Dup Inbox`). |
 | A39 | `edit_task` | On `{PREFIX} Dup`: `property: "estimated_minutes"`, `value: "45"`: PASS if confirmed and `get_task` shows `Estimate: 45 minutes`. Then `value: "abc"`, `"-5"` and `"2.5"` must FAIL with "Invalid value for estimated_minutes" and leave the estimate at 45. Then `value: "none"`: PASS if confirmed as cleared and `get_task` shows no `Estimate:` line. |
+| A40 | `list_tasks_by_date` | `date_field: "created"`, `days: 1`, `project: "Smoke Test"`, `status: "open"`: PASS if `{PREFIX} Task A` and `{PREFIX} Dup` are listed with the time they were created, newest first, and the root task of the project (named like the project, with the ID of the project) is not listed. Then `limit: 1`: PASS if one task is listed and the answer says `more not shown`. Then `date_field: "modified"`, `since: "today"`, `project: "Smoke Test"`: PASS if `{PREFIX} Task A` is listed. Then `date_field: "created"`, `until: "yesterday"`, `days: 1`, `project: "Smoke Test"`: PASS if no `{PREFIX}` task is listed. |
 
 ## Phase 3: Tag hierarchy (11 tests)
 
@@ -139,13 +141,14 @@ All tasks MUST use `project: "Smoke Test"`.
 | P22 | `edit_project` | `project: "{PREFIX} Project"` (it has a due date and a defer date since P10), `property: "repeat"`, `value: "monthly on the 1st"`: PASS if confirmed with "every month on day 1, fixed schedule" and `get_project` shows a `Repeats:` line with the same text. Then `repeat_based_on: "defer"` and `repeat_catch_up: "true"`: PASS if the answer ends with "based on the defer date, catches up automatically". `repeat: "FREQ=NONSENSE"` must FAIL with "does not understand the repeat rule" and change nothing. Finally `repeat: "none"`: PASS if confirmed as stopped and `get_project` shows no `Repeats:` line. |
 | P23 | `duplicate_item` | `item_type: "project"`, `item: "{PREFIX} Folder Renamed > {PREFIX} Project"`, `folder: "{PREFIX} Folder Renamed"`, `new_name: "{PREFIX} Project Template"`, `reopen_completed: true`. PASS if confirmed "in the folder {PREFIX} Folder Renamed", and `get_project` of the copy shows `{PREFIX} Task B` and the same type `sequential`. Then the same without `folder` and `new_name`: PASS if the copy is called `{PREFIX} Project copy` and sits in `{PREFIX} Folder Renamed` directly after the original (`list_folders` shows one more project there). |
 
-## Phase 5: Drop and delete (3 tests)
+## Phase 5: Drop and delete (4 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
 | D01 | `drop_task` | `task_name: "{PREFIX} Task B"`. PASS if it is dropped and not deleted. |
 | D02 | `drop_task` | **Edge case:** `task_name: "{PREFIX} DOES NOT EXIST"`. PASS if it returns an error. |
 | D03 | `edit_project` | `project: "{PREFIX} Project"`, `property: "status"`, `value: "dropped"`. PASS if confirmed. |
+| D04 | `list_tasks_by_date` | `date_field: "dropped"`, `days: 1`, `project: "Smoke Test"`: PASS if `{PREFIX} Task B` is listed without a `🚫` marker (the list is about drops) and with the time it was dropped. `date_field: "created"`, `days: 1`, `project: "Smoke Test"` with the default status: PASS if `{PREFIX} Task B` is listed with a `🚫`. `status: "open"`: PASS if it is not listed. |
 
 ## Phase 6: Cleanup
 
