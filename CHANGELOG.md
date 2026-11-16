@@ -46,7 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Undo**: `undo` undoes or redoes the last change(s) in OmniFocus (`action`, `steps` up to 20). OmniFocus reverts the last
   change whoever made it, so also changes made by hand
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
-  it is finished (`wait_seconds`, default 15, 0 = do not wait); `clean_up` runs Clean Up (inbox items that already have
+  it is finished (`wait_seconds`, default 15, 0 = do not wait); its answer shows when the last synchronization finished and
+  its error, if there was one, and `status_only` reports that without starting a synchronization; `clean_up` runs Clean Up (inbox items that already have
   a project are moved into their projects, completed tasks are hidden) and reports how many inbox items were moved
 - **View and selection**: `get_selection` shows the perspective, search term, focus and selected items (type, name and ID,
   so that other tools can take them with `id:<id>`) of the front OmniFocus window, `set_view` switches the perspective,

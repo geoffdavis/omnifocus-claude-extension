@@ -398,7 +398,7 @@ const tools = [
     },
     {
         name: 'synchronize',
-        description: 'Synchronize OmniFocus with its sync database (the sync set in OmniFocus > Settings > Sync) and wait until it is finished.',
+        description: 'Synchronize OmniFocus with its sync database (the sync set in OmniFocus > Settings > Sync) and wait until it is finished. The answer also shows when the last synchronization finished and its error, if there was one. With status_only nothing is started, it only reports that state.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -406,6 +406,11 @@ const tools = [
                     type: 'number',
                     description: 'Wait until the synchronization is finished, at most this many seconds (0 to return at once)',
                     default: 15
+                },
+                status_only: {
+                    type: 'boolean',
+                    description: 'Only report whether a synchronization is running and when and how the last one ended; start no synchronization',
+                    default: false
                 }
             }
         }
@@ -1254,7 +1259,8 @@ async function executeTool(name, args) {
 
             case 'synchronize':
                 result = executeAppleScriptFile('synchronize', [
-                    String(args.wait_seconds === undefined ? 15 : Math.max(0, Math.min(120, Math.floor(Number(args.wait_seconds)) || 0)))
+                    String(args.wait_seconds === undefined ? 15 : Math.max(0, Math.min(120, Math.floor(Number(args.wait_seconds)) || 0))),
+                    String(args.status_only === true)
                 ]);
                 break;
 

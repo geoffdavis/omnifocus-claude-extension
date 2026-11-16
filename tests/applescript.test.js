@@ -704,6 +704,19 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('A synchronization is already running');
         });
 
+        test('synchronize.applescript reports the last sync date and error, and can only report', () => {
+            const content = read('synchronize.applescript');
+            expect(content).toContain('last sync date of default document');
+            expect(content).toContain('last sync error of default document');
+            expect(content).toContain('Last synchronization: ');
+            expect(content).toContain('Error of the last synchronization');
+            // status_only starts nothing
+            expect(content).toContain('if statusOnly then');
+            expect(content.indexOf('if statusOnly then')).toBeLessThan(content.indexOf('synchronize default document'));
+            // a finished sync with an error is not reported as success
+            expect(content).toContain('finished, but OmniFocus reports an error');
+        });
+
         test('clean_up.applescript compacts the document and reports the inbox change', () => {
             const content = read('clean_up.applescript');
             expect(content).toContain('compact default document');

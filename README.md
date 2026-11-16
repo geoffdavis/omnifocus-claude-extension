@@ -18,7 +18,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Recurring Tasks and Projects**: Repeat by interval, on weekdays, on a day of the month or on the last Friday of the month, on a fixed schedule or after completion, based on the due, defer or planned date, with or without catching up; for tasks and projects
 - **Text to tasks**: Turn a list of lines (or the note of a task) into tasks and subtasks, with the inline syntax of OmniFocus
 - **Undo**: Undo or redo the last change(s) in OmniFocus (it reverts changes made by hand too)
-- **Sync and clean up**: Synchronize OmniFocus on request, and run Clean Up (inbox items with a project move into their projects)
+- **Sync and clean up**: Synchronize OmniFocus on request (with the time and error of the last sync), and run Clean Up (inbox items with a project move into their projects)
 - **Links**: Put a link to anything in another app into the note of a task (any URL or app link), take it from Mail, Safari, Chrome, Finder or Contacts, and get the `omnifocus:///task/<id>` link of a task or project
 - **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
 - **Duplicate**: Copy a task with its subtasks or a project with all its tasks (for example as a template), into another project, folder or the inbox
@@ -320,7 +320,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
 | `get_selected_link` | What is selected or open in Mail, Safari, Chrome and other Chromium browsers, Finder or Contacts, with a link that opens it again | "Put the link to the selected mail in the note of 'Answer the offer'" |
 | `undo` | Undo or redo the last change(s) in OmniFocus, whoever made them | "Undo that" |
-| `synchronize` | Synchronize OmniFocus with its sync database and wait until it is finished | "Sync OmniFocus now" |
+| `synchronize` | Synchronize OmniFocus with its sync database and wait until it is finished; shows when the last synchronization finished and its error, `status_only` only reports that | "Sync OmniFocus now", "When did OmniFocus last sync?" |
 | `clean_up` | Clean Up: move inbox items that have a project into their projects, hide completed tasks | "Clean up OmniFocus" |
 | `get_selection` | Perspective, search term, focus and selected items (with IDs) of the front OmniFocus window | "What is selected in OmniFocus?" |
 | `set_view` | Switch the perspective, search, or focus on a project or folder in the front OmniFocus window | "Show the Forecast perspective" |
