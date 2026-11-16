@@ -36,14 +36,10 @@ on run argv
     set minutesString to item 7 of argv
     if minutesString is not "" and minutesString is not "0" then
       set minutesTrimmed to my trimText(minutesString)
-      try
-        set estimatedMinutes to minutesTrimmed as integer
-      on error
-        return "❌ Invalid estimated_minutes value: " & minutesString & " (must be a whole number)"
-      end try
-      if estimatedMinutes < 0 then
-        return "❌ Invalid estimated_minutes value: " & minutesString & " (must be 0 or greater)"
+      if not my isDigits(minutesTrimmed) or (length of minutesTrimmed) > 7 then
+        return "❌ Invalid estimated_minutes value: " & minutesString & " (must be a whole number of minutes, 0 or greater)"
       end if
+      set estimatedMinutes to minutesTrimmed as integer
     end if
   end if
   if (count of argv) > 7 then
@@ -735,13 +731,20 @@ on numberTokens(theText)
         if "0123456789" contains (contents of aChar) then
             set currentToken to currentToken & (contents of aChar)
         else if currentToken is not "" then
-            set end of tokenList to currentToken as integer
+            set end of tokenList to my digitsValue(currentToken)
             set currentToken to ""
         end if
     end repeat
-    if currentToken is not "" then set end of tokenList to currentToken as integer
+    if currentToken is not "" then set end of tokenList to my digitsValue(currentToken)
     return tokenList
 end numberTokens
+
+on digitsValue(digitText)
+    -- The value of a text of digits; a longer number than nine digits is no date part and is not converted
+    -- (a number that does not fit into an integer would become a real number or an error)
+    if (length of digitText) > 9 then return 999999999
+    return digitText as integer
+end digitsValue
 
 on looksLikeISODate(theText)
     -- True if the text starts like an ISO date: four digits and a dash
@@ -820,3 +823,12 @@ on dateErrorText(valueText, fieldName)
     -- The message for a date that cannot be read; the caller adds what was not done
     return "❌ Invalid date for " & fieldName & ": " & valueText & ". Use YYYY-MM-DD, YYYY-MM-DD HH:MM, today, tomorrow, next week, \"3 days\" or \"2 weeks\"."
 end dateErrorText
+
+on isDigits(theText)
+    -- True if the text is not empty and has only the digits 0 to 9
+    if theText is "" then return false
+    repeat with aChar in characters of theText
+        if "0123456789" does not contain (contents of aChar) then return false
+    end repeat
+    return true
+end isDigits

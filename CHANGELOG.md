@@ -126,6 +126,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fail. A date written as a literal in a script stopped the whole script on a Mac whose language cannot read it.
   Repeat rules use the digits 0 to 9, keywords are compared in lower case, and a date text whose time does not fit is
   refused. The review interval takes whole numbers only (`1,5 weeks` was rounded)
+- Wrong types of values: all tools check their arguments against the schema first. A number for a text, numeric text
+  for a whole number, `"true"` for a boolean and an enumeration value in other case are converted; an object for a text,
+  `"abc"` or `2.5` for a whole number, a value outside an enumeration or arguments that are not an object are refused
+  with a message naming the parameter (`Invalid value for limit ("abc"): expected a whole number. Nothing was done.`)
+  instead of an AppleScript error. Attachment numbers (`edit_task`, `edit_project`, `edit_folder`, `save_attachment`), the
+  limit of `search_tasks` and `estimated_minutes` of `add_task` are whole numbers only (`1.5` was rounded or failed,
+  depending on the region), and a number with more than nine digits is no longer converted in dates and repeat rules
 - Dates: `add_task` read "2026-12-01 10:00" as a date in 2007, and the other tools set today or tomorrow when they could
   not read a date. All tools that take a date now use one parser: `YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, `today`, `tomorrow`,
   `next week`, `3 days`, `2 weeks`, and the date formats of the system language as a last try. A date that cannot be read

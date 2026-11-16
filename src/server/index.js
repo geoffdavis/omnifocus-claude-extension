@@ -1192,6 +1192,58 @@ function wrapUntrusted(text) {
     ].join('\n');
 }
 
+// Check the arguments of a tool against its schema before anything runs. A value of the wrong type never reaches
+// AppleScript as text like "[object Object]" or "NaN": it is converted when the meaning is clear (the number 30 or the
+// text "30" for a whole number, the text "true" for a boolean, a number or boolean for a text, a list of tags for tags, a value
+// of an enumeration in other case) and refused with a clear message otherwise.
+function normalizeArgs(tool, args) {
+    if (typeof args !== 'object' || args === null || Array.isArray(args)) {
+        return { problem: '❌ Invalid arguments: expected an object with the parameters of the tool. Nothing was done.' };
+    }
+    const properties = (tool.inputSchema && tool.inputSchema.properties) || {};
+    const checked = {};
+    const problems = [];
+    const preview = value => {
+        let text;
+        try { text = JSON.stringify(value); } catch (error) { text = String(value); }
+        if (text === undefined) text = String(value);
+        return text.length > 60 ? text.slice(0, 57) + '...' : text;
+    };
+    for (const [key, original] of Object.entries(args)) {
+        const spec = properties[key];
+        if (!spec || original === undefined || original === null) continue; // not a parameter of the tool, or not given
+        let value = original;
+        let problem = '';
+        if (spec.type === 'string') {
+            if (typeof value === 'number' && Number.isFinite(value)) value = String(value);
+            else if (typeof value === 'boolean') value = String(value);
+            else if (Array.isArray(value) && key === 'tags' && value.every(item => typeof item === 'string' || typeof item === 'number')) value = value.join(', ');
+            else if (typeof value !== 'string') problem = 'expected text';
+        } else if (spec.type === 'number') {
+            // every number of the tools is a count (limit, minutes, days, an attachment number): a whole number
+            if (typeof value === 'string' && /^\s*-?\d+\s*$/.test(value)) value = Number(value);
+            if (typeof value !== 'number' || !Number.isFinite(value)) problem = 'expected a whole number';
+            else if (!Number.isInteger(value)) problem = 'expected a whole number, not a fraction';
+        } else if (spec.type === 'boolean') {
+            if (typeof value === 'string' && /^\s*(true|false)\s*$/i.test(value)) value = value.trim().toLowerCase() === 'true';
+            if (typeof value !== 'boolean') problem = 'expected true or false';
+        }
+        if (!problem && Array.isArray(spec.enum)) {
+            // a value of the enumeration in another case ("Active") is the same value; no locale rules for the case
+            const asciiLower = text => String(text).replace(/[A-Z]/g, letter => String.fromCharCode(letter.charCodeAt(0) + 32));
+            const match = spec.enum.find(item => item === value) || spec.enum.find(item => asciiLower(item) === asciiLower(value).trim());
+            if (match === undefined) problem = `expected one of: ${spec.enum.join(', ')}`;
+            else value = match;
+        }
+        if (problem) problems.push(`${key} (${preview(original)}): ${problem}`);
+        else checked[key] = value;
+    }
+    if (problems.length > 0) {
+        return { problem: `❌ Invalid ${problems.length === 1 ? 'value' : 'values'} for ${problems.join('; ')}. Nothing was done.` };
+    }
+    return { args: checked };
+}
+
 // Handle tool execution
 async function executeTool(name, args) {
     log(`Executing tool: ${name}`);
@@ -1205,6 +1257,12 @@ async function executeTool(name, args) {
     try {
         let result;
 
+        const normalized = normalizeArgs(tool, args);
+        if (normalized.problem) {
+            return { content: [{ type: 'text', text: wrapUntrusted(normalized.problem) }] };
+        }
+        args = normalized.args;
+
         // Prepare arguments based on tool
         switch (name) {
             case 'add_task':
@@ -1215,7 +1273,7 @@ async function executeTool(name, args) {
                     args.due_date || '',
                     String(args.flagged || false),
                     args.defer_date || '',
-                    String(args.estimated_minutes || 0),
+                    String(sanitizeLimit(args.estimated_minutes, 0, 9999999)),
                     args.tags || '',
                     args.planned_date || '',
                     args.parent_task || ''
@@ -1227,7 +1285,7 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('search_tasks', [
                     args.query || '',
                     args.filter || 'remaining',
-                    String(args.limit || 50),
+                    String(sanitizeLimit(args.limit, 50)),
                     String(args.include_dropped === true)
                 ]);
                 break;
@@ -1392,7 +1450,7 @@ async function executeTool(name, args) {
 
             case 'list_projects_for_review':
                 result = executeAppleScriptFile('list_projects_for_review', [
-                    String(Math.max(0, Math.floor(Number(args.days_ahead) || 0)))
+                    String(args.days_ahead === undefined ? 0 : Math.max(0, Math.min(3650, Math.floor(args.days_ahead))))
                 ]);
                 break;
 
@@ -1412,7 +1470,7 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('get_project', [
                     args.project || '',
                     args.include_completed === true ? 'true' : 'false',
-                    String(Math.max(1, Math.floor(Number(args.limit) || 300)))
+                    String(sanitizeLimit(args.limit, 300, 100000))
                 ]);
                 break;
 
@@ -1523,7 +1581,7 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('save_attachment', [
                     args.item_type || '',
                     args.item || '',
-                    String(Math.floor(Number(args.number)) || 1),
+                    String(sanitizeLimit(args.number, 1, 100000)),
                     args.destination || ''
                 ]);
                 break;

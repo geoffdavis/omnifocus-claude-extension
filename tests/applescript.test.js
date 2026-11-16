@@ -630,6 +630,53 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Numbers typed as text', () => {
+        const scriptsDir = path.join(enhancedScriptsDir, '..');
+        const read = name => fs.readFileSync(path.join(scriptsDir, name), 'utf8');
+
+        test('attachment numbers are whole numbers or nothing, never a rounded or failing coercion', () => {
+            ['enhanced/edit_task.applescript', 'enhanced/edit_project.applescript', 'enhanced/edit_folder.applescript', 'enhanced/save_attachment.applescript'].forEach(name => {
+                const content = read(name);
+                expect(content).toContain('on isDigits(theText)');
+                expect(content).toContain('if my isDigits(numberClean) and (length of numberClean) < 6 then set attachmentNumber to numberClean as integer');
+                expect(content).not.toContain('set attachmentNumber to numberText as integer');
+            });
+        });
+
+        test('search_tasks takes the limit only from a whole number', () => {
+            const content = read('enhanced/search_tasks.applescript');
+            expect(content).toContain('on isDigits(theText)');
+            expect(content).toContain('if my isDigits(limitText) and (length of limitText) < 6 and limitText is not "0" then set resultLimit to limitText as integer');
+            expect(content).not.toContain('item 3 of argv as integer');
+        });
+
+        test('a long run of digits is no integer: dates and repeat rules do not convert it', () => {
+            ['add_task.applescript', 'enhanced/batch_add_tasks.applescript', 'enhanced/create_recurring_task.applescript',
+                'enhanced/edit_task.applescript', 'enhanced/edit_project.applescript', 'enhanced/create_project.applescript'].forEach(name => {
+                const content = read(name);
+                expect(content).toContain('on digitsValue(digitText)');
+                expect(content).toContain('set end of tokenList to my digitsValue(currentToken)');
+                expect(content).not.toContain('tokenList to currentToken as integer');
+            });
+            ['enhanced/edit_task.applescript', 'enhanced/edit_project.applescript', 'enhanced/create_recurring_task.applescript'].forEach(name => {
+                const content = read(name);
+                expect(content).toContain('if my unitCode(nextText) is "" or (length of tokenText) > 6 then return invalidResult');
+                expect(content).toContain('my isDigits(nextText) and (length of nextText) < 3');
+                expect(content).toContain('if my isDigits(numberPart) and (length of numberPart) < 3 then return numberPart as integer');
+            });
+            ['enhanced/edit_project.applescript', 'enhanced/create_project.applescript'].forEach(name => {
+                expect(read(name)).toContain('or (length of (item 1 of wordList)) > 6 then return {isValid:false');
+            });
+        });
+
+        test('add_task refuses estimated_minutes that is not a whole number of minutes', () => {
+            const content = read('add_task.applescript');
+            expect(content).toContain('if not my isDigits(minutesTrimmed) or (length of minutesTrimmed) > 7 then');
+            expect(content).toContain('Invalid estimated_minutes value');
+            expect(content).not.toContain('set estimatedMinutes to minutesTrimmed as integer\n      on error');
+        });
+    });
+
     describe('Language and region of the Mac', () => {
         const scriptsDir = path.join(enhancedScriptsDir, '..');
         const allScripts = () => [
@@ -699,7 +746,7 @@ describe('AppleScript Integration', () => {
         test('the review interval takes only whole numbers', () => {
             ['edit_project.applescript', 'create_project.applescript'].forEach(name => {
                 const content = read(name);
-                expect(content).toContain('if not my isDateDigits(item 1 of wordList) then return {isValid:false, stepCount:0, unitName:"", errorText:problemText}');
+                expect(content).toContain('if not my isDateDigits(item 1 of wordList) or (length of (item 1 of wordList)) > 6 then return {isValid:false, stepCount:0, unitName:"", errorText:problemText}');
             });
         });
     });

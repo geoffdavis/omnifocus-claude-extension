@@ -11,7 +11,9 @@ on run argv
     end if
     
     if (count of argv) > 2 then
-        set resultLimit to item 3 of argv as integer
+        -- Only a whole number from 1 to 99999 is a limit; anything else keeps the default
+        set limitText to item 3 of argv
+        if my isDigits(limitText) and (length of limitText) < 6 and limitText is not "0" then set resultLimit to limitText as integer
     end if
     
     -- include_dropped: "true" also shows dropped items and items below dropped (hidden) folders
@@ -172,3 +174,12 @@ on countVisible(idList, hiddenIDs)
     end repeat
     return visibleCount
 end countVisible
+
+on isDigits(theText)
+    -- True if the text is not empty and has only the digits 0 to 9
+    if theText is "" then return false
+    repeat with aChar in characters of theText
+        if "0123456789" does not contain (contents of aChar) then return false
+    end repeat
+    return true
+end isDigits

@@ -104,6 +104,12 @@ digits 0 to 9, also on a Mac with an Arabic or Persian region. A date text that 
 the text (a time that gets lost, a PM that the language does not know) is refused. Tool results show dates and times in
 the format of the Mac. Names, notes, tags and file paths may contain any characters (umlauts, Chinese, emoji).
 
+**Wrong types of values.** Every value is checked against the schema of its tool before anything runs. A value with a
+clear meaning is converted (the number `30` or the text `"30"` for a number, `"true"` for a boolean, a number for a text,
+a list of tags for `tags`, `Active` for `active`). Anything else (text for a number, a fraction like `2.5`, an object for a text, a value that
+is not in the list of an enumeration) is refused with a message that names the parameter and what is expected, and
+nothing is changed. All numbers of the tools (limits, attachment numbers, minutes, days) are whole numbers.
+
 ### Batch Operations
 ```
 "Create project plan: Research phase|-Literature review|-Market analysis|Development|-Prototype|-Testing|Launch"

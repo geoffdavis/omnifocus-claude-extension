@@ -169,7 +169,7 @@ on parseReviewInterval(valueText)
     if (count of wordList) = 1 then
         set unitWord to item 1 of wordList
     else if (count of wordList) = 2 then
-        if not my isDateDigits(item 1 of wordList) then return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
+        if not my isDateDigits(item 1 of wordList) or (length of (item 1 of wordList)) > 6 then return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
         set stepCount to (item 1 of wordList) as integer
         set unitWord to item 2 of wordList
     else
@@ -833,13 +833,20 @@ on numberTokens(theText)
         if "0123456789" contains (contents of aChar) then
             set currentToken to currentToken & (contents of aChar)
         else if currentToken is not "" then
-            set end of tokenList to currentToken as integer
+            set end of tokenList to my digitsValue(currentToken)
             set currentToken to ""
         end if
     end repeat
-    if currentToken is not "" then set end of tokenList to currentToken as integer
+    if currentToken is not "" then set end of tokenList to my digitsValue(currentToken)
     return tokenList
 end numberTokens
+
+on digitsValue(digitText)
+    -- The value of a text of digits; a longer number than nine digits is no date part and is not converted
+    -- (a number that does not fit into an integer would become a real number or an error)
+    if (length of digitText) > 9 then return 999999999
+    return digitText as integer
+end digitsValue
 
 on looksLikeISODate(theText)
     -- True if the text starts like an ISO date: four digits and a dash

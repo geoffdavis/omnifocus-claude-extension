@@ -424,9 +424,9 @@ end attachFileToNote
 on removeAttachmentFromNote(theItem, itemLabel, numberText)
     -- Removes one attachment from the note, numbered as in the attachment list of get_task
     set attachmentNumber to 0
-    try
-        set attachmentNumber to numberText as integer
-    end try
+    -- Only whole numbers: a text like 1.5 would be rounded by the coercion (or fail, depending on the region)
+    set numberClean to my trimItem(numberText)
+    if my isDigits(numberClean) and (length of numberClean) < 6 then set attachmentNumber to numberClean as integer
     if attachmentNumber < 1 then
         return "❌ remove_attachment needs the number of the attachment (1 is the first one, see get_task). Nothing was removed."
     end if
@@ -492,3 +492,12 @@ on attachmentSizeText(byteCount)
     set tenths to round (byteCount / 104857.6)
     return ((tenths div 10) as text) & "." & ((tenths mod 10) as text) & " MB"
 end attachmentSizeText
+
+on isDigits(theText)
+    -- True if the text is not empty and has only the digits 0 to 9
+    if theText is "" then return false
+    repeat with aChar in characters of theText
+        if "0123456789" does not contain (contents of aChar) then return false
+    end repeat
+    return true
+end isDigits

@@ -547,7 +547,7 @@ on parseRepeatRule(ruleText)
                     if weekdayCodes does not contain foundCode then set end of weekdayCodes to foundCode
                 else if tokenText is "day" and previousText is "last" then
                     set lastDayFlag to true
-                else if tokenText is "day" and my isDigits(nextText) then
+                else if tokenText is "day" and my isDigits(nextText) and (length of nextText) < 3 then
                     set dayNumber to nextText as integer
                     set skipNext to true
                 else if my unitCode(tokenText) is not "" then
@@ -555,7 +555,7 @@ on parseRepeatRule(ruleText)
                     if unitFound is not "" and unitFound is not foundUnit then return invalidResult
                     set unitFound to foundUnit
                 else if my isDigits(tokenText) then
-                    if my unitCode(nextText) is "" then return invalidResult
+                    if my unitCode(nextText) is "" or (length of tokenText) > 6 then return invalidResult
                     set intervalCount to tokenText as integer
                     if intervalCount < 1 then return invalidResult
                 else if my ordinalValue(tokenText) is not 0 then
@@ -651,7 +651,7 @@ on ordinalValue(wordText)
             set suffixText to text -2 thru -1 of wordText
             if suffixText is "st" or suffixText is "nd" or suffixText is "rd" or suffixText is "th" then
                 set numberPart to text 1 thru -3 of wordText
-                if my isDigits(numberPart) then return numberPart as integer
+                if my isDigits(numberPart) and (length of numberPart) < 3 then return numberPart as integer
             end if
         end if
     end ignoring
@@ -952,13 +952,20 @@ on numberTokens(theText)
         if "0123456789" contains (contents of aChar) then
             set currentToken to currentToken & (contents of aChar)
         else if currentToken is not "" then
-            set end of tokenList to currentToken as integer
+            set end of tokenList to my digitsValue(currentToken)
             set currentToken to ""
         end if
     end repeat
-    if currentToken is not "" then set end of tokenList to currentToken as integer
+    if currentToken is not "" then set end of tokenList to my digitsValue(currentToken)
     return tokenList
 end numberTokens
+
+on digitsValue(digitText)
+    -- The value of a text of digits; a longer number than nine digits is no date part and is not converted
+    -- (a number that does not fit into an integer would become a real number or an error)
+    if (length of digitText) > 9 then return 999999999
+    return digitText as integer
+end digitsValue
 
 on looksLikeISODate(theText)
     -- True if the text starts like an ISO date: four digits and a dash
