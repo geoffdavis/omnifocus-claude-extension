@@ -483,11 +483,13 @@ describe('AppleScript Integration', () => {
             const content = read('edit_task.applescript');
             // primary tag: an existing tag moves to the front, none removes the first tag
             expect(content).toContain('propertyName is "primary_tag"');
-            expect(content).toContain('set primary tag of targetTask to theTag');
-            expect(content).toContain('set primary tag of targetTask to missing value');
+            expect(content).toContain('return my setItemPrimaryTag(targetTask, "task", originalName, newValue)');
+            expect(content).toContain('return my setItemTags(targetTask, "task", originalName, newValue)');
+            expect(content).toContain('set primary tag of theItem to theTag');
+            expect(content).toContain('set primary tag of theItem to missing value');
             // setting the primary tag replaces all tags in OmniFocus, so the old ones are added again
-            expect(content).toContain('set oldTagIDs to id of every tag of targetTask');
-            expect(content).toContain('add (item 1 of oldTagMatches) to tags of targetTask');
+            expect(content).toContain('set oldTagIDs to id of every tag of theItem');
+            expect(content).toContain('add (item 1 of oldTagMatches) to tags of theItem');
             // floating time zone with a checked flag
             expect(content).toContain('set should use floating time zone of targetTask to (flagValue is "true")');
             expect(content).toContain('Invalid value for floating_time_zone');
@@ -565,7 +567,44 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set planned date of targetProject');
             expect(content).toContain('set flagged of targetProject');
             expect(content).toContain('set completed by children of targetProject');
-            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, repeat, repeat_based_on, repeat_catch_up');
+            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up');
+        });
+
+        test('edit_project.applescript sets the tags and the primary tag through the shared tag handlers', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('propertyName is "tags"');
+            expect(content).toContain('return my setItemTags(targetProject, "project", originalLabel, newValue)');
+            expect(content).toContain('propertyName is "primary_tag"');
+            expect(content).toContain('return my setItemPrimaryTag(targetProject, "project", originalLabel, newValue)');
+            // the handlers work on any task or project
+            expect(content).toContain('on resolveTagList(listText)');
+            expect(content).toContain('on setItemTags(theItem, itemWord, itemLabel, newValue)');
+            expect(content).toContain('on setItemPrimaryTag(theItem, itemWord, itemLabel, newValue)');
+            expect(content).toContain('on tagNameList(theItem)');
+        });
+
+        test('the tag handlers look all tags up before the first one is changed', () => {
+            ['edit_task.applescript', 'edit_project.applescript', 'create_project.applescript'].forEach(name => {
+                const content = read(name);
+                const handler = content.slice(content.indexOf('on setItemTags('), content.indexOf('end setItemTags'));
+                expect(handler).toContain('Tags were not changed.');
+                expect(handler).toContain('No tag name given');
+                expect(handler.indexOf('resolveTagList(newValue)')).toBeLessThan(handler.lastIndexOf('remove existingTag from tags of theItem'));
+            });
+        });
+
+        test('create_project.applescript sets tags from the eighth argument after all tags were looked up', () => {
+            const content = read('create_project.applescript');
+            expect(content).toContain('item 8 of argv');
+            expect(content).toContain('resolveTagList(tagsText)');
+            expect(content.indexOf('resolveTagList(tagsText)')).toBeLessThan(content.indexOf('make new project'));
+            expect(content).toContain('The tags could not be set');
+        });
+
+        test('get_project.applescript shows tags and primary tag', () => {
+            const content = fs.readFileSync(path.join(enhancedScriptsDir, 'get_project.applescript'), 'utf8');
+            expect(content).toContain('Tags: ');
+            expect(content).toContain('Primary tag: ');
         });
 
         test('create_project.applescript checks the optional settings before it creates anything', () => {

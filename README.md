@@ -262,13 +262,17 @@ cannot duplicate folders.
 ### Small Properties, Settings and Backup
 ```
 "Make 'Phone' the primary tag of 'Call the plumber'"
+"Tag the project 'Website 2.0' with 'Work' and 'Q4'"
 "Let the due date of 'Flight check-in' keep its clock time in every time zone"
 "Assign the inbox task 'Order cable' to the project 'Home office' without moving it"
 "What is the default due time in OmniFocus?"
 "Write a backup of OmniFocus to ~/Documents/omnifocus-backup"
 ```
-`primary_tag` is the first tag of a task: an existing tag moves to the front, a new one is added in front, `none`
-removes the first tag and keeps the others. `get_task` shows the primary tag when a task has several tags.
+`primary_tag` is the first tag of a task or project: an existing tag moves to the front, a new one is added in front, `none`
+removes the first tag and keeps the others. `get_task` and `get_project` show the primary tag when the item has several tags.
+`tags` (tasks and projects) replaces all tags with a comma-separated list (name, path `Parent > Child` or `id:<id>`; a missing
+tag is created), `none` removes all tags; `create_project` takes the same list in `tags`. All tags are looked up before
+anything changes, so a failed lookup leaves the item as it was and `create_project` creates nothing.
 `floating_time_zone` (tasks and projects) decides whether the due and defer date keep their clock time in every time
 zone (`true`) or stay at a fixed time zone (`false`); `get_task` and `get_project` show it for items with a due or defer
 date. `assigned_container` gives an inbox task a provisional project (or `task:<name>` as parent task); it stays in the
@@ -339,8 +343,8 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `edit_tag` | Rename, move, hide a tag, change its note or next-action behavior, set or remove its location (latitude, longitude, radius, trigger) | "Rename tag 'Waiting' to 'Waiting for'" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
-| `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
-| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior, time zone setting (`floating_time_zone`) and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
+| `create_project` | Create a project, optionally in a folder, with review interval, due and defer date, type and tags | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
+| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior, time zone setting (`floating_time_zone`), tags (`tags`, `primary_tag`) and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `save_attachment` | Save an embedded attachment of a task, project or folder as a file | "Save the attachment of 'Answer the offer' to ~/Downloads/offer.pdf" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |

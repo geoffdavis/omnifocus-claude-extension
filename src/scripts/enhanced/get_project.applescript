@@ -84,6 +84,18 @@ on run argv
         end if
         if dateLine is not "" then set reportText to reportText & (text 4 thru -1 of dateLine) & return
 
+        -- Tags; with several tags the first one is the primary tag
+        try
+            set tagNames to name of every tag of targetProject
+            if (count of tagNames) > 0 then
+                set reportText to reportText & "Tags: " & my joinText(tagNames, ", ") & return
+                if (count of tagNames) > 1 then
+                    set primaryTag to primary tag of targetProject
+                    if primaryTag is not missing value then set reportText to reportText & "Primary tag: " & (name of primaryTag) & return
+                end if
+            end if
+        end try
+
         try
             set lastReview to last review date of targetProject
             set nextReview to next review date of targetProject

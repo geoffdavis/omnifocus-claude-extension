@@ -118,7 +118,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | T10 | `edit_tag` | `property: "location"`, `value: "radius=2; trigger=leaving"` on the same tag. PASS if latitude, longitude and name are unchanged, the radius is 2 km and the trigger leaving. Then each of these must FAIL with a message and change nothing: `latitude=95; longitude=1`, `latitude=abc; longitude=1`, `radius=50`, `trigger=sometimes`, `colour=red`, `latitude=1` on a tag without a location. |
 | T11 | `edit_tag` | `property: "location"`, `value: "none"`. PASS if confirmed and `list_tags` shows no `📍` on the tag. A second `none` must answer that the tag has no location. |
 
-## Phase 4: Folders and projects (23 tests)
+## Phase 4: Folders and projects (25 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -145,6 +145,8 @@ All tasks MUST use `project: "Smoke Test"`.
 | P21 | `delete_folder` | Without `confirm_delete` on `{PREFIX} Folder Renamed`: PASS if it refuses and says what the folder contains. With `confirm_delete: true` but without `delete_contents`: PASS if it refuses because the folder contains projects. Then `delete_folder` with `folder: "{PREFIX} Folder B"` and `confirm_delete: true`: PASS if the empty folder is deleted and `list_folders` no longer shows it. |
 | P22 | `edit_project` | `project: "{PREFIX} Project"` (it has a due date and a defer date since P10), `property: "repeat"`, `value: "monthly on the 1st"`: PASS if confirmed with "every month on day 1, fixed schedule" and `get_project` shows a `Repeats:` line with the same text. Then `repeat_based_on: "defer"` and `repeat_catch_up: "true"`: PASS if the answer ends with "based on the defer date, catches up automatically". `repeat: "FREQ=NONSENSE"` must FAIL with "does not understand the repeat rule" and change nothing. Finally `repeat: "none"`: PASS if confirmed as stopped and `get_project` shows no `Repeats:` line. |
 | P23 | `duplicate_item` | `item_type: "project"`, `item: "{PREFIX} Folder Renamed > {PREFIX} Project"`, `folder: "{PREFIX} Folder Renamed"`, `new_name: "{PREFIX} Project Template"`, `reopen_completed: true`. PASS if confirmed "in the folder {PREFIX} Folder Renamed", and `get_project` of the copy shows `{PREFIX} Task B` and the same type `sequential`. Then the same without `folder` and `new_name`: PASS if the copy is called `{PREFIX} Project copy` and sits in `{PREFIX} Folder Renamed` directly after the original (`list_folders` shows one more project there). |
+| P24 | `edit_project`, `get_project` | Tags of a project. `project: "{PREFIX} Project"`, `property: "tags"`, `value: "{PREFIX}-Tag, {PREFIX}-Tag2"`: PASS if confirmed with `Set tags to [{PREFIX}-Tag, {PREFIX}-Tag2] for project` and `get_project` shows `Tags: {PREFIX}-Tag, {PREFIX}-Tag2`. Then `property: "primary_tag"`, `value: "{PREFIX}-Tag2"`: PASS if confirmed and `get_project` shows `Primary tag: {PREFIX}-Tag2` with both tags still listed. `primary_tag` with `value: "none"`: PASS if the first tag is removed and the other stays. `tags` with `value: ""` must FAIL with `No tag name given` and change nothing. Finally `tags` with `value: "none"`: PASS if all tags are removed and `get_project` shows no `Tags:` line. |
+| P25 | `create_project` | Create `{PREFIX} Project 3` with `folder: "{PREFIX} Folder Renamed"` and `tags: "{PREFIX}-Tag, {PREFIX}-Tag2"`: PASS if created with the tags in the confirmation and `get_project` shows both. Then create `{PREFIX} Project 4` with `tags: "id:does-not-exist"`: must FAIL, say `Nothing was created.` and `list_folders` / `get_project` must not find `{PREFIX} Project 4`. |
 
 ## Phase 5: Drop and delete (4 tests)
 
@@ -159,7 +161,7 @@ All tasks MUST use `project: "Smoke Test"`.
 
 1. Delete `{PREFIX} Dup Copy`, `{PREFIX} Dup Inbox` and `{PREFIX} Dup`, then `{PREFIX} Undo` (if it exists), `{PREFIX} P1`, `{PREFIX} P2` (with their subtasks) and `{PREFIX} Single`, `{PREFIX} Recurring Monthly`, then `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag`, `{PREFIX}-Tag2` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
-3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` using `delete_folder` with `confirm_delete: true` and `delete_contents: true`. PASS if `list_folders` no longer shows it.
+3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project`, `{PREFIX} Project 2` and `{PREFIX} Project 3` using `delete_folder` with `confirm_delete: true` and `delete_contents: true`. PASS if `list_folders` no longer shows it.
 4. Delete the files `/tmp/{PREFIX}.txt` and `/tmp/{PREFIX}-saved.txt` and the backup `~/{PREFIX}-backup` (Q23) if you created them.
 5. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.
 

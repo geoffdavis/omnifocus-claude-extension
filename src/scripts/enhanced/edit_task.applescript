@@ -171,78 +171,12 @@ on run argv
                     return "⏱️ Set estimate to " & minutesText & " minutes for: " & originalName
 
                 else if propertyName is "tags" then
-                    -- Replace all tags with the new comma-separated list
-                    -- Use "none" or "clear" to remove all tags
-                    if newValue is "none" or newValue is "clear" then
-                        set existingTags to tags of targetTask
-                        repeat with existingTag in existingTags
-                            remove existingTag from tags of targetTask
-                        end repeat
-                        return "🏷️ Cleared all tags for: " & originalName
-                    else
-                        -- Find all tags first (by name, path "Parent > Child" or id:<id>; missing tags are created),
-                        -- so that a failed lookup leaves the task unchanged
-                        set originalDelims to AppleScript's text item delimiters
-                        set AppleScript's text item delimiters to ","
-                        set tagList to text items of newValue
-                        set AppleScript's text item delimiters to originalDelims
-                        set resolvedTags to {}
-                        set addedTags to ""
-                        repeat with tagItem in tagList
-                            set tagName to my trimItem(tagItem as string)
-                            if tagName is not "" then
-                                set tagLookup to my findOrCreateTag(tagName)
-                                set theTag to foundTag of tagLookup
-                                if theTag is missing value then
-                                    return (errorText of tagLookup) & return & "Tags were not changed."
-                                end if
-                                set end of resolvedTags to theTag
-                                if addedTags is "" then
-                                    set addedTags to tagName
-                                else
-                                    set addedTags to addedTags & ", " & tagName
-                                end if
-                            end if
-                        end repeat
-                        -- Remove the existing tags, then add the new ones
-                        set existingTags to tags of targetTask
-                        repeat with existingTag in existingTags
-                            remove existingTag from tags of targetTask
-                        end repeat
-                        repeat with resolvedTag in resolvedTags
-                            add (contents of resolvedTag) to tags of targetTask
-                        end repeat
-                        return "🏷️ Set tags to [" & addedTags & "] for: " & originalName
-                    end if
+                    -- Replace all tags with the new comma-separated list; "none" or "clear" removes all tags
+                    return my setItemTags(targetTask, "task", originalName, newValue)
 
                 else if propertyName is "primary_tag" then
-                    -- The first tag of the task
-                    if newValue is "none" or newValue is "clear" then
-                        set currentPrimary to missing value
-                        try
-                            set currentPrimary to primary tag of targetTask
-                        end try
-                        if currentPrimary is missing value then return "ℹ️ The task has no tags: " & originalName
-                        set primaryName to name of currentPrimary
-                        set primary tag of targetTask to missing value
-                        return "🏷️ Removed the primary tag \"" & primaryName & "\" from: " & originalName & ". The other tags stay (tags now: " & my tagNameList(targetTask) & ")."
-                    end if
-                    set tagLookup to my findOrCreateTag(my trimItem(newValue))
-                    set theTag to foundTag of tagLookup
-                    if theTag is missing value then
-                        return (errorText of tagLookup) & return & "Nothing was changed."
-                    end if
-                    -- Setting the primary tag replaces all tags of the task with this one, so the others are added again behind it
-                    set oldTagIDs to id of every tag of targetTask
-                    set primary tag of targetTask to theTag
-                    set tagIDsNow to id of every tag of targetTask
-                    repeat with oldTagID in oldTagIDs
-                        if tagIDsNow does not contain (contents of oldTagID) then
-                            set oldTagMatches to every flattened tag whose id is (contents of oldTagID)
-                            if (count of oldTagMatches) > 0 then add (item 1 of oldTagMatches) to tags of targetTask
-                        end if
-                    end repeat
-                    return "🏷️ Primary tag of \"" & originalName & "\" is now " & (name of theTag) & " (tags: " & my tagNameList(targetTask) & ")"
+                    -- The first tag of the task; the other tags stay, "none" removes the first tag
+                    return my setItemPrimaryTag(targetTask, "task", originalName, newValue)
 
                 else if propertyName is "floating_time_zone" or propertyName is "floating" then
                     set flagValue to my parseFlag(newValue)
@@ -1478,13 +1412,6 @@ on capitalWord(theWord)
     return my upperText(firstChar) & restText
 end capitalWord
 
-on tagNameList(theTask)
-    -- The names of the tags of a task in their order, "none" without tags
-    tell application "OmniFocus" to set tagNames to name of every tag of theTask
-    if (count of tagNames) = 0 then return "none"
-    return my joinText(tagNames, ", ")
-end tagNameList
-
 on setAssignedContainer(targetTask, originalName, newValue)
     -- An inbox task gets a provisional project or parent task without leaving the inbox; Clean Up moves it there
     set inInbox to false
@@ -1687,3 +1614,107 @@ on dateErrorText(valueText, fieldName)
     -- The message for a date that cannot be read; the caller adds what was not done
     return "❌ Invalid date for " & fieldName & ": " & valueText & ". Use YYYY-MM-DD, YYYY-MM-DD HH:MM, today, tomorrow, next week, \"3 days\" or \"2 weeks\"."
 end dateErrorText
+
+on resolveTagList(listText)
+    -- Finds (or creates) the tags of a comma-separated list: name, path "Parent > Child" or id:<id>.
+    -- Returns {tagObjects, namesText, errorText}; errorText is "" if every tag was found.
+    set originalDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ","
+    set tagList to text items of listText
+    set AppleScript's text item delimiters to originalDelims
+    set resolvedTags to {}
+    set namesText to ""
+    repeat with tagItem in tagList
+        set tagName to my trimItem(tagItem as string)
+        if tagName is not "" then
+            set tagLookup to my findOrCreateTag(tagName)
+            set theTag to foundTag of tagLookup
+            if theTag is missing value then
+                return {tagObjects:resolvedTags, namesText:namesText, errorText:(errorText of tagLookup)}
+            end if
+            set end of resolvedTags to theTag
+            if namesText is "" then
+                set namesText to tagName
+            else
+                set namesText to namesText & ", " & tagName
+            end if
+        end if
+    end repeat
+    return {tagObjects:resolvedTags, namesText:namesText, errorText:""}
+end resolveTagList
+
+on tagNameList(theItem)
+    -- The names of the tags of a task or project in their order, "none" without tags
+    tell application "OmniFocus" to set tagNames to name of every tag of theItem
+    if (count of tagNames) = 0 then return "none"
+    return my joinText(tagNames, ", ")
+end tagNameList
+
+on setItemTags(theItem, itemWord, itemLabel, newValue)
+    -- Replaces all tags of a task or project (itemWord "task" or "project"); "none" removes all of them
+    set forText to "for: "
+    if itemWord is "project" then set forText to "for project: "
+    if newValue is "none" or newValue is "clear" then
+        tell application "OmniFocus"
+            set existingTags to tags of theItem
+            repeat with existingTag in existingTags
+                remove existingTag from tags of theItem
+            end repeat
+        end tell
+        return "🏷️ Cleared all tags " & forText & itemLabel
+    end if
+    -- Find all tags first, so that a failed lookup leaves the item unchanged
+    set tagInfo to my resolveTagList(newValue)
+    if (errorText of tagInfo) is not "" then return (errorText of tagInfo) & return & "Tags were not changed."
+    if (count of tagObjects of tagInfo) = 0 then return "❌ No tag name given. Use \"none\" to remove all tags. Tags were not changed."
+    tell application "OmniFocus"
+        set existingTags to tags of theItem
+        repeat with existingTag in existingTags
+            remove existingTag from tags of theItem
+        end repeat
+        repeat with resolvedTag in (tagObjects of tagInfo)
+            add (contents of resolvedTag) to tags of theItem
+        end repeat
+    end tell
+    return "🏷️ Set tags to [" & (namesText of tagInfo) & "] " & forText & itemLabel
+end setItemTags
+
+on setItemPrimaryTag(theItem, itemWord, itemLabel, newValue)
+    -- Makes a tag the first tag of a task or project; the other tags stay. "none" removes the first tag.
+    if newValue is "none" or newValue is "clear" then
+        set currentPrimary to missing value
+        set primaryName to ""
+        tell application "OmniFocus"
+            try
+                set currentPrimary to primary tag of theItem
+            end try
+            if currentPrimary is not missing value then
+                set primaryName to name of currentPrimary
+                set primary tag of theItem to missing value
+            end if
+        end tell
+        if currentPrimary is missing value then return "ℹ️ The " & itemWord & " has no tags: " & itemLabel
+        return "🏷️ Removed the primary tag \"" & primaryName & "\" from: " & itemLabel & ". The other tags stay (tags now: " & my tagNameList(theItem) & ")."
+    end if
+    set tagLookup to my findOrCreateTag(my trimItem(newValue))
+    set theTag to foundTag of tagLookup
+    if theTag is missing value then
+        return (errorText of tagLookup) & return & "Nothing was changed."
+    end if
+    -- OmniFocus removes the current first tag when a new first tag is set, so the old tags are added again behind it
+    tell application "OmniFocus"
+        tell default document
+            set oldTagIDs to id of every tag of theItem
+            set primary tag of theItem to theTag
+            set tagIDsNow to id of every tag of theItem
+            repeat with oldTagID in oldTagIDs
+                if tagIDsNow does not contain (contents of oldTagID) then
+                    set oldTagMatches to every flattened tag whose id is (contents of oldTagID)
+                    if (count of oldTagMatches) > 0 then add (item 1 of oldTagMatches) to tags of theItem
+                end if
+            end repeat
+        end tell
+        set newName to name of theTag
+    end tell
+    return "🏷️ Primary tag of \"" & itemLabel & "\" is now " & newName & " (tags: " & my tagNameList(theItem) & ")"
+end setItemPrimaryTag

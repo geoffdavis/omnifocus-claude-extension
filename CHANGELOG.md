@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Small properties**: `edit_task` sets the primary tag (`primary_tag`), the time zone setting of the due and defer date
   (`floating_time_zone`, also in `edit_project`) and the provisional project or parent task of an inbox task
   (`assigned_container`, made final by `clean_up`). `get_task`, `get_project` and `list_inbox` show them
+- **Tags of projects**: `edit_project` sets the tags (`tags`, a comma-separated list or `none`) and the primary tag
+  (`primary_tag`) of a project, `create_project` takes `tags`, `get_project` shows `Tags:` and `Primary tag:`. Tasks and
+  projects share the same handlers; all tags are looked up before anything changes
 - **Settings and backup**: `get_settings` reads the settings of the database and the preferences of the app (value and
   default, filter by ID), `create_backup` writes a backup archive of the database to a new path (a package)
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that

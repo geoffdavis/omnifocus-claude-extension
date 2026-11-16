@@ -573,7 +573,7 @@ const tools = [
     },
     {
         name: 'create_project',
-        description: 'Create a new project, at top level or inside an existing folder, optionally with a review interval, due and defer date and a project type. All values are checked first; an invalid value creates nothing.',
+        description: 'Create a new project, at top level or inside an existing folder, optionally with a review interval, due and defer date, a project type and tags. All values are checked first; an invalid value creates nothing.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -605,6 +605,10 @@ const tools = [
                     type: 'string',
                     enum: ['sequential', 'parallel', 'single_action'],
                     description: 'Optional project type'
+                },
+                tags: {
+                    type: 'string',
+                    description: 'Optional comma-separated tags for the project (e.g., "work,urgent"). Tags at any level are found by name, by path "Parent > Child" or by "id:<id>"; a tag that does not exist is created. The first tag is the primary tag.'
                 }
             },
             required: ['name']
@@ -612,7 +616,7 @@ const tools = [
     },
     {
         name: 'edit_project',
-        description: 'Edit an existing project: rename it, change its note, move it to another folder, set its status (active, on hold, completed, dropped) or its type (sequential, parallel, single action list), set its review interval and next review date, due, defer and planned date, flag it, let it complete with its last item, or make it repeat (repeat, repeat_based_on, repeat_catch_up). Fails without changes if the project name is ambiguous.',
+        description: 'Edit an existing project: rename it, change its note, move it to another folder, set its status (active, on hold, completed, dropped) or its type (sequential, parallel, single action list), set its review interval and next review date, due, defer and planned date, flag it, let it complete with its last item, set its time zone setting (floating_time_zone), its tags (tags, primary_tag) or make it repeat (repeat, repeat_based_on, repeat_catch_up). Fails without changes if the project name is ambiguous.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -622,12 +626,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item', 'floating_time_zone', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'attach_file', 'link_file', 'remove_attachment'],
+                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item', 'floating_time_zone', 'tags', 'primary_tag', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'attach_file', 'link_file', 'remove_attachment'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For floating_time_zone: "true" if the due and defer date keep their clock time in every time zone, "false" for a fixed time zone (only counts for a project with a due or defer date). For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: "due", "defer" or "planned" (the project must have that date). For repeat_catch_up: "true" or "false" (fixed schedule only). For append_note: text that is added as a new line at the end of the note (note replaces the whole note). For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_project (1 is the first one).'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For floating_time_zone: "true" if the due and defer date keep their clock time in every time zone, "false" for a fixed time zone (only counts for a project with a due or defer date). For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For primary_tag: the first tag of the project (name, path or "id:<id>"; an existing tag moves to the front, a new tag is added in front, missing tags are created, the other tags stay), or "none" to remove the first tag. For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: "due", "defer" or "planned" (the project must have that date). For repeat_catch_up: "true" or "false" (fixed schedule only). For append_note: text that is added as a new line at the end of the note (note replaces the whole note). For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_project (1 is the first one).'
                 }
             },
             required: ['project', 'property', 'value']
@@ -1366,7 +1370,8 @@ async function executeTool(name, args) {
                     args.review_interval || '',
                     args.due_date || '',
                     args.defer_date || '',
-                    args.type || ''
+                    args.type || '',
+                    args.tags || ''
                 ]);
                 break;
 

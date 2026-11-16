@@ -1,9 +1,10 @@
 on run argv
     -- Create a new project, optionally inside a folder
-    -- Usage: create_project.applescript "project name" ["Folder > Subfolder"] ["note"] ["review interval"] ["due date"] ["defer date"] ["type"]
+    -- Usage: create_project.applescript "project name" ["Folder > Subfolder"] ["note"] ["review interval"] ["due date"] ["defer date"] ["type"] ["tags"]
     --   review interval: "1 week", "2 weeks", "1 month", "1 year"
     --   due date, defer date: ISO date such as 2026-12-31 (or "today", "tomorrow", "next week", "N days")
     --   type: sequential, parallel or single_action
+    --   tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created)
     -- Empty arguments are skipped. Everything is checked before the project is created.
 
     if (count of argv) = 0 then
@@ -19,10 +20,12 @@ on run argv
     set dueText to ""
     set deferText to ""
     set typeText to ""
+    set tagsText to ""
     if (count of argv) > 3 then set intervalText to my trimText(item 4 of argv)
     if (count of argv) > 4 then set dueText to my trimText(item 5 of argv)
     if (count of argv) > 5 then set deferText to my trimText(item 6 of argv)
     if (count of argv) > 6 then set typeText to my trimText(item 7 of argv)
+    if (count of argv) > 7 then set tagsText to my trimText(item 8 of argv)
 
     if projectName is "" then
         return "❌ Project name cannot be empty."
@@ -50,6 +53,16 @@ on run argv
         if typeText is not "sequential" and typeText is not "parallel" and typeText is not "single_action" and typeText is not "single action" then
             return "❌ Unknown project type: " & typeText & ". Valid values: sequential, parallel, single_action. Nothing was created."
         end if
+    end if
+
+    -- The tags are found (or created) before the project is created, so that a failed lookup creates nothing
+    set resolvedTagObjects to {}
+    set tagNamesText to ""
+    if tagsText is not "" then
+        set tagInfo to my resolveTagList(tagsText)
+        if (errorText of tagInfo) is not "" then return (errorText of tagInfo) & " Nothing was created."
+        set resolvedTagObjects to tagObjects of tagInfo
+        set tagNamesText to namesText of tagInfo
     end if
 
     tell application "OmniFocus"
@@ -115,6 +128,16 @@ on run argv
                         set problemText to return & "⚠️ The review interval could not be set: " & errMsg
                     end try
                 end if
+                if (count of resolvedTagObjects) > 0 then
+                    try
+                        repeat with resolvedTag in resolvedTagObjects
+                            add (contents of resolvedTag) to tags of newProject
+                        end repeat
+                        set extraText to extraText & ", tags: " & tagNamesText
+                    on error errMsg
+                        set problemText to problemText & return & "⚠️ The tags could not be set: " & errMsg
+                    end try
+                end if
                 if extraText is not "" then set extraText to " [" & text 3 thru -1 of extraText & "]"
                 return "✅ Created project: " & projectName & locationText & extraText & problemText
             on error errMsg
@@ -123,22 +146,6 @@ on run argv
         end tell
     end tell
 end run
-
-on trimItem(theText)
-    set whitespaceChars to {" ", tab, return, linefeed}
-    set textLength to length of theText
-    if textLength is 0 then return ""
-    set textStart to 1
-    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
-        set textStart to textStart + 1
-    end repeat
-    if textStart > textLength then return ""
-    set textEnd to textLength
-    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
-        set textEnd to textEnd - 1
-    end repeat
-    return text textStart thru textEnd of theText
-end trimItem
 
 on parseReviewInterval(valueText)
     -- Reads a review interval: "2 weeks", "1 month", "every 2 weeks", "week", "weekly".
@@ -510,3 +517,333 @@ on dateErrorText(valueText, fieldName)
     -- The message for a date that cannot be read; the caller adds what was not done
     return "❌ Invalid date for " & fieldName & ": " & valueText & ". Use YYYY-MM-DD, YYYY-MM-DD HH:MM, today, tomorrow, next week, \"3 days\" or \"2 weeks\"."
 end dateErrorText
+
+on splitTagPath(queryText)
+    -- Splits "Parent > Child" into trimmed, non-empty parts
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ">"
+    set rawParts to text items of queryText
+    set AppleScript's text item delimiters to oldDelims
+
+    set queryParts to {}
+    repeat with rawPart in rawParts
+        set cleanPart to my trimItem(rawPart as string)
+        if cleanPart is not "" then set end of queryParts to cleanPart
+    end repeat
+    return queryParts
+end splitTagPath
+
+on resolveTag(queryText, allowPartial)
+    -- Finds a tag at any level of the tag hierarchy.
+    --   queryText:    tag name, path "Parent > Child" or "id:<id>"
+    --   allowPartial: also accept a part of a name, but only if no exact name fits and exactly one tag contains it
+    -- Names are compared ignoring case.
+    -- Returns {foundTag, errorText, notFound}; foundTag is missing value if no tag or more than one tag fits,
+    -- notFound is true only if nothing fits by name or path.
+    if queryText starts with "id:" and (length of queryText) > 3 then
+        set wantedID to my trimItem(text 4 thru -1 of queryText)
+        tell application "OmniFocus"
+            tell default document
+                set idMatches to every flattened tag whose id is wantedID
+            end tell
+        end tell
+        if (count of idMatches) = 1 then
+            return {foundTag:item 1 of idMatches, errorText:"", notFound:false}
+        end if
+        return {foundTag:missing value, errorText:"❌ Tag not found: " & queryText, notFound:false}
+    end if
+
+    set queryParts to my splitTagPath(queryText)
+    if (count of queryParts) = 0 then
+        return {foundTag:missing value, errorText:"❌ Tag name cannot be empty.", notFound:false}
+    end if
+
+    set nameQuery to item -1 of queryParts
+    set parentQuery to {}
+    if (count of queryParts) > 1 then set parentQuery to items 1 thru -2 of queryParts
+
+    tell application "OmniFocus"
+        tell default document
+            set allTags to every flattened tag
+        end tell
+    end tell
+
+    set exactMatches to {}
+    set partialMatches to {}
+    repeat with aTag in allTags
+        set candidateTag to contents of aTag
+        tell application "OmniFocus" to set candidateName to name of candidateTag
+        ignoring case
+            if candidateName is nameQuery then
+                set end of exactMatches to candidateTag
+            else if allowPartial and candidateName contains nameQuery then
+                set end of partialMatches to candidateTag
+            end if
+        end ignoring
+    end repeat
+
+    if (count of parentQuery) > 0 then
+        set exactMatches to my filterByParents(exactMatches, parentQuery, not allowPartial)
+        set partialMatches to my filterByParents(partialMatches, parentQuery, not allowPartial)
+    end if
+
+    -- A single exact name wins; otherwise every match counts and must be unique
+    if (count of exactMatches) = 1 then
+        return {foundTag:item 1 of exactMatches, errorText:"", notFound:false}
+    end if
+    set allMatches to exactMatches & partialMatches
+    if (count of allMatches) = 1 then
+        return {foundTag:item 1 of allMatches, errorText:"", notFound:false}
+    end if
+    if (count of allMatches) = 0 then
+        return {foundTag:missing value, errorText:"❌ Tag not found: " & queryText, notFound:true}
+    end if
+
+    set matchList to "❌ Ambiguous tag \"" & queryText & "\" (" & (count of allMatches) & " matches). Use \"Parent > Tag\" or id:<id> to pick one:"
+    repeat with aMatch in allMatches
+        set matchTag to contents of aMatch
+        tell application "OmniFocus" to set matchID to id of matchTag
+        set matchList to matchList & return & "• " & my joinText(my tagPathNames(matchTag), " > ") & " [id:" & matchID & "]"
+    end repeat
+    return {foundTag:missing value, errorText:matchList, notFound:false}
+end resolveTag
+
+on filterByParents(tagList, parentQuery, exactParents)
+    -- Keeps the tags whose closest parent tags match parentQuery (outermost first).
+    -- exactParents: parent names must be equal, otherwise a part of the name is enough.
+    set keptTags to {}
+    repeat with aTag in tagList
+        set candidateTag to contents of aTag
+        set pathNames to my tagPathNames(candidateTag)
+        set ancestorCount to (count of pathNames) - 1
+        set queryCount to count of parentQuery
+        set parentsFit to (queryCount ≤ ancestorCount)
+        if parentsFit then
+            ignoring case
+                repeat with i from 1 to queryCount
+                    set wantedName to item i of parentQuery
+                    set actualName to item (ancestorCount - queryCount + i) of pathNames
+                    if exactParents then
+                        if actualName is not wantedName then set parentsFit to false
+                    else
+                        if actualName does not contain wantedName then set parentsFit to false
+                    end if
+                end repeat
+            end ignoring
+        end if
+        if parentsFit then set end of keptTags to candidateTag
+    end repeat
+    return keptTags
+end filterByParents
+
+on tagPathNames(aTag)
+    -- Tag names from the outermost parent tag down to the tag itself
+    set pathNames to {}
+    tell application "OmniFocus"
+        try
+            set currentTag to aTag
+            repeat while currentTag is not missing value
+                set beginning of pathNames to name of currentTag
+                set parentContainer to container of currentTag
+                if class of parentContainer is tag then
+                    set currentTag to parentContainer
+                else
+                    set currentTag to missing value
+                end if
+            end repeat
+        end try
+    end tell
+    return pathNames
+end tagPathNames
+
+on findOrCreateTag(queryText)
+    -- Finds a tag by exact name, path "Parent > Child" or "id:<id>" and creates it if it does not exist
+    -- (at top level, or below the parent tag if a path was given). Never creates a tag for an id.
+    -- Returns {foundTag, errorText, wasCreated}
+    set lookup to my resolveTag(queryText, false)
+    set lookedUpTag to foundTag of lookup
+    if lookedUpTag is not missing value then
+        return {foundTag:lookedUpTag, errorText:"", wasCreated:false}
+    end if
+    if not (notFound of lookup) then
+        return {foundTag:missing value, errorText:errorText of lookup, wasCreated:false}
+    end if
+
+    set queryParts to my splitTagPath(queryText)
+    set newName to item -1 of queryParts
+    set parentTag to missing value
+    if (count of queryParts) > 1 then
+        set parentLookup to my resolveTag(my joinText(items 1 thru -2 of queryParts, " > "), false)
+        set parentTag to foundTag of parentLookup
+        if parentTag is missing value then
+            return {foundTag:missing value, errorText:errorText of parentLookup, wasCreated:false}
+        end if
+    end if
+
+    try
+        tell application "OmniFocus"
+            tell default document
+                if parentTag is missing value then
+                    set newTag to make new tag with properties {name:newName}
+                else
+                    set newTag to make new tag with properties {name:newName} at end of tags of parentTag
+                end if
+            end tell
+        end tell
+    on error errMsg
+        return {foundTag:missing value, errorText:"❌ Error creating tag: " & errMsg, wasCreated:false}
+    end try
+    return {foundTag:newTag, errorText:"", wasCreated:true}
+end findOrCreateTag
+
+on hasTagNamed(parentTag, wantedName, excludeID)
+    -- Is there a tag called wantedName directly below parentTag (missing value = top level),
+    -- other than the tag with the id excludeID? Names are compared ignoring case.
+    tell application "OmniFocus"
+        tell default document
+            if parentTag is missing value then
+                set siblingTags to every tag
+            else
+                set siblingTags to every tag of parentTag
+            end if
+            repeat with aTag in siblingTags
+                set siblingTag to contents of aTag
+                if (id of siblingTag) is not excludeID then
+                    ignoring case
+                        if (name of siblingTag) is wantedName then return true
+                    end ignoring
+                end if
+            end repeat
+        end tell
+    end tell
+    return false
+end hasTagNamed
+
+on joinText(textItems, separator)
+    -- Joins a list of text items with a separator
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to separator
+    set joinedText to textItems as text
+    set AppleScript's text item delimiters to oldDelims
+    return joinedText
+end joinText
+
+on trimItem(theText)
+    set whitespaceChars to {" ", tab, return, linefeed}
+    set textLength to length of theText
+    if textLength is 0 then return ""
+    set textStart to 1
+    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
+        set textStart to textStart + 1
+    end repeat
+    if textStart > textLength then return ""
+    set textEnd to textLength
+    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
+        set textEnd to textEnd - 1
+    end repeat
+    return text textStart thru textEnd of theText
+end trimItem
+
+on resolveTagList(listText)
+    -- Finds (or creates) the tags of a comma-separated list: name, path "Parent > Child" or id:<id>.
+    -- Returns {tagObjects, namesText, errorText}; errorText is "" if every tag was found.
+    set originalDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ","
+    set tagList to text items of listText
+    set AppleScript's text item delimiters to originalDelims
+    set resolvedTags to {}
+    set namesText to ""
+    repeat with tagItem in tagList
+        set tagName to my trimItem(tagItem as string)
+        if tagName is not "" then
+            set tagLookup to my findOrCreateTag(tagName)
+            set theTag to foundTag of tagLookup
+            if theTag is missing value then
+                return {tagObjects:resolvedTags, namesText:namesText, errorText:(errorText of tagLookup)}
+            end if
+            set end of resolvedTags to theTag
+            if namesText is "" then
+                set namesText to tagName
+            else
+                set namesText to namesText & ", " & tagName
+            end if
+        end if
+    end repeat
+    return {tagObjects:resolvedTags, namesText:namesText, errorText:""}
+end resolveTagList
+
+on tagNameList(theItem)
+    -- The names of the tags of a task or project in their order, "none" without tags
+    tell application "OmniFocus" to set tagNames to name of every tag of theItem
+    if (count of tagNames) = 0 then return "none"
+    return my joinText(tagNames, ", ")
+end tagNameList
+
+on setItemTags(theItem, itemWord, itemLabel, newValue)
+    -- Replaces all tags of a task or project (itemWord "task" or "project"); "none" removes all of them
+    set forText to "for: "
+    if itemWord is "project" then set forText to "for project: "
+    if newValue is "none" or newValue is "clear" then
+        tell application "OmniFocus"
+            set existingTags to tags of theItem
+            repeat with existingTag in existingTags
+                remove existingTag from tags of theItem
+            end repeat
+        end tell
+        return "🏷️ Cleared all tags " & forText & itemLabel
+    end if
+    -- Find all tags first, so that a failed lookup leaves the item unchanged
+    set tagInfo to my resolveTagList(newValue)
+    if (errorText of tagInfo) is not "" then return (errorText of tagInfo) & return & "Tags were not changed."
+    if (count of tagObjects of tagInfo) = 0 then return "❌ No tag name given. Use \"none\" to remove all tags. Tags were not changed."
+    tell application "OmniFocus"
+        set existingTags to tags of theItem
+        repeat with existingTag in existingTags
+            remove existingTag from tags of theItem
+        end repeat
+        repeat with resolvedTag in (tagObjects of tagInfo)
+            add (contents of resolvedTag) to tags of theItem
+        end repeat
+    end tell
+    return "🏷️ Set tags to [" & (namesText of tagInfo) & "] " & forText & itemLabel
+end setItemTags
+
+on setItemPrimaryTag(theItem, itemWord, itemLabel, newValue)
+    -- Makes a tag the first tag of a task or project; the other tags stay. "none" removes the first tag.
+    if newValue is "none" or newValue is "clear" then
+        set currentPrimary to missing value
+        set primaryName to ""
+        tell application "OmniFocus"
+            try
+                set currentPrimary to primary tag of theItem
+            end try
+            if currentPrimary is not missing value then
+                set primaryName to name of currentPrimary
+                set primary tag of theItem to missing value
+            end if
+        end tell
+        if currentPrimary is missing value then return "ℹ️ The " & itemWord & " has no tags: " & itemLabel
+        return "🏷️ Removed the primary tag \"" & primaryName & "\" from: " & itemLabel & ". The other tags stay (tags now: " & my tagNameList(theItem) & ")."
+    end if
+    set tagLookup to my findOrCreateTag(my trimItem(newValue))
+    set theTag to foundTag of tagLookup
+    if theTag is missing value then
+        return (errorText of tagLookup) & return & "Nothing was changed."
+    end if
+    -- OmniFocus removes the current first tag when a new first tag is set, so the old tags are added again behind it
+    tell application "OmniFocus"
+        tell default document
+            set oldTagIDs to id of every tag of theItem
+            set primary tag of theItem to theTag
+            set tagIDsNow to id of every tag of theItem
+            repeat with oldTagID in oldTagIDs
+                if tagIDsNow does not contain (contents of oldTagID) then
+                    set oldTagMatches to every flattened tag whose id is (contents of oldTagID)
+                    if (count of oldTagMatches) > 0 then add (item 1 of oldTagMatches) to tags of theItem
+                end if
+            end repeat
+        end tell
+        set newName to name of theTag
+    end tell
+    return "🏷️ Primary tag of \"" & itemLabel & "\" is now " & newName & " (tags: " & my tagNameList(theItem) & ")"
+end setItemPrimaryTag
