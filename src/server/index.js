@@ -581,7 +581,8 @@ function executeAppleScriptFile(scriptName, args = []) {
             maxBuffer: 1024 * 1024 * 10 // Increased buffer for search results
         });
 
-        return result.trim();
+        // osascript separates lines with CR; use LF so the lines stay readable
+        return result.replace(/\r\n?/g, '\n').trim();
     } catch (error) {
         log(`AppleScript execution error in ${scriptName} (exit status ${error.status})`);
         throw new Error(`AppleScript execution failed: ${error.message}`);

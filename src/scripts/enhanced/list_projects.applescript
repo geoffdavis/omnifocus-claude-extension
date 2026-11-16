@@ -32,11 +32,13 @@ on run argv
                 end if
             end repeat
             set totalOnHold to 0
+            set onHoldProjects to {}
             repeat with aProject in allOnHoldProjects
                 if my isHiddenItem(contents of aProject, hiddenIDs) then
                     set end of hiddenProjects to contents of aProject
                 else
                     set totalOnHold to totalOnHold + 1
+                    set end of onHoldProjects to contents of aProject
                 end if
             end repeat
             
@@ -62,11 +64,7 @@ on run argv
                     -- Count various task states
                     set allTasks to tasks of aProject
                     set remainingCount to count of (tasks of aProject whose effectively completed is false and effectively dropped is false)
-                    try
-                        set availableCount to count of (available tasks of aProject)
-                    on error
-                        set availableCount to 0
-                    end try
+                    set availableCount to my countAvailable(contents of aProject)
                     set flaggedCount to count of (tasks of aProject whose flagged is true and effectively completed is false and effectively dropped is false)
                     
                     -- Check for due soon tasks (next 7 days)
@@ -105,6 +103,14 @@ on run argv
                 set projectList to projectList & return
             end repeat
             
+            -- On hold projects, with their folder path
+            if (count of onHoldProjects) > 0 then
+                set projectList to projectList & return & "⏸ On Hold Projects:" & return
+                repeat with aProject in onHoldProjects
+                    set projectList to projectList & "• " & (name of aProject) & my projectFolderText(contents of aProject) & return
+                end repeat
+            end if
+
             -- With include_dropped: also list dropped projects, with their folder path
             if includeDropped and (count of droppedProjects) > 0 then
                 set projectList to projectList & return & "🚫 Dropped Projects:" & return
@@ -124,11 +130,7 @@ on run argv
                 
                 repeat with aProject in activeProjects
                     set totalRemaining to totalRemaining + (count of (tasks of aProject whose effectively completed is false and effectively dropped is false))
-                    try
-                        set totalAvailable to totalAvailable + (count of (available tasks of aProject))
-                    on error
-                        -- Skip projects that don't support available tasks
-                    end try
+                    set totalAvailable to totalAvailable + (my countAvailable(contents of aProject))
                     set totalFlagged to totalFlagged + (count of (tasks of aProject whose flagged is true and effectively completed is false and effectively dropped is false))
                 end repeat
                 
@@ -230,3 +232,24 @@ on countVisible(idList, hiddenIDs)
     end repeat
     return visibleCount
 end countVisible
+
+on countAvailable(aProject)
+    -- Open tasks that are neither blocked nor deferred to the future
+    set availableCount to 0
+    set nowDate to current date
+    tell application "OmniFocus"
+        set openTasks to (tasks of aProject whose effectively completed is false and effectively dropped is false)
+        repeat with aTask in openTasks
+            set isAvailable to true
+            try
+                if blocked of aTask then set isAvailable to false
+            end try
+            try
+                set deferDate to defer date of aTask
+                if deferDate is not missing value and deferDate > nowDate then set isAvailable to false
+            end try
+            if isAvailable then set availableCount to availableCount + 1
+        end repeat
+    end tell
+    return availableCount
+end countAvailable
