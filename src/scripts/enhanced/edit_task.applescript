@@ -153,8 +153,17 @@ on run argv
                     end if
                     
                 else if propertyName is "estimated_minutes" or propertyName is "estimate" then
-                    set estimated minutes of targetTask to (newValue as integer)
-                    return "⏱️ Set estimate to " & newValue & " minutes for: " & originalName
+                    -- A whole number of minutes; "none", "clear" or 0 removes the estimate
+                    set minutesText to my trimItem(newValue)
+                    if minutesText is "none" or minutesText is "clear" or minutesText is "0" then
+                        set estimated minutes of targetTask to missing value
+                        return "⏱️ Cleared the estimate for: " & originalName
+                    end if
+                    if not my isDigits(minutesText) or (length of minutesText) > 7 then
+                        return "❌ Invalid value for estimated_minutes: " & newValue & ". Use a whole number of minutes (for example 30) or \"none\" to clear the estimate. Nothing was changed."
+                    end if
+                    set estimated minutes of targetTask to (minutesText as integer)
+                    return "⏱️ Set estimate to " & minutesText & " minutes for: " & originalName
 
                 else if propertyName is "tags" then
                     -- Replace all tags with the new comma-separated list

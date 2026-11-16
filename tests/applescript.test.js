@@ -258,6 +258,19 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('edit_task estimate', () => {
+        const scriptPath = path.join(enhancedScriptsDir, 'edit_task.applescript');
+
+        test('checks the number of minutes and clears the estimate with none', () => {
+            const content = fs.readFileSync(scriptPath, 'utf8');
+            expect(content).toContain('set estimated minutes of targetTask to missing value');
+            expect(content).toContain('Cleared the estimate for:');
+            expect(content).toContain('Invalid value for estimated_minutes:');
+            expect(content).toContain('my isDigits(minutesText)');
+            expect(content).not.toContain('(newValue as integer)');
+        });
+    });
+
     describe('Recurring Task Recurrence Strings', () => {
         const scriptPath = path.join(enhancedScriptsDir, 'create_recurring_task.applescript');
 

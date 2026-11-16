@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sets or clears the search term and focuses the window on a project or folder (and checks the result), `show_item` opens
   a task, project, folder or tag in the window through its `omnifocus:///` link and selects it. Both add a note for a
   project that is completed or dropped, or that is below a hidden folder
+- **Estimate**: `edit_task` removes the estimate (`estimated_minutes`: `none`) and refuses a value that is not a whole number of
+  minutes instead of failing with an AppleScript error
 - **Duplicate**: `duplicate_item` copies a task with its subtasks or a project with all its tasks. The copy keeps notes, tags,
   dates, estimate, flag and repetition; it goes directly after the original or into another project (`project`, or the
   inbox), below a task (`parent_task`) or into a folder (`folder`, `none` for the top level). `new_name` renames the copy
