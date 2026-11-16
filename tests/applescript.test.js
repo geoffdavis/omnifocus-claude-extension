@@ -732,6 +732,24 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set allows next action of targetTag');
         });
 
+        test('edit_tag.applescript sets and removes the location with checked values', () => {
+            const content = read('edit_tag.applescript');
+            expect(content).toContain('propertyName is "location"');
+            expect(content).toContain('set location of targetTag to missing value');
+            expect(content).toContain('set location of aTag to locationRecord');
+            ['name:locName', 'latitude:latValue', 'longitude:lonValue', 'altitude:altValue', 'radius:radiusValue', 'trigger:notify when arriving', 'trigger:notify when leaving'].forEach(term => {
+                expect(content).toContain(term);
+            });
+            expect(content).toContain('Latitude must be between -90 and 90');
+            expect(content).toContain('Longitude must be between -180 and 180');
+            expect(content).toContain('The radius must be between 0.1 and 10 kilometers');
+            expect(content).toContain('A location needs a latitude and a longitude');
+            expect(content).toContain('Valid properties: name, note, parent, hidden, allows_next_action, location');
+            // numbers are parsed and written by the script, not by the language setting of the Mac
+            expect(content).toContain('on parseDecimal(valueText)');
+            expect(content).toContain('on formatDecimal(numberValue)');
+        });
+
         test('edit_tag.applescript does not move a tag below itself and resolves names exactly', () => {
             const content = read('edit_tag.applescript');
             expect(content).toContain('ownIDs contains newParentID');
@@ -743,6 +761,14 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('on tagSuffix(aTag)');
             expect(content).toContain('hidden of aTag');
             expect(content).toContain('allows next action of aTag');
+        });
+
+        test('list_tags.applescript shows the location of a tag', () => {
+            const content = read('list_tags.applescript');
+            expect(content).toContain('my tagLocationText(aTag)');
+            expect(content).toContain('location of aTag');
+            expect(content).toContain('📍');
+            expect(content).toContain('on singleLineText(theText)');
         });
     });
 

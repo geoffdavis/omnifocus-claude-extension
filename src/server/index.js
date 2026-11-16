@@ -413,7 +413,7 @@ const tools = [
     // Tag management tools
     {
         name: 'list_tags',
-        description: 'List all tags in OmniFocus as a hierarchy with ID, a note for hidden tags and tags that do not allow next actions, optionally with per-tag task counts',
+        description: 'List all tags in OmniFocus as a hierarchy with ID, a note for hidden tags and tags that do not allow next actions, and the location of a tag (name, latitude, longitude, radius, trigger), optionally with per-tag task counts',
         inputSchema: {
             type: 'object',
             properties: {
@@ -482,7 +482,7 @@ const tools = [
 
     {
         name: 'edit_tag',
-        description: 'Edit an existing tag: rename it, change its note, move it below another tag or to top level, hide it, or set whether tasks with this tag can be next actions (for example false for a "Waiting for" tag). Fails without changes if the tag name is ambiguous.',
+        description: 'Edit an existing tag: rename it, change its note, move it below another tag or to top level, hide it, set whether tasks with this tag can be next actions (for example false for a "Waiting for" tag), or set or remove its location (latitude, longitude, radius and trigger of OmniFocus, used by Nearby). Fails without changes if the tag name is ambiguous.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -492,12 +492,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'parent', 'hidden', 'allows_next_action'],
+                    enum: ['name', 'note', 'parent', 'hidden', 'allows_next_action', 'location'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new tag name. For note: the new note text. For parent: an existing tag by name, path "Parent > Child" or "id:<id>", or "none" for top level. For hidden and allows_next_action: "true" or "false".'
+                    description: 'New value. For name: the new tag name. For note: the new note text. For parent: an existing tag by name, path "Parent > Child" or "id:<id>", or "none" for top level. For hidden and allows_next_action: "true" or "false". For location: field=value pairs separated by semicolons, for example "latitude=50.9787; longitude=11.3235; radius=0.5; trigger=arriving; name=Office" (latitude and longitude are required for a new location, radius is in kilometers from 0.1 to 10, trigger is arriving or leaving, name defaults to the tag name, altitude is optional; fields that are not given keep their value), or "none" to remove the location.'
                 }
             },
             required: ['tag', 'property', 'value']

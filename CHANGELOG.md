@@ -25,7 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   review date, due, defer and planned date, the flag and "complete with last item".
   `create_project` takes a review interval, due and defer date and a type and checks them before it creates anything.
   `list_projects_for_review` shows the review interval of each project
-- **Tags**: `edit_tag` (name, note, parent, hidden, allows next action)
+- **Tags**: `edit_tag` (name, note, parent, hidden, allows next action, location)
+- **Tag locations**: `edit_tag` sets (`location`: `latitude=50.9787; longitude=11.3235; radius=0.5; trigger=arriving`, name,
+  altitude, radius in km and trigger optional) or removes (`none`) the location of a tag, the values OmniFocus uses for
+  Nearby; fields that are not given keep their value. `list_tags` shows the location of a tag
 - **Tasks**: `reopen_task` (completed or dropped tasks), `planned_date` in `add_task` and `edit_task`, and `parent_task` in
   `add_task` to create a subtask under an existing task
 - **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of

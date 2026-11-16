@@ -80,7 +80,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | A27 | `edit_task` | `task_name: "{PREFIX} P1"` (no note), `property: "append_note"`, `value: "{PREFIX} first line"`. PASS if `get_task` shows exactly this note without an empty line before it. Then `value: ""` must FAIL with `append_note needs a text to add`, and the note stays the same. |
 | A28 | `get_task` | `task_name: "{PREFIX} P1"`. PASS if a line `Link: omnifocus:///task/<id>` with the ID of the task is shown. Then `get_project` of `Smoke Test` must show a `Link: omnifocus:///task/<id>` line for the project. |
 
-## Phase 3: Tag hierarchy (8 tests)
+## Phase 3: Tag hierarchy (11 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -92,6 +92,9 @@ All tasks MUST use `project: "Smoke Test"`.
 | T06 | `edit_tag` | `tag: "id:<ID from T04>"`, `property: "allows_next_action"`, `value: "false"`. PASS if confirmed and `list_tags` marks the tag as "no next action". |
 | T07 | `edit_tag` | `tag: "{PREFIX}-Child"`, `property: "name"`, `value: "{PREFIX}-Child2"`. PASS if confirmed. Then `edit_tag` with `tag: "{PREFIX}-Parent"`, `property: "parent"`, `value: "{PREFIX}-Child2"` must FAIL with a message that a tag cannot be moved below one of its child tags. |
 | T08 | `edit_tag` | `tag: "{PREFIX}-Grandchild"`, `property: "hidden"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed and `list_tags` shows the tag as hidden in between. |
+| T09 | `edit_tag` | `tag: "{PREFIX}-Parent"`, `property: "location"`, `value: "latitude=50.9787; longitude=11.3235; radius=0.5; trigger=arriving; name={PREFIX} Place"`. PASS if confirmed with `{PREFIX} Place (50.9787, 11.3235), radius 0.5 km, arriving`, and `list_tags` shows the same after a `📍` on the tag. |
+| T10 | `edit_tag` | `property: "location"`, `value: "radius=2; trigger=leaving"` on the same tag. PASS if latitude, longitude and name are unchanged, the radius is 2 km and the trigger leaving. Then each of these must FAIL with a message and change nothing: `latitude=95; longitude=1`, `latitude=abc; longitude=1`, `radius=50`, `trigger=sometimes`, `colour=red`, `latitude=1` on a tag without a location. |
+| T11 | `edit_tag` | `property: "location"`, `value: "none"`. PASS if confirmed and `list_tags` shows no `📍` on the tag. A second `none` must answer that the tag has no location. |
 
 ## Phase 4: Folders and projects (15 tests)
 
