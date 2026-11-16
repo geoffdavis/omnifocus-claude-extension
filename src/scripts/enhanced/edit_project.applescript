@@ -1,7 +1,7 @@
 on run argv
     -- Edit an existing project
     -- Usage: edit_project.applescript "project name or Folder > Project" "property" "new value"
-    -- Properties: name, note, folder, status
+    -- Properties: name, note, folder, status, type
     
     if (count of argv) < 3 then
         return "❌ Project, property and value are required."
@@ -73,8 +73,26 @@ on run argv
                         return "❌ Unknown status: " & newValue & ". Valid values: active, on_hold, completed, dropped"
                     end if
                     
+                else if propertyName is "type" then
+                    -- Sequential and parallel projects hold tasks, a single action list holds independent actions
+                    if newValue is "sequential" then
+                        set singleton action holder of targetProject to false
+                        set sequential of targetProject to true
+                        return "🔢 Project is sequential: " & originalLabel
+                    else if newValue is "parallel" then
+                        set singleton action holder of targetProject to false
+                        set sequential of targetProject to false
+                        return "🔀 Project is parallel: " & originalLabel
+                    else if newValue is "single_action" or newValue is "single action" then
+                        set sequential of targetProject to false
+                        set singleton action holder of targetProject to true
+                        return "☑️ Project is a single action list: " & originalLabel
+                    else
+                        return "❌ Unknown project type: " & newValue & ". Valid values: sequential, parallel, single_action"
+                    end if
+
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, folder, status"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, folder, status, type"
                 end if
             on error errMsg
                 return "❌ Error updating project: " & errMsg

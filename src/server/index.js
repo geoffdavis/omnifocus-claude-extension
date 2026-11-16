@@ -12,7 +12,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Read version - try from package.json if available, otherwise use fallback
-let VERSION = '2.2.2'; // Fallback version
+let VERSION = '2.0.1'; // Fallback version
 try {
     const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
     if (fs.existsSync(packageJsonPath)) {
@@ -428,7 +428,7 @@ const tools = [
     },
     {
         name: 'edit_project',
-        description: 'Edit an existing project: rename it, change its note, move it to another folder, or set its status (active, on hold, completed, dropped). Fails without changes if the project name is ambiguous.',
+        description: 'Edit an existing project: rename it, change its note, move it to another folder, set its status (active, on hold, completed, dropped) or its type (sequential, parallel, single action list). Fails without changes if the project name is ambiguous.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -438,12 +438,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'folder', 'status'],
+                    enum: ['name', 'note', 'folder', 'status', 'type'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped".'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action".'
                 }
             },
             required: ['project', 'property', 'value']
@@ -536,6 +536,78 @@ const tools = [
             },
             required: ['task_name']
         }
+    },
+
+    // GTD query tools
+    {
+        name: 'list_available_tasks',
+        description: 'List the tasks that can be worked on now (next actions) across all projects, grouped by project: open tasks that are not blocked, not deferred, belong to an active project and are not action groups. Optionally filter by tag (for example a context) or folder.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                tag: {
+                    type: 'string',
+                    description: 'Optional tag, by name, part of a name or path "Parent > Tag". Tasks with a child tag of it are included. An ambiguous name returns the matches.'
+                },
+                folder: {
+                    type: 'string',
+                    description: 'Optional folder, by name or path "Folder > Subfolder". Only projects whose folder path contains this text are listed.'
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of tasks to return',
+                    default: 100
+                }
+            }
+        }
+    },
+    {
+        name: 'list_tasks_by_tag',
+        description: 'List the open tasks that carry a tag, grouped by project. Works for contexts, people or a "waiting for" tag. Shows deferred and blocked tasks as well unless available_only is set.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                tag: {
+                    type: 'string',
+                    description: 'Tag name, part of a name or path "Parent > Tag". An ambiguous name returns the matches.'
+                },
+                include_subtags: {
+                    type: 'boolean',
+                    description: 'Also include tasks that carry a child tag of the tag',
+                    default: true
+                },
+                available_only: {
+                    type: 'boolean',
+                    description: 'Only tasks that can be worked on now (not blocked, not deferred, active project, no action group)',
+                    default: false
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of tasks to return',
+                    default: 100
+                }
+            },
+            required: ['tag']
+        }
+    },
+    {
+        name: 'list_completed_tasks',
+        description: 'List the tasks completed within the last days, newest first and grouped by day, with their project. Useful for reviews and status reports.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                days: {
+                    type: 'number',
+                    description: 'How many days to look back',
+                    default: 7
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of tasks to return',
+                    default: 100
+                }
+            }
+        }
     }
 ];
 
@@ -587,6 +659,13 @@ function executeAppleScriptFile(scriptName, args = []) {
         log(`AppleScript execution error in ${scriptName} (exit status ${error.status})`);
         throw new Error(`AppleScript execution failed: ${error.message}`);
     }
+}
+
+// Whole number between 1 and max; falls back to defaultValue for missing or invalid input
+function sanitizeLimit(value, defaultValue, max = 1000) {
+    const number = Math.floor(Number(value));
+    if (!Number.isFinite(number) || number < 1) return defaultValue;
+    return Math.min(number, max);
 }
 
 // Mark tool output as untrusted data. The random boundary id prevents content
@@ -764,6 +843,39 @@ async function executeTool(name, args) {
 
             case 'get_task':
                 result = executeAppleScriptFile('get_task', [args.task_name || '']);
+                break;
+
+            case 'list_available_tasks':
+                result = executeAppleScriptFile('list_tasks_filtered', [
+                    args.tag || '',
+                    args.folder || '',
+                    'true',
+                    'true',
+                    'false',
+                    String(sanitizeLimit(args.limit, 100))
+                ]);
+                break;
+
+            case 'list_tasks_by_tag':
+                if (!args.tag || !String(args.tag).trim()) {
+                    result = '❌ Tag name is required.';
+                    break;
+                }
+                result = executeAppleScriptFile('list_tasks_filtered', [
+                    args.tag || '',
+                    '',
+                    String(args.available_only === true),
+                    String(args.include_subtags !== false),
+                    'true',
+                    String(sanitizeLimit(args.limit, 100))
+                ]);
+                break;
+
+            case 'list_completed_tasks':
+                result = executeAppleScriptFile('list_completed_tasks', [
+                    String(sanitizeLimit(args.days, 7, 3650)),
+                    String(sanitizeLimit(args.limit, 100))
+                ]);
                 break;
 
             case 'rename_folder':

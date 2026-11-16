@@ -45,7 +45,18 @@ describe('AppleScript Integration', () => {
                 'create_tag.applescript',
                 'delete_tag.applescript',
                 'add_tag_to_task.applescript',
-                'remove_tag_from_task.applescript'
+                'remove_tag_from_task.applescript',
+                'create_project.applescript',
+                'edit_project.applescript',
+                'create_folder.applescript',
+                'rename_folder.applescript',
+                'drop_task.applescript',
+                'get_task.applescript',
+                'list_projects_for_review.applescript',
+                'mark_project_reviewed.applescript',
+                'list_stalled_projects.applescript',
+                'list_tasks_filtered.applescript',
+                'list_completed_tasks.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -274,6 +285,47 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('GTD query tools', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('list_tasks_filtered.applescript reads all 6 arguments', () => {
+            const content = read('list_tasks_filtered.applescript');
+            for (let i = 1; i <= 6; i++) {
+                expect(content).toContain(`item ${i} of argv`);
+            }
+        });
+
+        test('list_tasks_filtered.applescript leaves out completed, dropped and hidden-folder tasks', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('effectively completed is false and effectively dropped is false');
+            expect(content).toContain('every flattened folder whose hidden is true');
+        });
+
+        test('list_tasks_filtered.applescript does not list a project without tasks as a task', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('(id of theProject) is taskID');
+        });
+
+        test('list_tasks_filtered.applescript reports ambiguous tags instead of guessing', () => {
+            const content = read('list_tasks_filtered.applescript');
+            expect(content).toContain('Ambiguous tag');
+            expect(content).toContain('Tag not found');
+        });
+
+        test('list_completed_tasks.applescript filters by completion date', () => {
+            const content = read('list_completed_tasks.applescript');
+            expect(content).toContain('completion date');
+            expect(content).toContain('every flattened folder whose hidden is true');
+        });
+
+        test('edit_project.applescript supports the project types', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('propertyName is "type"');
+            expect(content).toContain('singleton action holder');
+            expect(content).toContain('set sequential of targetProject');
+        });
+    });
+
     describe('Tool-Script Coverage', () => {
         const serverPath = path.join(__dirname, '..', 'src', 'server', 'index.js');
 
@@ -288,9 +340,16 @@ describe('AppleScript Integration', () => {
 
             expect(toolNames.length).toBeGreaterThan(0);
 
+            // Tools that share one script are mapped here
+            const sharedScripts = {
+                list_available_tasks: 'list_tasks_filtered',
+                list_tasks_by_tag: 'list_tasks_filtered'
+            };
+
             toolNames.forEach(toolName => {
-                const enhancedPath = path.join(enhancedScriptsDir, `${toolName}.applescript`);
-                const corePath = path.join(scriptsDir, `${toolName}.applescript`);
+                const scriptName = sharedScripts[toolName] || toolName;
+                const enhancedPath = path.join(enhancedScriptsDir, `${scriptName}.applescript`);
+                const corePath = path.join(scriptsDir, `${scriptName}.applescript`);
                 const found = fs.existsSync(enhancedPath) || fs.existsSync(corePath);
                 expect(found).toBe(true);
             });
