@@ -88,7 +88,7 @@ const tools = [
                 },
                 project: {
                     type: 'string',
-                    description: 'Optional project name to add the task to'
+                    description: 'Optional open project (any folder) by name, path "Folder > Subfolder > Project" or "id:<id>", or "inbox". An unknown or ambiguous project returns an error and nothing is created.'
                 },
                 due_date: {
                     type: 'string',
@@ -215,7 +215,7 @@ const tools = [
                 },
                 project: {
                     type: 'string',
-                    description: 'Optional project to add all tasks to'
+                    description: 'Optional open project (any folder) by name, path "Folder > Subfolder > Project" or "id:<id>", or "inbox". An unknown or ambiguous project returns an error and nothing is created.'
                 },
                 due_date: {
                     type: 'string',
@@ -251,7 +251,7 @@ const tools = [
                 },
                 project: {
                     type: 'string',
-                    description: 'Optional project name'
+                    description: 'Optional open project (any folder) by name, path "Folder > Subfolder > Project" or "id:<id>", or "inbox". An unknown or ambiguous project returns an error and nothing is created.'
                 },
                 initial_due_date: {
                     type: 'string',
