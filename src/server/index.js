@@ -730,6 +730,54 @@ const tools = [
         }
     },
     {
+        name: 'get_selection',
+        description: 'Show what the front OmniFocus window shows: the perspective, the search term, the focus and the selected items (tasks, projects, folders or tags, each with its ID, so that get_task, get_project, edit_task and the other tools can take it with "id:<id>"). Use it when the user says "this task", "the selected project" or "what I am looking at". Nothing is changed.',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
+        name: 'set_view',
+        description: 'Change what the front OmniFocus window shows: switch the perspective, search for text, or focus on a project or folder. Only the view changes, no task, project or folder is touched. At least one of perspective, search and focus is required. Use get_selection to see the current view and list_perspectives for the available perspectives.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                perspective: {
+                    type: 'string',
+                    description: 'Name of a built-in or custom perspective, for example "Inbox", "Projects", "Forecast" or "Flagged" (the names of your OmniFocus language). A part of a name works if only one perspective fits.'
+                },
+                search: {
+                    type: 'string',
+                    description: 'Text for the search field of the window. An empty string clears the search.'
+                },
+                focus: {
+                    type: 'string',
+                    description: 'Project (name, path "Folder > Subfolder > Project" or "id:<id>") or folder (name, path or "id:<id>") to focus the window on, or "none" to remove the focus'
+                }
+            }
+        }
+    },
+    {
+        name: 'show_item',
+        description: 'Show a task, project, folder or tag in the front OmniFocus window: OmniFocus opens it and selects it. Use it when the user wants to look at an item in OmniFocus. Only the view changes. The window comes to the front.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                item_type: {
+                    type: 'string',
+                    enum: ['task', 'project', 'folder', 'tag'],
+                    description: 'What to show'
+                },
+                item: {
+                    type: 'string',
+                    description: 'Task (open, by name or "id:<id>"), project (name, path "Folder > Subfolder > Project" or "id:<id>"), folder (name, path or "id:<id>") or tag (name, path "Parent > Child" or "id:<id>")'
+                }
+            },
+            required: ['item_type', 'item']
+        }
+    },
+    {
         name: 'rename_folder',
         description: 'Rename an existing folder. Fails without changes if the folder name is ambiguous.',
         inputSchema: {
@@ -1306,6 +1354,26 @@ async function executeTool(name, args) {
                     args.item || '',
                     String(Math.floor(Number(args.number)) || 1),
                     args.destination || ''
+                ]);
+                break;
+
+            case 'get_selection':
+                result = executeAppleScriptFile('get_selection', []);
+                break;
+
+            case 'set_view':
+                result = executeAppleScriptFile('set_view', [
+                    args.perspective || '',
+                    args.search === undefined || args.search === null ? '' : String(args.search),
+                    args.search === undefined || args.search === null ? 'no' : 'yes',
+                    args.focus || ''
+                ]);
+                break;
+
+            case 'show_item':
+                result = executeAppleScriptFile('show_item', [
+                    args.item_type || '',
+                    args.item || ''
                 ]);
                 break;
 

@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
   it is finished (`wait_seconds`, default 15, 0 = do not wait); `clean_up` runs Clean Up (inbox items that already have
   a project are moved into their projects, completed tasks are hidden) and reports how many inbox items were moved
+- **View and selection**: `get_selection` shows the perspective, search term, focus and selected items (type, name and ID,
+  so that other tools can take them with `id:<id>`) of the front OmniFocus window, `set_view` switches the perspective,
+  sets or clears the search term and focuses the window on a project or folder (and checks the result), `show_item` opens
+  a task, project, folder or tag in the window through its `omnifocus:///` link and selects it. Both add a note for a
+  project that is completed or dropped, or that is below a hidden folder
 - **Attachments in notes**: `edit_task`, `edit_project` and `edit_folder` attach a file (`attach_file`: a copy is stored in the
   note, `link_file`: the note links to the file) at the end of the note and remove an attachment (`remove_attachment`, by number).
   `get_task` and `get_project` list the attachments (path of linked files) and mark them in the note text;

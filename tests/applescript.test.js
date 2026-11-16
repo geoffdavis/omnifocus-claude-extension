@@ -95,6 +95,9 @@ describe('AppleScript Integration', () => {
                 'get_selected_link.applescript',
                 'synchronize.applescript',
                 'save_attachment.applescript',
+                'get_selection.applescript',
+                'set_view.applescript',
+                'show_item.applescript',
                 'clean_up.applescript',
                 'undo.applescript',
                 'list_folders.applescript',
@@ -575,6 +578,58 @@ describe('AppleScript Integration', () => {
                 expect(content).toContain('character id 65532');
                 expect(content).toContain('"Attachments: " & attachmentCount');
             });
+        });
+    });
+
+    describe('Selection and view', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('get_selection.applescript reads the view and the selected rows without changing anything', () => {
+            const content = read('get_selection.applescript');
+            expect(content).toContain('every selected tree of (content of theWindow)');
+            expect(content).toContain('every selected tree of (sidebar of theWindow)');
+            expect(content).toContain('perspective name of theWindow');
+            expect(content).toContain('search term of theWindow');
+            expect(content).toContain('focus of theWindow');
+            expect(content).toContain('OmniFocus has no open window');
+            expect(content).toContain('[id:');
+            expect(content).not.toMatch(/set (perspective name|search term|focus) of/);
+        });
+
+        test('set_view.applescript checks the perspective, the search term and the focus after setting them', () => {
+            const content = read('set_view.applescript');
+            expect(content).toContain('set perspective name of theWindow to wantedName');
+            expect(content).toContain('set search term of theWindow to searchText');
+            expect(content).toContain('set focus of theWindow to {focusItem}');
+            expect(content).toContain('set focus of theWindow to {}');
+            expect(content).toContain('Perspective not found');
+            expect(content).toContain('on waitForFocus(');
+            expect(content).toContain('on itemStateNote(');
+            expect(content).toContain('on withEarlier(');
+            expect(content).toContain('did not switch to the perspective');
+            expect(content).toContain('No project or folder found');
+            ['resolveProject', 'resolveFolder', 'focusItemCount'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+        });
+
+        test('show_item.applescript opens the link of the item and checks the selection', () => {
+            const content = read('show_item.applescript');
+            expect(content).toContain('"omnifocus:///" & itemType & "/" & itemID');
+            expect(content).toContain('open location linkText');
+            expect(content).toContain('on isItemSelected(');
+            expect(content).toContain('on itemStateNote(');
+            expect(content).toContain('hidden of currentFolder');
+            ['resolveTask', 'resolveProject', 'resolveFolder', 'resolveTag'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+            ['task', 'project', 'folder', 'tag'].forEach(type => expect(content).toContain(`itemType is "${type}"`));
+        });
+
+        test('set_view passes the search term and a flag, so that an empty term can clear the search', () => {
+            const serverContent = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(serverContent).toContain("executeAppleScriptFile('set_view', [");
+            expect(serverContent).toContain("args.search === undefined || args.search === null ? 'no' : 'yes'");
         });
     });
 
