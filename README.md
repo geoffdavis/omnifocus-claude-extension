@@ -21,6 +21,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Sync and clean up**: Synchronize OmniFocus on request, and run Clean Up (inbox items with a project move into their projects)
 - **Links**: Put a link to anything in another app into the note of a task (any URL or app link), take it from Mail, Safari, Chrome, Finder or Contacts, and get the `omnifocus:///task/<id>` link of a task or project
 - **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
+- **Duplicate**: Copy a task with its subtasks or a project with all its tasks (for example as a template), into another project, folder or the inbox
 
 ### Tags
 - **List Tags**: View all tags with hierarchy
@@ -230,6 +231,23 @@ Projects in any folder can be addressed by name or by path (`Folder > Subfolder 
 several projects the tool lists the matches and changes nothing. Tasks and projects can also be addressed by the
 `id:<id>` shown in list outputs.
 
+### Duplicate
+```
+"Duplicate the project 'Onboarding' into the folder 'Clients' as 'Onboarding Acme' and reopen all tasks"
+"Duplicate the task 'Prepare release' into the project 'Website 2.0'"
+"Copy the task 'Weekly report' to the inbox"
+"Duplicate the task 'Send invoice' as a subtask of 'Monthly closing'"
+```
+`duplicate_item` copies a task with all its subtasks or a project with all its tasks. The copy keeps notes, tags, dates,
+estimate, flag, repetition and (for a project) status and type. Without a destination the copy goes
+directly after the original. `project` (a project, or `inbox`) or `parent_task` choose the place of a task copy,
+`folder` (or `none` for the top level) the place of a project copy. `new_name` renames the copy; a project copy gets
+` copy` after its name if its folder already has a project with this name. OmniFocus loses the dropped state of a
+task when it copies it, so the tool drops those tasks again in the copy. Completed tasks stay completed, unless
+`reopen_completed` is true, which makes a copy usable as a template. The answer shows the ID of the copy, so it can be
+addressed with `id:<id>` (the copy has the same name as the original). Only open tasks can be duplicated; OmniFocus
+cannot duplicate folders.
+
 ### GTD Queries and Reviews
 ```
 "What can I work on now?"
@@ -294,6 +312,7 @@ to include them.
 | `get_selection` | Perspective, search term, focus and selected items (with IDs) of the front OmniFocus window | "What is selected in OmniFocus?" |
 | `set_view` | Switch the perspective, search, or focus on a project or folder in the front OmniFocus window | "Show the Forecast perspective" |
 | `show_item` | Open a task, project, folder or tag in OmniFocus and select it | "Show the project 'Rental' in OmniFocus" |
+| `duplicate_item` | Duplicate a task with its subtasks or a project with all its tasks, optionally into another project, folder or the inbox, under a new name, with completed tasks reopened | "Duplicate the project 'Onboarding' into the folder 'Clients'" |
 | `list_perspectives` | Built-in and custom perspectives with their IDs (the rules of a perspective are not available to scripts) | "Which perspectives do I have?" |
 | `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
@@ -333,6 +352,7 @@ omnifocus-claude-extension/
 │   │   │   ├── get_selection.applescript
 │   │   │   ├── set_view.applescript
 │   │   │   ├── show_item.applescript
+│   │   │   ├── duplicate_item.applescript
 │   │   │   ├── undo.applescript
 │   │   │   ├── synchronize.applescript
 │   │   │   ├── clean_up.applescript

@@ -51,6 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sets or clears the search term and focuses the window on a project or folder (and checks the result), `show_item` opens
   a task, project, folder or tag in the window through its `omnifocus:///` link and selects it. Both add a note for a
   project that is completed or dropped, or that is below a hidden folder
+- **Duplicate**: `duplicate_item` copies a task with its subtasks or a project with all its tasks. The copy keeps notes, tags,
+  dates, estimate, flag and repetition; it goes directly after the original or into another project (`project`, or the
+  inbox), below a task (`parent_task`) or into a folder (`folder`, `none` for the top level). `new_name` renames the copy
+  (a project copy gets " copy" if its folder already has a project with this name). Tasks that were dropped are dropped
+  again in the copy, because OmniFocus loses that state when it copies; `reopen_completed` opens the completed tasks of
+  the copy again, for example to use a project as a template. Folders cannot be duplicated (OmniFocus does not allow it)
 - **Attachments in notes**: `edit_task`, `edit_project` and `edit_folder` attach a file (`attach_file`: a copy is stored in the
   note, `link_file`: the note links to the file) at the end of the note and remove an attachment (`remove_attachment`, by number).
   `get_task` and `get_project` list the attachments (path of linked files) and mark them in the note text;

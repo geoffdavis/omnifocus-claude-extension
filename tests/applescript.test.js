@@ -98,6 +98,7 @@ describe('AppleScript Integration', () => {
                 'get_selection.applescript',
                 'set_view.applescript',
                 'show_item.applescript',
+                'duplicate_item.applescript',
                 'clean_up.applescript',
                 'undo.applescript',
                 'list_folders.applescript',
@@ -624,6 +625,25 @@ describe('AppleScript Integration', () => {
                 expect(content).toContain(`on ${handler}(`);
             });
             ['task', 'project', 'folder', 'tag'].forEach(type => expect(content).toContain(`itemType is "${type}"`));
+        });
+
+        test('duplicate_item.applescript checks everything first, duplicates and restores the dropped tasks', () => {
+            const content = read('duplicate_item.applescript');
+            ['resolveTask', 'resolveProject', 'resolveFolder', 'itemStateNote', 'restoreStates', 'copyLocation', 'projectNameTaken', 'firstOf'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+            expect(content).toContain('duplicate sourceItem to after sourceItem');
+            expect(content).toContain('duplicate sourceItem to end of inbox tasks');
+            expect(content).toContain('duplicate sourceItem to end of tasks of destItem');
+            expect(content).toContain('duplicate sourceItem to end of projects of destItem');
+            expect(content).toContain('duplicate sourceItem to end of projects');
+            expect(content).toContain('mark dropped copyTask');
+            expect(content).toContain('mark incomplete copyTask');
+            expect(content).toContain('Nothing was duplicated.');
+            expect(content).toContain('Folders cannot be duplicated');
+            expect(content).toContain('sourceName & " copy"');
+            // The checks come before the first change
+            expect(content.indexOf('Nothing was duplicated.')).toBeLessThan(content.indexOf('set dupResult to duplicate'));
         });
 
         test('set_view passes the search term and a flag, so that an empty term can clear the search', () => {

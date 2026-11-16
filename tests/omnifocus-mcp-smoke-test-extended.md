@@ -49,7 +49,7 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q19 | `set_view` | Changes only the view of the window. `perspective: "Inbox"`: PASS if it answers `Perspective: Inbox`. `perspective: "{PREFIX} NO SUCH PERSPECTIVE"` must FAIL with `Perspective not found` and list the available perspectives. `search: "{PREFIX}"`: PASS if it answers `Search: "{PREFIX}"`; `search: ""`: PASS if it answers `Search cleared`. `perspective: "Projects"` and `focus: "Smoke Test"`: PASS if it answers `Focus: Smoke Test`, then `focus: "none"`: PASS if it answers `Focus removed` (a `⚠️` answer that OmniFocus kept the focus is a FAIL, remove it by hand in the window). Finally restore the perspective from Q18. Calling it without any argument must FAIL with `Give a perspective, a search term or a focus`. |
 | Q20 | `show_item` | `item_type: "project"`, `item: "Smoke Test"`: PASS if it answers `Showing project in OmniFocus: Smoke Test`, and `get_selection` then lists the project as selected (an answer starting with `Opened project` is also a PASS if the Projects perspective is not shown). `item_type: "task"`, `item: "{PREFIX} NO SUCH TASK"` must FAIL with `Open task not found`. `item_type: "tag"`, `item: "{PREFIX} NO SUCH TAG"` must FAIL with `Tag not found`. Finally restore the perspective from Q18 with `set_view`. |
 
-## Phase 2: Tasks and tags (36 tests)
+## Phase 2: Tasks and tags (38 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -91,6 +91,8 @@ All tasks MUST use `project: "Smoke Test"`.
 | A34 | `edit_task` | On `{PREFIX} Task A` (it has a due date since A13), `property: "repeat"` with `value: "every monday and thursday"`: PASS if confirmed with "every week on Monday and Thursday, fixed schedule". Then `"last friday of the month"`: PASS if confirmed with "every month on the last Friday". Then `"FREQ=WEEKLY;BYDAY=MO,TH"`: PASS if confirmed like the first one. Then `"FREQ=NONSENSE"` must FAIL with "does not understand the repeat rule" and leave the repetition unchanged (check with `get_task`). |
 | A35 | `edit_task` | `{PREFIX} Task A` repeats on a fixed schedule (A34). `property: "repeat_based_on"` with `value: "defer"` must FAIL with a message that the task has no defer date (nothing changes). Set `defer_date` to `2029-12-01`, then `repeat_based_on: "defer"`: PASS if confirmed with "based on the defer date". `repeat_catch_up` with `value: "true"`: PASS if confirmed with "catches up automatically"; `"maybe"` must FAIL. Then `repeat` with `value: "weekly from completion"` and `repeat_catch_up: "true"` must FAIL (catching up needs a fixed schedule). Finally `repeat` with `value: "none"`: PASS if confirmed as stopped. `repeat_catch_up` now must FAIL because the task does not repeat. |
 | A36 | `create_recurring_task` | `name: "{PREFIX} Recurring Monthly"`, `repeat_rule: "monthly on the 15th"`, `initial_due_date: "2030-01-15"`, `project: "Smoke Test"`. PASS if created with "every month on day 15, fixed schedule". Then `repeat_rule: "FREQ=NONSENSE"` with another name and `name: ""` with `repeat_rule: "daily"` must both FAIL with "Nothing was created." and `search_tasks` must find no such task. |
+| A37 | `add_task` then `duplicate_item` | Create `{PREFIX} Dup` in `Smoke Test` with `note: "{PREFIX} dup note"`, `due_date: "2030-02-01"`, `estimated_minutes: 30` and `tags: "{PREFIX}-Tag"`. Then `duplicate_item` with `item_type: "task"`, `item: "{PREFIX} Dup"`, `project: "Smoke Test"`, `new_name: "{PREFIX} Dup Copy"`. PASS if confirmed with the ID of the copy, and `get_task` of `{PREFIX} Dup Copy` shows the same due date, estimate, tag and note. `{PREFIX} Dup` must still exist unchanged. |
+| A38 | `duplicate_item` | `item: "{PREFIX} Dup"`, `project: "inbox"`, `new_name: "{PREFIX} Dup Inbox"`: PASS if confirmed "in the inbox". Then each of these must FAIL with a message and "Nothing was duplicated": `project` together with `parent_task`; `folder` for a task; `project` for a project (`item_type: "project"`, `item: "Smoke Test"`); `item_type: "folder"`; an unknown `project`; an empty `item`. Finally `search_tasks` with `query: "{PREFIX} Dup"` must find exactly three tasks (`{PREFIX} Dup`, `{PREFIX} Dup Copy`, `{PREFIX} Dup Inbox`). |
 
 ## Phase 3: Tag hierarchy (11 tests)
 
@@ -108,7 +110,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | T10 | `edit_tag` | `property: "location"`, `value: "radius=2; trigger=leaving"` on the same tag. PASS if latitude, longitude and name are unchanged, the radius is 2 km and the trigger leaving. Then each of these must FAIL with a message and change nothing: `latitude=95; longitude=1`, `latitude=abc; longitude=1`, `radius=50`, `trigger=sometimes`, `colour=red`, `latitude=1` on a tag without a location. |
 | T11 | `edit_tag` | `property: "location"`, `value: "none"`. PASS if confirmed and `list_tags` shows no `📍` on the tag. A second `none` must answer that the tag has no location. |
 
-## Phase 4: Folders and projects (22 tests)
+## Phase 4: Folders and projects (23 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -134,6 +136,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | P20 | `edit_folder` | `folder: "{PREFIX} Folder B"`, `property: "hidden"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed and `list_folders` shows `⏸ hidden` in between. `value: "maybe"` must FAIL. A `name` that is already used at the same level must FAIL and change nothing. |
 | P21 | `delete_folder` | Without `confirm_delete` on `{PREFIX} Folder Renamed`: PASS if it refuses and says what the folder contains. With `confirm_delete: true` but without `delete_contents`: PASS if it refuses because the folder contains projects. Then `delete_folder` with `folder: "{PREFIX} Folder B"` and `confirm_delete: true`: PASS if the empty folder is deleted and `list_folders` no longer shows it. |
 | P22 | `edit_project` | `project: "{PREFIX} Project"` (it has a due date and a defer date since P10), `property: "repeat"`, `value: "monthly on the 1st"`: PASS if confirmed with "every month on day 1, fixed schedule" and `get_project` shows a `Repeats:` line with the same text. Then `repeat_based_on: "defer"` and `repeat_catch_up: "true"`: PASS if the answer ends with "based on the defer date, catches up automatically". `repeat: "FREQ=NONSENSE"` must FAIL with "does not understand the repeat rule" and change nothing. Finally `repeat: "none"`: PASS if confirmed as stopped and `get_project` shows no `Repeats:` line. |
+| P23 | `duplicate_item` | `item_type: "project"`, `item: "{PREFIX} Folder Renamed > {PREFIX} Project"`, `folder: "{PREFIX} Folder Renamed"`, `new_name: "{PREFIX} Project Template"`, `reopen_completed: true`. PASS if confirmed "in the folder {PREFIX} Folder Renamed", and `get_project` of the copy shows `{PREFIX} Task B` and the same type `sequential`. Then the same without `folder` and `new_name`: PASS if the copy is called `{PREFIX} Project copy` and sits in `{PREFIX} Folder Renamed` directly after the original (`list_folders` shows one more project there). |
 
 ## Phase 5: Drop and delete (3 tests)
 
@@ -145,7 +148,7 @@ All tasks MUST use `project: "Smoke Test"`.
 
 ## Phase 6: Cleanup
 
-1. Delete `{PREFIX} Undo` (if it exists), `{PREFIX} P1`, `{PREFIX} P2` (with their subtasks) and `{PREFIX} Single`, `{PREFIX} Recurring Monthly`, then `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
+1. Delete `{PREFIX} Dup Copy`, `{PREFIX} Dup Inbox` and `{PREFIX} Dup`, then `{PREFIX} Undo` (if it exists), `{PREFIX} P1`, `{PREFIX} P2` (with their subtasks) and `{PREFIX} Single`, `{PREFIX} Recurring Monthly`, then `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
 3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` using `delete_folder` with `confirm_delete: true` and `delete_contents: true`. PASS if `list_folders` no longer shows it.
 4. Delete the files `/tmp/{PREFIX}.txt` and `/tmp/{PREFIX}-saved.txt` if you created them.

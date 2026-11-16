@@ -778,6 +778,46 @@ const tools = [
         }
     },
     {
+        name: 'duplicate_item',
+        description: 'Duplicate a task (with its subtasks) or a project (with all its tasks), for example to use a project as a template. The copy keeps notes, tags, dates, estimate, flag and repetition; dropped tasks stay dropped and completed tasks stay completed (reopen_completed opens them). By default the copy goes directly after the original; project, parent_task or folder choose another place. Folders cannot be duplicated. Answers with the ID of the copy.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                item_type: {
+                    type: 'string',
+                    enum: ['task', 'project'],
+                    description: 'What to duplicate'
+                },
+                item: {
+                    type: 'string',
+                    description: 'Task (open, by name or "id:<id>") or project (name, path "Folder > Subfolder > Project" or "id:<id>")'
+                },
+                project: {
+                    type: 'string',
+                    description: 'Only for a task: the open project (name, path or "id:<id>") that gets the copy, or "inbox". An unknown or ambiguous project returns an error and nothing is duplicated.'
+                },
+                parent_task: {
+                    type: 'string',
+                    description: 'Only for a task: the open task (name or "id:<id>") that gets the copy as a subtask. Not together with project.'
+                },
+                folder: {
+                    type: 'string',
+                    description: 'Only for a project: the folder (name, path "Folder > Subfolder" or "id:<id>") that gets the copy, or "none" for the top level.'
+                },
+                new_name: {
+                    type: 'string',
+                    description: 'Name of the copy. Without it a task copy keeps the name; a project copy keeps it too, unless the folder already has a project with this name: then " copy" is added.'
+                },
+                reopen_completed: {
+                    type: 'boolean',
+                    description: 'Open the completed tasks of the copy again, for example when a project is used as a template',
+                    default: false
+                }
+            },
+            required: ['item_type', 'item']
+        }
+    },
+    {
         name: 'rename_folder',
         description: 'Rename an existing folder. Fails without changes if the folder name is ambiguous.',
         inputSchema: {
@@ -1374,6 +1414,18 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('show_item', [
                     args.item_type || '',
                     args.item || ''
+                ]);
+                break;
+
+            case 'duplicate_item':
+                result = executeAppleScriptFile('duplicate_item', [
+                    args.item_type || '',
+                    args.item || '',
+                    args.project || '',
+                    args.parent_task || '',
+                    args.folder || '',
+                    args.new_name || '',
+                    String(args.reopen_completed === true)
                 ]);
                 break;
 
