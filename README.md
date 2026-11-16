@@ -17,6 +17,7 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Batch Task Creation**: Create multiple tasks with subtasks in one command
 - **Recurring Tasks**: Create tasks with daily, weekly, monthly, or custom repeat patterns
 - **Text to tasks**: Turn a list of lines (or the note of a task) into tasks and subtasks, with the inline syntax of OmniFocus
+- **Undo**: Undo or redo the last change(s) in OmniFocus (it reverts changes made by hand too)
 - **Sync and clean up**: Synchronize OmniFocus on request, and run Clean Up (inbox items with a project move into their projects)
 - **Links**: Put a link to anything in another app into the note of a task (any URL or app link), take it from Mail, Safari, Chrome, Finder or Contacts, and get the `omnifocus:///task/<id>` link of a task or project
 - **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
@@ -230,6 +231,7 @@ to include them.
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
 | `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
 | `get_selected_link` | What is selected or open in Mail, Safari, Chrome and other Chromium browsers, Finder or Contacts, with a link that opens it again | "Put the link to the selected mail in the note of 'Answer the offer'" |
+| `undo` | Undo or redo the last change(s) in OmniFocus, whoever made them | "Undo that" |
 | `synchronize` | Synchronize OmniFocus with its sync database and wait until it is finished | "Sync OmniFocus now" |
 | `clean_up` | Clean Up: move inbox items that have a project into their projects, hide completed tasks | "Clean up OmniFocus" |
 | `list_perspectives` | Built-in and custom perspectives with their IDs (the rules of a perspective are not available to scripts) | "Which perspectives do I have?" |
@@ -268,6 +270,7 @@ omnifocus-claude-extension/
 │   │   │   ├── get_project.applescript
 │   │   │   ├── list_due_soon.applescript
 │   │   │   ├── get_selected_link.applescript
+│   │   │   ├── undo.applescript
 │   │   │   ├── synchronize.applescript
 │   │   │   ├── clean_up.applescript
 │   │   │   ├── list_perspectives.applescript

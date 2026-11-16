@@ -94,7 +94,8 @@ describe('AppleScript Integration', () => {
                 'list_perspectives.applescript',
                 'get_selected_link.applescript',
                 'synchronize.applescript',
-                'clean_up.applescript'
+                'clean_up.applescript',
+                'undo.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -534,6 +535,19 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('every inbox task of default document whose completed is false');
             expect(content).not.toContain('tell default document');
             expect(content).toContain('moved into projects');
+        });
+    });
+
+    describe('Undo', () => {
+        test('undo.applescript undoes and redoes only while the document can and limits the steps', () => {
+            const content = fs.readFileSync(path.join(enhancedScriptsDir, 'undo.applescript'), 'utf8');
+            expect(content).toContain('undo default document');
+            expect(content).toContain('redo default document');
+            expect(content).toContain('can undo of default document');
+            expect(content).toContain('can redo of default document');
+            expect(content).toContain('if stepCount > 20 then set stepCount to 20');
+            expect(content).toContain('Nothing to undo');
+            expect(content).not.toContain('tell default document');
         });
     });
 

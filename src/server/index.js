@@ -377,6 +377,26 @@ const tools = [
         }
     },
     {
+        name: 'undo',
+        description: 'Undo (or redo) the last change in OmniFocus. This reverts the last change whoever made it, so also a change you made by hand in OmniFocus; use it right after a change that went wrong. One tool call of Claude can be more than one step, so check the result (for example with get_task) and repeat if needed.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                action: {
+                    type: 'string',
+                    enum: ['undo', 'redo'],
+                    description: 'undo goes back, redo repeats what was undone',
+                    default: 'undo'
+                },
+                steps: {
+                    type: 'number',
+                    description: 'How many steps to go back or forward (1 to 20)',
+                    default: 1
+                }
+            }
+        }
+    },
+    {
         name: 'synchronize',
         description: 'Synchronize OmniFocus with its sync database (the sync set in OmniFocus > Settings > Sync) and wait until it is finished.',
         inputSchema: {
@@ -1002,6 +1022,13 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('get_selected_link', [
                     typeof args.app === 'string' ? args.app : '',
                     String(sanitizeLimit(args.limit, 10, 50))
+                ]);
+                break;
+
+            case 'undo':
+                result = executeAppleScriptFile('undo', [
+                    args.action === 'redo' ? 'redo' : 'undo',
+                    String(sanitizeLimit(args.steps, 1, 20))
                 ]);
                 break;
 

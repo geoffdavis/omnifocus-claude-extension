@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `add_task` to create a subtask under an existing task
 - **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
   an existing task, `get_task` shows it
+- **Undo**: `undo` undoes or redoes the last change(s) in OmniFocus (`action`, `steps` up to 20). OmniFocus reverts the last
+  change whoever made it, so also changes made by hand
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
   it is finished (`wait_seconds`, default 15, 0 = do not wait); `clean_up` runs Clean Up (inbox items that already have
   a project are moved into their projects, completed tasks are hidden) and reports how many inbox items were moved
