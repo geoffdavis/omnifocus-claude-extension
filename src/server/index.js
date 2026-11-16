@@ -578,7 +578,7 @@ const tools = [
                 },
                 folder: {
                     type: 'string',
-                    description: 'Optional existing folder to create the project in, by name or as path "Folder > Subfolder". Fails without changes if the folder is missing or ambiguous.'
+                    description: 'Optional existing folder to create the project in, by name, as path "Folder > Subfolder" or "id:<id>" as shown by list_folders. Fails without changes if the folder is missing or ambiguous.'
                 },
                 note: {
                     type: 'string',
@@ -640,10 +640,65 @@ const tools = [
                 },
                 parent_folder: {
                     type: 'string',
-                    description: 'Optional existing parent folder, by name or as path "Folder > Subfolder". Fails without changes if it is missing or ambiguous.'
+                    description: 'Optional existing parent folder, by name, as path "Folder > Subfolder" or "id:<id>" as shown by list_folders. Fails without changes if it is missing or ambiguous.'
                 }
             },
             required: ['name']
+        }
+    },
+    {
+        name: 'list_folders',
+        description: 'List all folders in OmniFocus as a hierarchy with ID, number of projects and subfolders, hidden folders and folders with a note',
+        inputSchema: {
+            type: 'object',
+            properties: {}
+        }
+    },
+    {
+        name: 'edit_folder',
+        description: 'Edit an existing folder: rename it, change or extend its note, move it (with everything in it) below another folder or to top level, or hide or show it. Fails without changes if the folder name is ambiguous.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                folder: {
+                    type: 'string',
+                    description: 'Folder name, path "Folder > Subfolder" or "id:<id>" as shown by list_folders'
+                },
+                property: {
+                    type: 'string',
+                    enum: ['name', 'note', 'append_note', 'parent', 'hidden'],
+                    description: 'Property to modify'
+                },
+                value: {
+                    type: 'string',
+                    description: 'New value. For name: the new folder name. For note: the new note text. For append_note: text that is added as a new line at the end of the note. For parent: an existing folder by name, path or "id:<id>", or "none" for top level; a folder cannot be moved below itself or one of its subfolders. For hidden: "true" or "false".'
+                }
+            },
+            required: ['folder', 'property', 'value']
+        }
+    },
+    {
+        name: 'delete_folder',
+        description: 'Delete a folder permanently (undo can bring it back right afterwards). Needs confirm_delete true. A folder that contains projects or subfolders is only deleted with delete_contents true, which deletes them with all their tasks; otherwise the tool says what the folder contains and deletes nothing.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                folder: {
+                    type: 'string',
+                    description: 'Folder name, path "Folder > Subfolder" or "id:<id>" as shown by list_folders'
+                },
+                confirm_delete: {
+                    type: 'boolean',
+                    description: 'Must be true, otherwise nothing is deleted',
+                    default: false
+                },
+                delete_contents: {
+                    type: 'boolean',
+                    description: 'Also delete the projects and subfolders in the folder, with all their tasks',
+                    default: false
+                }
+            },
+            required: ['folder']
         }
     },
     {
@@ -654,7 +709,7 @@ const tools = [
             properties: {
                 folder: {
                     type: 'string',
-                    description: 'Folder name or path "Folder > Subfolder"'
+                    description: 'Folder name, path "Folder > Subfolder" or "id:<id>" as shown by list_folders'
                 },
                 new_name: {
                     type: 'string',
@@ -1194,6 +1249,26 @@ async function executeTool(name, args) {
                     args.tag || '',
                     args.property || '',
                     args.value !== undefined && args.value !== null ? String(args.value) : ''
+                ]);
+                break;
+
+            case 'list_folders':
+                result = executeAppleScriptFile('list_folders', []);
+                break;
+
+            case 'edit_folder':
+                result = executeAppleScriptFile('edit_folder', [
+                    args.folder || '',
+                    args.property || '',
+                    args.value !== undefined && args.value !== null ? String(args.value) : ''
+                ]);
+                break;
+
+            case 'delete_folder':
+                result = executeAppleScriptFile('delete_folder', [
+                    args.folder || '',
+                    String(args.confirm_delete === true),
+                    String(args.delete_contents === true)
                 ]);
                 break;
 

@@ -14,7 +14,7 @@ Copy everything below the `---START PROMPT---` line and paste it into Claude Des
 - The OmniFocus MCP server is connected and OmniFocus is open
 - A project named **"Smoke Test"** exists (the same one as in the base smoke test)
 
-**Safety:** All synthetic data uses the `SMOKETEST` + YYMMDDHHMMSS prefix. Tasks are created in the "Smoke Test" project and are deleted again at the end with `drop_task` and `confirm_delete`. The tags created in Phases 2 and 3, and the folder and projects created in Phase 4, cannot be removed with the tools and have to be deleted by hand in OmniFocus. No existing data is modified.
+**Safety:** All synthetic data uses the `SMOKETEST` + YYMMDDHHMMSS prefix. Tasks are created in the "Smoke Test" project and are deleted again at the end with `drop_task` and `confirm_delete`. The tags created in Phases 2 and 3 cannot be removed with the tools and have to be deleted by hand in OmniFocus; the folders and projects created in Phase 4 are deleted at the end with `delete_folder`. No existing data is modified.
 
 ---START PROMPT---
 
@@ -98,7 +98,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | T10 | `edit_tag` | `property: "location"`, `value: "radius=2; trigger=leaving"` on the same tag. PASS if latitude, longitude and name are unchanged, the radius is 2 km and the trigger leaving. Then each of these must FAIL with a message and change nothing: `latitude=95; longitude=1`, `latitude=abc; longitude=1`, `radius=50`, `trigger=sometimes`, `colour=red`, `latitude=1` on a tag without a location. |
 | T11 | `edit_tag` | `property: "location"`, `value: "none"`. PASS if confirmed and `list_tags` shows no `📍` on the tag. A second `none` must answer that the tag has no location. |
 
-## Phase 4: Folders and projects (15 tests)
+## Phase 4: Folders and projects (21 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -117,6 +117,12 @@ All tasks MUST use `project: "Smoke Test"`.
 | P13 | `get_project` | `project: "{PREFIX} Folder > {PREFIX} Project"`. PASS if the header shows the project with its ID, status, type `sequential`, and the list contains `{PREFIX} Task B` with a marker (▶ or 🔒) and an `[id:...]`. |
 | P14 | `get_project` | `project: "{PREFIX} Project"`, `include_completed: true`, `limit: 1`. PASS if at most one task is listed and the limit note appears when the project has more tasks. |
 | P15 | `rename_folder` | Rename `{PREFIX} Folder` to `{PREFIX} Folder Renamed`. PASS if confirmed. |
+| P16 | `list_folders` | No parameters. PASS if `{PREFIX} Folder Renamed` is listed with `(2 projects)` and an `[id:...]`. Remember the ID. |
+| P17 | `edit_folder` | `folder: "id:<ID from P16>"`, `property: "note"`, `value: "{PREFIX} note"`, then `property: "append_note"`, `value: "https://example.com/{PREFIX}"`. PASS if both are confirmed and `list_folders` shows `📝` on the folder. `append_note` with `value: ""` must FAIL and change nothing. |
+| P18 | `create_folder` then `edit_folder` | Create `{PREFIX} Folder B`, then `edit_folder` with `property: "parent"`, `value: "{PREFIX} Folder Renamed"`. PASS if `{PREFIX} Folder B` is listed below `{PREFIX} Folder Renamed` by `list_folders`. The same call again must answer that the folder is already below that parent. |
+| P19 | `edit_folder` | `folder: "{PREFIX} Folder Renamed"`, `property: "parent"`, `value: "{PREFIX} Folder B"`. PASS if it FAILS with a message that a folder cannot be moved below itself or one of its subfolders. Then `folder: "{PREFIX} Folder B"`, `property: "parent"`, `value: "none"`. PASS if it is at top level again. |
+| P20 | `edit_folder` | `folder: "{PREFIX} Folder B"`, `property: "hidden"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed and `list_folders` shows `⏸ hidden` in between. `value: "maybe"` must FAIL. A `name` that is already used at the same level must FAIL and change nothing. |
+| P21 | `delete_folder` | Without `confirm_delete` on `{PREFIX} Folder Renamed`: PASS if it refuses and says what the folder contains. With `confirm_delete: true` but without `delete_contents`: PASS if it refuses because the folder contains projects. Then `delete_folder` with `folder: "{PREFIX} Folder B"` and `confirm_delete: true`: PASS if the empty folder is deleted and `list_folders` no longer shows it. |
 
 ## Phase 5: Drop and delete (3 tests)
 
@@ -130,7 +136,7 @@ All tasks MUST use `project: "Smoke Test"`.
 
 1. Delete `{PREFIX} Undo` (if it exists), `{PREFIX} P1`, `{PREFIX} P2` (with their subtasks) and `{PREFIX} Single`, then `{PREFIX} Subtask A`, `{PREFIX} Subtask B`, `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true` (in this order).
 2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
-3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` in OmniFocus by hand, because the tools cannot delete folders or projects.
+3. Delete the folder `{PREFIX} Folder Renamed` with its projects `{PREFIX} Project` and `{PREFIX} Project 2` using `delete_folder` with `confirm_delete: true` and `delete_contents: true`. PASS if `list_folders` no longer shows it.
 4. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.
 
 ## Phase 7: Report

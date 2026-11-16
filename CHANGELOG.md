@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
   it is finished (`wait_seconds`, default 15, 0 = do not wait); `clean_up` runs Clean Up (inbox items that already have
   a project are moved into their projects, completed tasks are hidden) and reports how many inbox items were moved
+- **Folder actions**: `list_folders` shows all folders as a hierarchy (project counts, hidden folders, notes, IDs),
+  `edit_folder` changes the name, note (`note`, `append_note`), parent (`parent`, `none` = top level; the folder is moved
+  with everything in it; cycles and duplicate names are refused) and visibility (`hidden`) of a folder, `delete_folder`
+  deletes a folder (needs `confirm_delete`; a folder that contains projects or subfolders only with `delete_contents`).
+  Folders can also be addressed by `id:<id>` in `rename_folder`, `create_folder`, `create_project` and `edit_project`
 - **Links**: `get_selected_link` shows what is selected or open in Mail (`message://`), Safari and Chromium browsers (URL of
   the front tab), Finder (`file://`) or Contacts (`addressbook://`) with a link for each item (no message bodies or file
   contents are read, the app is not started). `edit_task` and `edit_project` have `append_note`, which adds a line to the

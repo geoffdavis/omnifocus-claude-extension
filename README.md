@@ -227,6 +227,9 @@ to include them.
 | `edit_project` | Rename, change or extend note (`append_note`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior of a project | "Review 'Website 2.0' every 2 weeks" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
+| `list_folders` | Show all folders as a hierarchy with IDs, project counts, hidden folders and notes | "List my folders" |
+| `edit_folder` | Rename, move (with everything in it), hide or show a folder, change or extend its note | "Move the folder 'Old clients' below 'Archive'" |
+| `delete_folder` | Delete a folder (needs `confirm_delete`; a folder with content only with `delete_contents`) | "Delete the empty folder 'Test'" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag, folder, a single project or time (`max_minutes`) | "What can I work on now?" |
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
 | `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
@@ -280,6 +283,9 @@ omnifocus-claude-extension/
 │   │   │   ├── edit_project.applescript
 │   │   │   ├── create_folder.applescript
 │   │   │   ├── rename_folder.applescript
+│   │   │   ├── list_folders.applescript
+│   │   │   ├── edit_folder.applescript
+│   │   │   ├── delete_folder.applescript
 │   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag
 │   │   │   ├── list_completed_tasks.applescript
 │   │   │   ├── list_projects_for_review.applescript

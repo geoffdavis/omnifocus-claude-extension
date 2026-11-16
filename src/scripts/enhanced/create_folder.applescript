@@ -51,7 +51,22 @@ end run
 on resolveFolder(queryText)
     -- Finds a folder at any depth by name, or by "Folder > Subfolder".
     -- Names match exactly or as a substring, ignoring case.
+    -- "id:<id>" finds a folder by the ID shown by list_folders.
     -- Returns {foundFolder, errorText}; foundFolder is missing value if nothing or more than one folder fits.
+    if queryText starts with "id:" then
+        set wantedID to ""
+        if (length of queryText) > 3 then set wantedID to my trimText(text 4 thru -1 of queryText)
+        set idMatches to {}
+        if wantedID is not "" then
+            tell application "OmniFocus"
+                tell default document
+                    set idMatches to every flattened folder whose id is wantedID
+                end tell
+            end tell
+        end if
+        if (count of idMatches) = 1 then return {foundFolder:item 1 of idMatches, errorText:""}
+        return {foundFolder:missing value, errorText:"❌ Folder not found: " & queryText}
+    end if
     set oldDelims to AppleScript's text item delimiters
     set AppleScript's text item delimiters to ">"
     set rawParts to text items of queryText
@@ -119,7 +134,7 @@ on resolveFolder(queryText)
         return {foundFolder:missing value, errorText:"❌ Folder not found: " & queryText}
     end if
 
-    set matchList to "❌ Ambiguous folder \"" & queryText & "\" (" & (count of allMatches) & " matches). Nothing was created. Use \"Folder > Subfolder\" to pick one:"
+    set matchList to "❌ Ambiguous folder \"" & queryText & "\" (" & (count of allMatches) & " matches). Nothing was changed. Use \"Folder > Subfolder\" to pick one:"
     repeat with aMatch in allMatches
         set matchList to matchList & return & "• " & my folderLabel(contents of aMatch)
     end repeat
@@ -166,4 +181,3 @@ on trimText(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimText
-

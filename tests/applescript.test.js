@@ -95,7 +95,10 @@ describe('AppleScript Integration', () => {
                 'get_selected_link.applescript',
                 'synchronize.applescript',
                 'clean_up.applescript',
-                'undo.applescript'
+                'undo.applescript',
+                'list_folders.applescript',
+                'edit_folder.applescript',
+                'delete_folder.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -535,6 +538,47 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('every inbox task of default document whose completed is false');
             expect(content).not.toContain('tell default document');
             expect(content).toContain('moved into projects');
+        });
+    });
+
+    describe('Folder actions', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('every script that takes a folder finds it by id too', () => {
+            ['rename_folder', 'create_folder', 'create_project', 'edit_project', 'edit_folder', 'delete_folder'].forEach(name => {
+                const content = read(`${name}.applescript`);
+                expect(content).toContain('if queryText starts with "id:" then');
+                expect(content).toContain('every flattened folder whose id is wantedID');
+            });
+        });
+
+        test('list_folders.applescript shows the hierarchy with IDs, hidden folders and notes', () => {
+            const content = read('list_folders.applescript');
+            expect(content).toContain('on formatFolders(folderList, depth)');
+            expect(content).toContain('hidden of aFolder');
+            expect(content).toContain('" [id:" & (id of aFolder) & "]"');
+        });
+
+        test('edit_folder.applescript supports all properties and does not create a loop or a duplicate name', () => {
+            const content = read('edit_folder.applescript');
+            ['name', 'note', 'append_note', 'parent', 'hidden'].forEach(property => {
+                expect(content).toContain(`propertyName is "${property}"`);
+            });
+            expect(content).toContain('move targetFolder to end of folders of newParent');
+            expect(content).toContain('move targetFolder to end of folders');
+            expect(content).toContain('ownIDs contains newParentID');
+            expect(content).toContain('on hasFolderNamed(parentFolder, wantedName, ignoreID)');
+            expect(content).toContain('my noteFormattingProblem(targetFolder)');
+            expect(content).toContain('Valid properties: name, note, append_note, parent, hidden');
+        });
+
+        test('delete_folder.applescript needs a confirmation and refuses a folder with content by default', () => {
+            const content = read('delete_folder.applescript');
+            expect(content).toContain('if not confirmDelete then');
+            expect(content).toContain('not deleteContents');
+            expect(content).toContain('delete targetFolder');
+            expect(content).toContain('every flattened project of targetFolder');
+            expect(content).toContain('my countText(projectCount');
         });
     });
 
