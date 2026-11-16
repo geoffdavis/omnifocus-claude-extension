@@ -1,180 +1,258 @@
 on run argv
     -- List all overdue tasks
     -- Usage: list_overdue_tasks.applescript
-    
+
+    -- include_dropped: "true" also shows dropped items and items below dropped (hidden) folders
+    set includeDropped to false
+    if (count of argv) > 0 then set includeDropped to (item 1 of argv is "true")
+    set hiddenProjectIDList to {}
+    if not includeDropped then set hiddenProjectIDList to my hiddenFolderProjectIDs()
+
+    -- Every Apple Event costs about 17 ms, a query for one property of all tasks about 0.1 s: the properties of all tasks
+    -- are fetched at once (the same position in each list is the same task) and filtered and sorted in the script
     tell application "OmniFocus"
         tell default document
-            set currentTime to current date
-            set overdueTasks to every flattened task whose due date < currentTime and completed is false
-            
-            if (count of overdueTasks) = 0 then
-                return "✅ No overdue tasks! You're all caught up!"
-            end if
-            
-            -- Sort tasks by how overdue they are (most overdue first)
-            repeat with i from 1 to (count of overdueTasks) - 1
-                repeat with j from i + 1 to count of overdueTasks
-                    if due date of item j of overdueTasks < due date of item i of overdueTasks then
-                        set temp to item i of overdueTasks
-                        set item i of overdueTasks to item j of overdueTasks
-                        set item j of overdueTasks to temp
-                    end if
-                end repeat
-            end repeat
-            
-            -- Group by overdue period
-            set todayOverdue to {}
-            set yesterdayOverdue to {}
-            set thisWeekOverdue to {}
-            set lastWeekOverdue to {}
-            set olderOverdue to {}
-            
-            set todayStart to currentTime
-            set hours of todayStart to 0
-            set minutes of todayStart to 0
-            set seconds of todayStart to 0
-            
-            set yesterdayStart to todayStart - 1 * days
-            set weekAgoStart to todayStart - 7 * days
-            set twoWeeksAgoStart to todayStart - 14 * days
-            
-            repeat with aTask in overdueTasks
-                set dueDate to due date of aTask
-                
-                if dueDate ≥ todayStart then
-                    set end of todayOverdue to aTask
-                else if dueDate ≥ yesterdayStart then
-                    set end of yesterdayOverdue to aTask
-                else if dueDate ≥ weekAgoStart then
-                    set end of thisWeekOverdue to aTask
-                else if dueDate ≥ twoWeeksAgoStart then
-                    set end of lastWeekOverdue to aTask
-                else
-                    set end of olderOverdue to aTask
-                end if
-            end repeat
-            
-            -- Build output
-            set taskList to "⚠️ Overdue Tasks (" & (count of overdueTasks) & " items)" & return
-            set taskList to taskList & "════════════════════════════" & return & return
-            
-            -- Earlier today
-            if (count of todayOverdue) > 0 then
-                set taskList to taskList & "🔴 Earlier Today (" & (count of todayOverdue) & "):" & return
-                repeat with aTask in todayOverdue
-                    set taskList to taskList & my formatOverdueTask(aTask) & return
-                end repeat
-                set taskList to taskList & return
-            end if
-            
-            -- Yesterday
-            if (count of yesterdayOverdue) > 0 then
-                set taskList to taskList & "🟠 Yesterday (" & (count of yesterdayOverdue) & "):" & return
-                repeat with aTask in yesterdayOverdue
-                    set taskList to taskList & my formatOverdueTask(aTask) & return
-                end repeat
-                set taskList to taskList & return
-            end if
-            
-            -- This week
-            if (count of thisWeekOverdue) > 0 then
-                set taskList to taskList & "🟡 This Week (" & (count of thisWeekOverdue) & "):" & return
-                repeat with aTask in thisWeekOverdue
-                    set taskList to taskList & my formatOverdueTask(aTask) & return
-                end repeat
-                set taskList to taskList & return
-            end if
-            
-            -- Last week
-            if (count of lastWeekOverdue) > 0 then
-                set taskList to taskList & "📅 Last Week (" & (count of lastWeekOverdue) & "):" & return
-                repeat with aTask in lastWeekOverdue
-                    set taskList to taskList & my formatOverdueTask(aTask) & return
-                end repeat
-                set taskList to taskList & return
-            end if
-            
-            -- Older
-            if (count of olderOverdue) > 0 then
-                set taskList to taskList & "📆 Older (" & (count of olderOverdue) & "):" & return
-                repeat with aTask in olderOverdue
-                    set taskList to taskList & my formatOverdueTask(aTask) & return
-                end repeat
-                set taskList to taskList & return
-            end if
-            
-            -- Add action summary
-            set taskList to taskList & return & "💡 Recommended Actions:" & return
-            
-            -- Count flagged overdue
-            set flaggedOverdue to 0
-            repeat with aTask in overdueTasks
-                if flagged of aTask then set flaggedOverdue to flaggedOverdue + 1
-            end repeat
-            
-            if flaggedOverdue > 0 then
-                set taskList to taskList & "• " & flaggedOverdue & " flagged tasks are overdue - prioritize these first" & return
-            end if
-            
-            if (count of olderOverdue) > 0 then
-                set taskList to taskList & "• " & (count of olderOverdue) & " tasks are significantly overdue - consider rescheduling or dropping" & return
-            end if
-            
-            if (count of overdueTasks) > 10 then
-                set taskList to taskList & "• Large backlog detected - consider a focused catch-up session" & return
-            end if
-            
-            set taskList to taskList & "• Review and either complete, reschedule, or drop each overdue task"
-            
-            return taskList
+            set taskNameList to name of every flattened task
+            set flaggedList to flagged of every flattened task
+            set dueDateList to due date of every flattened task
+            set deferDateList to defer date of every flattened task
+            set effCompletedList to effectively completed of every flattened task
+            set effDroppedList to effectively dropped of every flattened task
+            set containerIDList to id of containing project of every flattened task
+            set containerNameList to name of containing project of every flattened task
         end tell
     end tell
+    set currentTime to current date
+
+    -- Open tasks only: not completed or dropped, also not through their project or parent task;
+    -- tasks of projects below hidden (dropped) folders are left out
+    set overdueIndexes to {}
+    repeat with t from 1 to count of taskNameList
+        set dueDate to item t of dueDateList
+        if dueDate is not missing value then
+            if dueDate < currentTime and not (item t of effCompletedList) then
+                if includeDropped or not (item t of effDroppedList) then
+                    if not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList) then set end of overdueIndexes to t
+                end if
+            end if
+        end if
+    end repeat
+
+    if (count of overdueIndexes) = 0 then
+        return "✅ No overdue tasks! You're all caught up!"
+    end if
+
+    -- Sort tasks by how overdue they are (most overdue first)
+    set overdueIndexes to my sortPositionsAscending(overdueIndexes, dueDateList)
+
+    -- Group by overdue period
+    set todayOverdue to {}
+    set yesterdayOverdue to {}
+    set thisWeekOverdue to {}
+    set lastWeekOverdue to {}
+    set olderOverdue to {}
+    set flaggedOverdue to 0
+
+    copy currentTime to todayStart
+    set hours of todayStart to 0
+    set minutes of todayStart to 0
+    set seconds of todayStart to 0
+
+    set yesterdayStart to todayStart - 1 * days
+    set weekAgoStart to todayStart - 7 * days
+    set twoWeeksAgoStart to todayStart - 14 * days
+
+    repeat with idx in overdueIndexes
+        set t to contents of idx
+        set dueDate to item t of dueDateList
+        set lineText to my formatOverdueTask(item t of taskNameList, dueDate, item t of containerNameList, item t of flaggedList, item t of deferDateList, currentTime)
+        if item t of flaggedList then set flaggedOverdue to flaggedOverdue + 1
+
+        if dueDate ≥ todayStart then
+            set end of todayOverdue to lineText
+        else if dueDate ≥ yesterdayStart then
+            set end of yesterdayOverdue to lineText
+        else if dueDate ≥ weekAgoStart then
+            set end of thisWeekOverdue to lineText
+        else if dueDate ≥ twoWeeksAgoStart then
+            set end of lastWeekOverdue to lineText
+        else
+            set end of olderOverdue to lineText
+        end if
+    end repeat
+
+    -- Build output
+    set taskList to "⚠️ Overdue Tasks (" & (count of overdueIndexes) & " items)" & return
+    set taskList to taskList & "════════════════════════════" & return & return
+
+    -- Earlier today
+    if (count of todayOverdue) > 0 then
+        set taskList to taskList & "🔴 Earlier Today (" & (count of todayOverdue) & "):" & return
+        repeat with lineText in todayOverdue
+            set taskList to taskList & lineText & return
+        end repeat
+        set taskList to taskList & return
+    end if
+
+    -- Yesterday
+    if (count of yesterdayOverdue) > 0 then
+        set taskList to taskList & "🟠 Yesterday (" & (count of yesterdayOverdue) & "):" & return
+        repeat with lineText in yesterdayOverdue
+            set taskList to taskList & lineText & return
+        end repeat
+        set taskList to taskList & return
+    end if
+
+    -- This week
+    if (count of thisWeekOverdue) > 0 then
+        set taskList to taskList & "🟡 This Week (" & (count of thisWeekOverdue) & "):" & return
+        repeat with lineText in thisWeekOverdue
+            set taskList to taskList & lineText & return
+        end repeat
+        set taskList to taskList & return
+    end if
+
+    -- Last week
+    if (count of lastWeekOverdue) > 0 then
+        set taskList to taskList & "📅 Last Week (" & (count of lastWeekOverdue) & "):" & return
+        repeat with lineText in lastWeekOverdue
+            set taskList to taskList & lineText & return
+        end repeat
+        set taskList to taskList & return
+    end if
+
+    -- Older
+    if (count of olderOverdue) > 0 then
+        set taskList to taskList & "📆 Older (" & (count of olderOverdue) & "):" & return
+        repeat with lineText in olderOverdue
+            set taskList to taskList & lineText & return
+        end repeat
+        set taskList to taskList & return
+    end if
+
+    -- Add action summary
+    set taskList to taskList & return & "💡 Recommended Actions:" & return
+
+    if flaggedOverdue > 0 then
+        set taskList to taskList & "• " & flaggedOverdue & " flagged tasks are overdue - prioritize these first" & return
+    end if
+
+    if (count of olderOverdue) > 0 then
+        set taskList to taskList & "• " & (count of olderOverdue) & " tasks are significantly overdue - consider rescheduling or dropping" & return
+    end if
+
+    if (count of overdueIndexes) > 10 then
+        set taskList to taskList & "• Large backlog detected - consider a focused catch-up session" & return
+    end if
+
+    set taskList to taskList & "• Review and either complete, reschedule, or drop each overdue task"
+
+    return taskList
 end run
 
-on formatOverdueTask(aTask)
-    tell application "OmniFocus"
-        set taskName to name of aTask
-        set dueDate to due date of aTask
-        set currentTime to current date
-        
-        -- Calculate how overdue
-        set hoursOverdue to (currentTime - dueDate) / hours as integer
-        set daysOverdue to (currentTime - dueDate) / days as integer
-        
-        set overdueText to ""
-        if hoursOverdue < 24 then
-            if hoursOverdue = 1 then
-                set overdueText to "1 hour ago"
-            else
-                set overdueText to hoursOverdue & " hours ago"
-            end if
-        else if daysOverdue = 1 then
-            set overdueText to "1 day ago"
+on formatOverdueTask(taskName, dueDate, projectName, isFlagged, deferDate, currentTime)
+    -- One entry from values that are already read: no Apple Events
+    -- Calculate how overdue
+    set hoursOverdue to (currentTime - dueDate) / hours as integer
+    set daysOverdue to (currentTime - dueDate) / days as integer
+
+    set overdueText to ""
+    if hoursOverdue < 24 then
+        if hoursOverdue = 1 then
+            set overdueText to "1 hour ago"
         else
-            set overdueText to daysOverdue & " days ago"
+            set overdueText to hoursOverdue & " hours ago"
         end if
-        
-        -- Get project info
-        set projectInfo to ""
-        try
-            set projName to name of containing project of aTask
-            set projectInfo to " [" & projName & "]"
-        on error
-            set projectInfo to " [Inbox]"
-        end try
-        
-        -- Check flags
-        set flags to ""
-        if flagged of aTask then set flags to " 🚩"
-        
-        -- Check if blocked by defer date
-        try
-            set deferDate to defer date of aTask
-            if deferDate is not missing value and deferDate > currentTime then
-                set flags to flags & " ⏸"
-            end if
-        end try
-        
-        return "• " & taskName & projectInfo & flags & return & "  ⏰ Was due: " & overdueText & " (" & (date string of dueDate) & ")"
-    end tell
+    else if daysOverdue = 1 then
+        set overdueText to "1 day ago"
+    else
+        set overdueText to daysOverdue & " days ago"
+    end if
+
+    -- Project info; tasks outside projects are in the inbox
+    set projectInfo to " [Inbox]"
+    if projectName is not missing value then set projectInfo to " [" & projectName & "]"
+
+    -- Check flags
+    set flags to ""
+    if isFlagged then set flags to " 🚩"
+
+    -- Check if blocked by defer date
+    if deferDate is not missing value then
+        if deferDate > currentTime then set flags to flags & " ⏸"
+    end if
+
+    return "• " & taskName & projectInfo & flags & return & "  ⏰ Was due: " & overdueText & " (" & (date string of dueDate) & ")"
 end formatOverdueTask
+
+on hiddenFolderProjectIDs()
+    -- IDs of all projects below a hidden (dropped) folder, at any depth. One query per list instead of one per project:
+    -- every Apple Event costs about 17 ms, a query for all elements about 50 ms.
+    set idList to {}
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hiddenFlags to effectively hidden of every flattened folder
+                if hiddenFlags does not contain true then return {}
+                set hiddenFolderIDList to id of every flattened folder whose effectively hidden is true
+                set projectIDList to id of every flattened project
+                set projectFolderIDList to id of folder of every flattened project
+                repeat with i from 1 to count of projectIDList
+                    set folderID to item i of projectFolderIDList
+                    if folderID is not missing value then
+                        if hiddenFolderIDList contains folderID then set end of idList to item i of projectIDList
+                    end if
+                end repeat
+            end try
+        end tell
+    end tell
+    return idList
+end hiddenFolderProjectIDs
+
+on sortPositionsAscending(positionList, keyList)
+    -- The positions in positionList ordered by the key at each position (keyList), smallest key first
+    -- (bottom-up merge sort, equal keys keep their order). No Apple Events: the keys are values in a list.
+    set itemCount to count of positionList
+    set orderList to positionList
+    set blockSize to 1
+    repeat while blockSize < itemCount
+        set mergedList to {}
+        set blockStart to 1
+        repeat while blockStart ≤ itemCount
+            set leftPos to blockStart
+            set leftEnd to blockStart + blockSize - 1
+            if leftEnd > itemCount then set leftEnd to itemCount
+            set rightPos to blockStart + blockSize
+            set rightEnd to blockStart + 2 * blockSize - 1
+            if rightEnd > itemCount then set rightEnd to itemCount
+            repeat while leftPos ≤ leftEnd and rightPos ≤ rightEnd
+                if (item (item leftPos of orderList) of keyList) ≤ (item (item rightPos of orderList) of keyList) then
+                    set end of mergedList to item leftPos of orderList
+                    set leftPos to leftPos + 1
+                else
+                    set end of mergedList to item rightPos of orderList
+                    set rightPos to rightPos + 1
+                end if
+            end repeat
+            repeat while leftPos ≤ leftEnd
+                set end of mergedList to item leftPos of orderList
+                set leftPos to leftPos + 1
+            end repeat
+            repeat while rightPos ≤ rightEnd
+                set end of mergedList to item rightPos of orderList
+                set rightPos to rightPos + 1
+            end repeat
+            set blockStart to blockStart + 2 * blockSize
+        end repeat
+        set orderList to mergedList
+        set blockSize to blockSize * 2
+    end repeat
+    return orderList
+end sortPositionsAscending
+
+on isHiddenProjectID(containerID, hiddenProjectIDList)
+    -- True if the ID is the ID of a project below a hidden (dropped) folder (tasks outside projects have no project ID)
+    if containerID is missing value then return false
+    if (count of hiddenProjectIDList) = 0 then return false
+    return (hiddenProjectIDList contains containerID)
+end isHiddenProjectID
