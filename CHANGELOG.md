@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Review tools**: `list_projects_for_review`, `mark_project_reviewed`, `list_stalled_projects`
 - **Projects and folders**: `create_project`, `edit_project` (name, note, folder, status, type), `create_folder`,
   `rename_folder`
+- **Tags**: `edit_tag` (name, note, parent, hidden, allows next action)
 - **Tasks**: `get_task` (all details of one task) and `drop_task` (deleting needs the explicit `confirm_delete`)
 - **ID addressing**: task and project tools accept `id:<id>`; list outputs, search results and ambiguity messages
   show the IDs
@@ -31,10 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `list_projects` shows the folder path, lists on hold projects and counts available tasks correctly
 - `list_inbox`, `list_overdue_tasks` and `search_tasks` list open tasks only
 - Tool output uses line feeds instead of carriage returns
+- Tags are found at every level of the tag hierarchy, by name, path `Parent > Child` or `id:<id>`
+  (`add_task`, `batch_add_tasks`, `edit_task`, `add_tag_to_task`, `remove_tag_from_task`, `create_tag`). An ambiguous
+  tag name returns the matches and changes nothing
+- `create_tag` looks for an existing tag with the same name below the same parent only, and accepts a nested tag as parent
+- `list_tags` shows IDs, hidden tags and tags that do not allow next actions
 
 ### Fixed
 - `search_tasks` with `filter: "remaining"` or `"available"` failed
 - Completed tasks showed up in `list_inbox` and `list_overdue_tasks`
+- Adding a nested tag to a task created a second tag with the same name at top level
 
 ### Security
 - Tool output is wrapped in a block marked as untrusted data, so that task names and notes are not read as instructions

@@ -55,7 +55,8 @@ describe('AppleScript Integration', () => {
                 'mark_project_reviewed.applescript',
                 'list_stalled_projects.applescript',
                 'list_tasks_filtered.applescript',
-                'list_completed_tasks.applescript'
+                'list_completed_tasks.applescript',
+                'edit_tag.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -322,6 +323,68 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('propertyName is "type"');
             expect(content).toContain('singleton action holder');
             expect(content).toContain('set sequential of targetProject');
+        });
+    });
+
+    describe('Tag hierarchy tools', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+        const tagScripts = [
+            path.join('..', 'add_task.applescript'),
+            'batch_add_tasks.applescript',
+            'edit_task.applescript',
+            'add_tag_to_task.applescript',
+            'remove_tag_from_task.applescript',
+            'create_tag.applescript',
+            'edit_tag.applescript',
+            'list_tasks_filtered.applescript'
+        ];
+
+        test('tags are looked up at every level, not only at top level', () => {
+            tagScripts.forEach(script => {
+                const content = read(script);
+                expect(content).toContain('on resolveTag(queryText, allowPartial)');
+                expect(content).toContain('every flattened tag');
+                // The old lookup only saw top-level tags and created duplicates of nested ones
+                expect(content).not.toContain('every tag whose name is');
+            });
+        });
+
+        test('scripts that attach tags create missing tags only through findOrCreateTag', () => {
+            ['add_task.applescript', 'batch_add_tasks.applescript', 'edit_task.applescript', 'add_tag_to_task.applescript'].forEach(script => {
+                const content = script === 'add_task.applescript'
+                    ? fs.readFileSync(path.join(enhancedScriptsDir, '..', script), 'utf8')
+                    : read(script);
+                expect(content).toContain('my findOrCreateTag(');
+                expect(content).not.toContain('make new tag with properties {name:tagName}');
+            });
+        });
+
+        test('create_tag.applescript checks for duplicates below the same parent', () => {
+            const content = read('create_tag.applescript');
+            expect(content).toContain('my hasTagNamed(parentTag, tagName');
+            expect(content).toContain('Parent tag not found');
+        });
+
+        test('edit_tag.applescript supports all properties', () => {
+            const content = read('edit_tag.applescript');
+            ['name', 'note', 'parent', 'hidden', 'allows_next_action'].forEach(property => {
+                expect(content).toContain(`propertyName is "${property}"`);
+            });
+            expect(content).toContain('set hidden of targetTag');
+            expect(content).toContain('set allows next action of targetTag');
+        });
+
+        test('edit_tag.applescript does not move a tag below itself and resolves names exactly', () => {
+            const content = read('edit_tag.applescript');
+            expect(content).toContain('ownIDs contains newParentID');
+            expect(content).toContain('my resolveTag(tagText, false)');
+        });
+
+        test('list_tags.applescript shows IDs, hidden tags and tags without next actions', () => {
+            const content = read('list_tags.applescript');
+            expect(content).toContain('on tagSuffix(aTag)');
+            expect(content).toContain('hidden of aTag');
+            expect(content).toContain('allows next action of aTag');
         });
     });
 

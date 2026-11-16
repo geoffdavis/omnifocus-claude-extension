@@ -12,7 +12,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Read version - try from package.json if available, otherwise use fallback
-let VERSION = '2.0.1'; // Fallback version
+let VERSION = '2.2.2'; // Fallback version
 try {
     const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
     if (fs.existsSync(packageJsonPath)) {
@@ -109,7 +109,7 @@ const tools = [
                 },
                 tags: {
                     type: 'string',
-                    description: 'Comma-separated list of tags to apply to the task (e.g., "work,urgent")'
+                    description: 'Comma-separated list of tags to apply to the task (e.g., "work,urgent"). Tags at any level are found by name, by path "Parent > Child" or by "id:<id>"; a tag that does not exist is created.'
                 }
             },
             required: ['name']
@@ -197,7 +197,7 @@ const tools = [
                 },
                 value: {
                     type: 'string',
-                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date and defer_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear.'
+                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date and defer_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags.'
                 }
             },
             required: ['task_name', 'property', 'value']
@@ -228,7 +228,7 @@ const tools = [
                 },
                 tags: {
                     type: 'string',
-                    description: 'Comma-separated tags to apply to all created tasks (e.g., "work,urgent")'
+                    description: 'Comma-separated tags to apply to all created tasks (e.g., "work,urgent"). Tags at any level are found by name, by path "Parent > Child" or by "id:<id>"; a tag that does not exist is created.'
                 }
             },
             required: ['tasks']
@@ -303,7 +303,7 @@ const tools = [
     // Tag management tools
     {
         name: 'list_tags',
-        description: 'List all tags in OmniFocus, optionally with per-tag task counts',
+        description: 'List all tags in OmniFocus as a hierarchy with ID, a note for hidden tags and tags that do not allow next actions, optionally with per-tag task counts',
         inputSchema: {
             type: 'object',
             properties: {
@@ -327,7 +327,7 @@ const tools = [
                 },
                 parent_tag: {
                     type: 'string',
-                    description: 'Optional parent tag name to nest this tag under'
+                    description: 'Optional existing parent tag to nest this tag under, by name, path "Parent > Child" or "id:<id>" (tags at any level are found). Fails without changes if the parent is missing or ambiguous.'
                 }
             },
             required: ['name']
@@ -345,7 +345,7 @@ const tools = [
                 },
                 tag_name: {
                     type: 'string',
-                    description: 'Name of the tag to add'
+                    description: 'Tag to add: name, path "Parent > Child" or "id:<id>" (tags at any level are found; a missing tag is created; an ambiguous name returns the matches instead of changing anything)'
                 }
             },
             required: ['task_name', 'tag_name']
@@ -363,10 +363,34 @@ const tools = [
                 },
                 tag_name: {
                     type: 'string',
-                    description: 'Name of the tag to remove'
+                    description: 'Tag to remove: name, path "Parent > Child" or "id:<id>" (tags at any level are found; an ambiguous name returns the matches instead of changing anything)'
                 }
             },
             required: ['task_name', 'tag_name']
+        }
+    },
+
+    {
+        name: 'edit_tag',
+        description: 'Edit an existing tag: rename it, change its note, move it below another tag or to top level, hide it, or set whether tasks with this tag can be next actions (for example false for a "Waiting for" tag). Fails without changes if the tag name is ambiguous.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                tag: {
+                    type: 'string',
+                    description: 'Tag name, path "Parent > Child" or "id:<id>" as shown by list_tags (tags at any level are found, names must match exactly, ignoring case)'
+                },
+                property: {
+                    type: 'string',
+                    enum: ['name', 'note', 'parent', 'hidden', 'allows_next_action'],
+                    description: 'Property to modify'
+                },
+                value: {
+                    type: 'string',
+                    description: 'New value. For name: the new tag name. For note: the new note text. For parent: an existing tag by name, path "Parent > Child" or "id:<id>", or "none" for top level. For hidden and allows_next_action: "true" or "false".'
+                }
+            },
+            required: ['tag', 'property', 'value']
         }
     },
 
@@ -857,6 +881,14 @@ async function executeTool(name, args) {
                 result = executeAppleScriptFile('list_completed_tasks', [
                     String(sanitizeLimit(args.days, 7, 3650)),
                     String(sanitizeLimit(args.limit, 100))
+                ]);
+                break;
+
+            case 'edit_tag':
+                result = executeAppleScriptFile('edit_tag', [
+                    args.tag || '',
+                    args.property || '',
+                    args.value !== undefined && args.value !== null ? String(args.value) : ''
                 ]);
                 break;
 

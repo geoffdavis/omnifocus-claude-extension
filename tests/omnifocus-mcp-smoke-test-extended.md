@@ -14,7 +14,7 @@ Copy everything below the `---START PROMPT---` line and paste it into Claude Des
 - The OmniFocus MCP server is connected and OmniFocus is open
 - A project named **"Smoke Test"** exists (the same one as in the base smoke test)
 
-**Safety:** All synthetic data uses the `SMOKETEST` + YYMMDDHHMMSS prefix. Tasks are created in the "Smoke Test" project and are deleted again at the end with `drop_task` and `confirm_delete`. The folder and project created in Phase 3 cannot be removed with the tools and have to be deleted by hand in OmniFocus. No existing data is modified.
+**Safety:** All synthetic data uses the `SMOKETEST` + YYMMDDHHMMSS prefix. Tasks are created in the "Smoke Test" project and are deleted again at the end with `drop_task` and `confirm_delete`. The tags created in Phases 2 and 3, and the folder and project created in Phase 4, cannot be removed with the tools and have to be deleted by hand in OmniFocus. No existing data is modified.
 
 ---START PROMPT---
 
@@ -52,7 +52,20 @@ All tasks MUST use `project: "Smoke Test"`.
 | A06 | `complete_task` | `task_name: "id:<ID from A03>"`. PASS if completed. |
 | A07 | `list_completed_tasks` | `days: 1`. PASS if `{PREFIX} Task A` is listed. |
 
-## Phase 3: Folders and projects (7 tests)
+## Phase 3: Tag hierarchy (8 tests)
+
+| Test ID | Tool | Action |
+|---------|------|--------|
+| T01 | `create_tag` | Create tag `{PREFIX}-Parent`. PASS if created. |
+| T02 | `create_tag` | Create tag `{PREFIX}-Child` with `parent_tag: "{PREFIX}-Parent"`. PASS if created. |
+| T03 | `create_tag` | Create tag `{PREFIX}-Grandchild` with `parent_tag: "{PREFIX}-Parent > {PREFIX}-Child"`. PASS if created below the child tag (a nested tag as parent). |
+| T04 | `list_tags` | No parameters. PASS if the three tags are shown nested, each with an `[id:...]`. Remember the ID of `{PREFIX}-Child`. |
+| T05 | `add_task` | Create `{PREFIX} Task C` in project `Smoke Test` with tags `{PREFIX}-Parent > {PREFIX}-Child`. PASS if created, and `get_task` shows exactly one tag `{PREFIX}-Child` and `list_tags` shows no second top-level `{PREFIX}-Child`. |
+| T06 | `edit_tag` | `tag: "id:<ID from T04>"`, `property: "allows_next_action"`, `value: "false"`. PASS if confirmed and `list_tags` marks the tag as "no next action". |
+| T07 | `edit_tag` | `tag: "{PREFIX}-Child"`, `property: "name"`, `value: "{PREFIX}-Child2"`. PASS if confirmed. Then `edit_tag` with `tag: "{PREFIX}-Parent"`, `property: "parent"`, `value: "{PREFIX}-Child2"` must FAIL with a message that a tag cannot be moved below one of its child tags. |
+| T08 | `edit_tag` | `tag: "{PREFIX}-Grandchild"`, `property: "hidden"`, `value: "true"`, then `value: "false"`. PASS if both are confirmed and `list_tags` shows the tag as hidden in between. |
+
+## Phase 4: Folders and projects (7 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -64,7 +77,7 @@ All tasks MUST use `project: "Smoke Test"`.
 | P06 | `mark_project_reviewed` | `project: "{PREFIX} Folder > {PREFIX} Project"`. PASS if a next review date is shown. |
 | P07 | `rename_folder` | Rename `{PREFIX} Folder` to `{PREFIX} Folder Renamed`. PASS if confirmed. |
 
-## Phase 4: Drop and delete (3 tests)
+## Phase 5: Drop and delete (3 tests)
 
 | Test ID | Tool | Action |
 |---------|------|--------|
@@ -72,13 +85,13 @@ All tasks MUST use `project: "Smoke Test"`.
 | D02 | `drop_task` | **Edge case:** `task_name: "{PREFIX} DOES NOT EXIST"`. PASS if it returns an error. |
 | D03 | `edit_project` | `project: "{PREFIX} Project"`, `property: "status"`, `value: "dropped"`. PASS if confirmed. |
 
-## Phase 5: Cleanup
+## Phase 6: Cleanup
 
-1. Delete `{PREFIX} Task A` and `{PREFIX} Task B` with `drop_task` and `confirm_delete: true`.
-2. Delete the tag `{PREFIX}-Tag` in OmniFocus by hand.
+1. Delete `{PREFIX} Task A`, `{PREFIX} Task B` and `{PREFIX} Task C` with `drop_task` and `confirm_delete: true`.
+2. Delete the tags `{PREFIX}-Tag` and `{PREFIX}-Parent` (with its child tags) in OmniFocus by hand.
 3. Delete the folder `{PREFIX} Folder Renamed` with its project `{PREFIX} Project` in OmniFocus by hand, because the tools cannot delete folders or projects.
 4. Run `search_tasks` with `query: "{PREFIX}"` and `filter: "all"`. PASS if nothing is found.
 
-## Phase 6: Report
+## Phase 7: Report
 
 List every test with its ID, tool and PASS or FAIL, plus the error message for failures. Close with the totals (tests, passed, failed) and the cleanup status.

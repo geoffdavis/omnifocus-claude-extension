@@ -240,7 +240,7 @@ describe('MCP Server', () => {
 
             const responses = responseData.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
             const toolNames = responses.find(r => r.id === 2).result.tools.map(t => t.name);
-            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks'].forEach(name => {
+            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks', 'edit_tag'].forEach(name => {
                 expect(toolNames).toContain(name);
             });
 

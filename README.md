@@ -20,9 +20,9 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 ### Tags
 - **List Tags**: View all tags with hierarchy
 - **Create Tags**: Create tags, optionally nested under a parent
-- **Delete Tags**: Remove tags from OmniFocus
+- **Edit Tags**: Rename, move, hide a tag, change its note or whether its tasks can be next actions
 - **Tag Tasks**: Add or remove tags on existing tasks
-- **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks
+- **Tags on Creation**: Specify tags when adding tasks, batch-creating tasks, or editing tasks. Tags at any level are found by name, by path `Parent > Child` or by `id:<id>`
 
 ### Views
 - **List Projects**: View all active projects with task counts
@@ -91,6 +91,10 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "List all my tags"
 "Create a tag called 'Urgent'"
 "Create a 'Home' tag under 'Locations'"
+"Rename the tag 'Waiting' to 'Waiting for'"
+"Make tasks with the tag 'Waiting for' no longer next actions"
+"Hide the tag 'Someday'"
+"Move the tag 'Phone' below 'Locations'"
 "Add tag 'Priority' to my 'Review reports' task"
 "Remove tag 'Waiting' from 'Follow up with client'"
 "Add task 'Fix login bug' with tags Priority, Computer"
@@ -153,8 +157,9 @@ to include them.
 | `weekly_review` | GTD weekly review | "Show weekly review" |
 | `get_task` | Show all details of one task | "Show details of 'Report'" |
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
-| `list_tags` | Show all tags with hierarchy | "List my tags" |
-| `create_tag` | Create a new tag | "Create tag 'Urgent'" |
+| `list_tags` | Show all tags with hierarchy, IDs and hidden / no-next-action flags | "List my tags" |
+| `create_tag` | Create a new tag, optionally below another tag | "Create tag 'Urgent'" |
+| `edit_tag` | Rename, move, hide a tag, change its note or next-action behavior | "Rename tag 'Waiting' to 'Waiting for'" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 | `create_project` | Create a project, optionally in a folder | "Create project 'Website 2.0' in 'Clients'" |
@@ -189,6 +194,7 @@ omnifocus-claude-extension/
 │   │   │   ├── list_overdue_tasks.applescript
 │   │   │   ├── list_tags.applescript
 │   │   │   ├── create_tag.applescript
+│   │   │   ├── edit_tag.applescript
 │   │   │   ├── add_tag_to_task.applescript
 │   │   │   ├── remove_tag_from_task.applescript
 │   │   │   ├── get_task.applescript
