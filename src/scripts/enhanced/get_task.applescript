@@ -82,6 +82,8 @@ on run argv
             if dueValue is not missing value then set taskInfo to taskInfo & "Due: " & (dueValue as string) & return
             set estimateValue to estimated minutes of targetTask
             if estimateValue is not missing value then set taskInfo to taskInfo & "Estimate: " & estimateValue & " minutes" & return
+            set repeatText to my repetitionText(targetTask)
+            if repeatText is not "" then set taskInfo to taskInfo & "Repeats: " & repeatText & return
             set subtaskCount to number of tasks of targetTask
             if subtaskCount > 0 then set taskInfo to taskInfo & "Subtasks: " & subtaskCount & return
             
@@ -126,3 +128,118 @@ on projectLabel(aProject)
     return labelText & projectName
 end projectLabel
 
+on parseRepeatRule(ruleText)
+    -- Reads a repeat rule: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "1 month", "every 2 weeks".
+    -- "fixed" at the end means a fixed schedule instead of "after completion", for example "weekly fixed".
+    -- Returns {isValid, ruleString, useFixed, errorText}; ruleString is an iCalendar string such as FREQ=WEEKLY;INTERVAL=2
+    set problemText to "❌ Invalid repeat: " & ruleText & ". Use for example \"daily\", \"weekly\", \"2 weeks\", \"3 months\" or \"1 year\", add \"fixed\" for a fixed schedule (\"weekly fixed\"), or \"none\" to stop repeating."
+    set wordList to words of ruleText
+    set useFixed to false
+    ignoring case
+        if (count of wordList) > 1 and item 1 of wordList is "every" then set wordList to items 2 thru -1 of wordList
+        if (count of wordList) > 1 and item -1 of wordList is "fixed" then
+            set useFixed to true
+            set wordList to items 1 thru -2 of wordList
+        end if
+    end ignoring
+
+    set stepCount to 1
+    if (count of wordList) = 1 then
+        set unitWord to item 1 of wordList
+    else if (count of wordList) = 2 then
+        try
+            set stepCount to (item 1 of wordList) as integer
+        on error
+            return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
+        end try
+        set unitWord to item 2 of wordList
+    else
+        return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
+    end if
+    if stepCount < 1 or stepCount > 999 then return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
+
+    set frequencyText to ""
+    ignoring case
+        if unitWord is "daily" then set unitWord to "day"
+        if unitWord is "weekly" then set unitWord to "week"
+        if unitWord is "monthly" then set unitWord to "month"
+        if unitWord is "yearly" or unitWord is "annually" then set unitWord to "year"
+        if (length of unitWord) > 1 and unitWord ends with "s" then set unitWord to text 1 thru -2 of unitWord
+        if unitWord is "day" then set frequencyText to "DAILY"
+        if unitWord is "week" then set frequencyText to "WEEKLY"
+        if unitWord is "month" then set frequencyText to "MONTHLY"
+        if unitWord is "year" then set frequencyText to "YEARLY"
+    end ignoring
+    if frequencyText is "" then return {isValid:false, ruleString:"", useFixed:false, errorText:problemText}
+
+    set recurrenceText to "FREQ=" & frequencyText
+    if stepCount > 1 then set recurrenceText to recurrenceText & ";INTERVAL=" & stepCount
+    return {isValid:true, ruleString:recurrenceText, useFixed:useFixed, errorText:""}
+end parseRepeatRule
+
+on describeRecurrence(recurrenceText)
+    -- "FREQ=WEEKLY;INTERVAL=2" becomes "every 2 weeks"; rules with more parts are returned unchanged
+    set cleanText to recurrenceText
+    if cleanText starts with "RRULE:" then set cleanText to text 7 thru -1 of cleanText
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ";"
+    set partList to text items of cleanText
+    set AppleScript's text item delimiters to oldDelims
+
+    set frequencyText to ""
+    set stepCount to 1
+    repeat with aPart in partList
+        set partText to aPart as text
+        if partText starts with "FREQ=" then
+            set frequencyText to text 6 thru -1 of partText
+        else if partText starts with "INTERVAL=" then
+            try
+                set stepCount to (text 10 thru -1 of partText) as integer
+            on error
+                return recurrenceText
+            end try
+        else
+            return recurrenceText
+        end if
+    end repeat
+
+    set unitName to ""
+    if frequencyText is "DAILY" then set unitName to "day"
+    if frequencyText is "WEEKLY" then set unitName to "week"
+    if frequencyText is "MONTHLY" then set unitName to "month"
+    if frequencyText is "YEARLY" then set unitName to "year"
+    if unitName is "" or stepCount < 1 then return recurrenceText
+    if stepCount is 1 then return "every " & unitName
+    return "every " & stepCount & " " & unitName & "s"
+end describeRecurrence
+
+on repetitionText(theTask)
+    -- Describes how a task repeats, for example "every 2 weeks, due date after completion", "" if it does not repeat
+    set recurrenceText to ""
+    set methodText to ""
+    tell application "OmniFocus"
+        try
+            set theRule to repetition rule of theTask
+        on error
+            return ""
+        end try
+        if theRule is missing value then return ""
+        try
+            set recurrenceText to recurrence of theRule
+        end try
+        try
+            set methodValue to repetition method of theRule
+            if methodValue is fixed repetition then
+                set methodText to "fixed schedule"
+            else if methodValue is start after completion then
+                set methodText to "defer date after completion"
+            else if methodValue is due after completion then
+                set methodText to "due date after completion"
+            end if
+        end try
+    end tell
+    set resultText to "repeats"
+    if recurrenceText is not "" then set resultText to my describeRecurrence(recurrenceText)
+    if methodText is not "" then set resultText to resultText & ", " & methodText
+    return resultText
+end repetitionText

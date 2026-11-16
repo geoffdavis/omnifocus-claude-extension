@@ -204,7 +204,7 @@ const tools = [
     },
     {
         name: 'edit_task',
-        description: 'Edit properties of an existing task',
+        description: 'Edit properties of an existing task, including its repetition (repeat)',
         inputSchema: {
             type: 'object',
             properties: {
@@ -214,12 +214,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags'],
+                    enum: ['name', 'note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags', 'repeat'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags.'
+                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For repeat: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks" and so on; the next occurrence follows the completion, add "fixed" ("weekly fixed") for a fixed schedule; "none" stops the repetition. The task needs a due, defer or planned date.'
                 }
             },
             required: ['task_name', 'property', 'value']
@@ -574,7 +574,7 @@ const tools = [
     },
     {
         name: 'get_task',
-        description: 'Show the details of one task: ID, state, project with folder path, tags, dates, estimate, subtask count and note',
+        description: 'Show the details of one task: ID, state, project with folder path, tags, dates, estimate, repetition, subtask count and note',
         inputSchema: {
             type: 'object',
             properties: {

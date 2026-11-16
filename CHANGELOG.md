@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tags**: `edit_tag` (name, note, parent, hidden, allows next action)
 - **Tasks**: `reopen_task` (completed or dropped tasks), `planned_date` in `add_task` and `edit_task`, and `parent_task` in
   `add_task` to create a subtask under an existing task
+- **Repetition**: `edit_task` sets (`repeat`: "daily", "2 weeks", "weekly fixed", ...) or removes (`none`) the repetition of
+  an existing task, `get_task` shows it
 - **Projects**: `get_project` shows a project with status, type, dates, review interval and all its tasks as an indented
   list with subtasks, including blocked and deferred tasks (completed and dropped tasks on request)
 - **Tasks**: `get_task` (all details of one task) and `drop_task` (deleting needs the explicit `confirm_delete`)

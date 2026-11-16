@@ -399,6 +399,40 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Task repetition', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('edit_task.applescript sets and removes the repetition', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('propertyName is "repeat"');
+            expect(content).toContain('set repetition rule of targetTask to missing value');
+            expect(content).toContain('repetition method:fixed repetition, recurrence:ruleString of repeatInfo');
+            expect(content).toContain('repetition method:due after completion, recurrence:ruleString of repeatInfo');
+            expect(content).toContain('Valid properties: name, note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat');
+        });
+
+        test('edit_task.applescript refuses to repeat a task without a date and rejects unknown rules', () => {
+            const content = read('edit_task.applescript');
+            expect(content).toContain('A repeating task needs a due, defer or planned date');
+            expect(content).toContain('Invalid repeat');
+            expect(content).toContain('on parseRepeatRule(');
+        });
+
+        test('parseRepeatRule builds the iCalendar strings for all units', () => {
+            const content = read('edit_task.applescript');
+            ['"DAILY"', '"WEEKLY"', '"MONTHLY"', '"YEARLY"', '";INTERVAL=" & stepCount'].forEach(part => {
+                expect(content).toContain(part);
+            });
+        });
+
+        test('get_task.applescript shows how a task repeats', () => {
+            const content = read('get_task.applescript');
+            expect(content).toContain('my repetitionText(targetTask)');
+            expect(content).toContain('"Repeats: "');
+            expect(content).toContain('repetition rule of theTask');
+        });
+    });
+
     describe('Task lifecycle tools', () => {
         const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
 

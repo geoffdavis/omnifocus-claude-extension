@@ -38,7 +38,7 @@ Construct the test prefix `SMOKETEST` + YYMMDDHHMMSS from the current date and t
 | Q08 | `list_projects` | `include_dropped: true`. PASS if it returns the projects plus a "Dropped Projects" section when dropped projects exist. |
 | Q09 | `list_inbox` | `include_dropped: false`. PASS if every listed task has an `[id:...]`. |
 
-## Phase 2: Tasks and tags (11 tests)
+## Phase 2: Tasks and tags (15 tests)
 
 All tasks MUST use `project: "Smoke Test"`.
 
@@ -55,6 +55,10 @@ All tasks MUST use `project: "Smoke Test"`.
 | A09 | `add_task` | Create `{PREFIX} Subtask A` with `parent_task: "id:<ID from A03>"` and `planned_date: "2030-01-15"`. PASS if created as a subtask of `{PREFIX} Task A`. |
 | A10 | `get_task` | `task_name: "{PREFIX} Subtask A"`. PASS if it shows the parent task `{PREFIX} Task A` and the planned date. |
 | A11 | `edit_task` | `task_name: "{PREFIX} Subtask A"`, `property: "planned_date"`, `value: "none"`. PASS if the planned date is cleared. |
+| A12 | `edit_task` | `task_name: "{PREFIX} Task A"`, `property: "repeat"`, `value: "2 weeks"`. PASS if it FAILS with a message that a repeating task needs a due, defer or planned date (the task has none), and nothing changes. |
+| A13 | `edit_task` | Set `due_date` of `{PREFIX} Task A` to `2030-01-15`, then `property: "repeat"`, `value: "2 weeks"`. PASS if confirmed with "every 2 weeks, due date after completion", and `get_task` shows a `Repeats:` line with the same text. |
+| A14 | `edit_task` | `property: "repeat"`, `value: "monthly fixed"`. PASS if confirmed with "every month, fixed schedule". Then `value: "fortnight"` must FAIL with "Invalid repeat" and leave the repetition unchanged. |
+| A15 | `edit_task` | `property: "repeat"`, `value: "none"`. PASS if confirmed as stopped, and `get_task` shows no `Repeats:` line. |
 
 ## Phase 3: Tag hierarchy (8 tests)
 

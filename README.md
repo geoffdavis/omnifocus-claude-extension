@@ -89,6 +89,8 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 ```
 "Create weekly recurring task 'Process inbox' due every Sunday"
 "Add monthly recurring 'Review finances' on the 15th"
+"Make the task 'Water plants' repeat every 3 days"
+"Stop the repetition of 'Process inbox'"
 ```
 
 ### Tags
@@ -153,7 +155,7 @@ to include them.
 |---------|-------------|---------|
 | `add_task` | Add a task with full properties | "Add task to buy milk due tomorrow, defer until morning" |
 | `search_tasks` | Search across all tasks | "Search for budget tasks" |
-| `edit_task` | Modify existing task | "Change due date of 'Report' to Friday" |
+| `edit_task` | Modify existing task, including its repetition | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
 | `batch_add_tasks` | Create multiple tasks | "Add tasks: Task1\|Task2\|-Subtask" |
 | `create_recurring_task` | Set up repeating task | "Create daily task 'Review email'" |
 | `list_inbox` | Show inbox tasks | "Show my inbox" |
@@ -165,7 +167,7 @@ to include them.
 | `complete_task` | Mark as complete | "Complete budget review" |
 | `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
-| `get_task` | Show all details of one task | "Show details of 'Report'" |
+| `get_task` | Show all details of one task, including its repetition | "Show details of 'Report'" |
 | `get_project` | Show a project with its properties and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
 | `list_tags` | Show all tags with hierarchy, IDs and hidden / no-next-action flags | "List my tags" |
