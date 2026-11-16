@@ -106,6 +106,34 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 "Give me a weekly review"
 ```
 
+### Projects and Folders
+```
+"Create a folder 'Clients' and a project 'Website relaunch' in it"
+"Rename the project 'Website relaunch' to 'Website 2.0'"
+"Move the project 'Website 2.0' to the folder 'Clients > Active'"
+"Put the project 'Website 2.0' on hold"
+"Make 'Website 2.0' a sequential project"
+"Drop the task 'Old idea'"
+```
+Projects in any folder can be addressed by name or by path (`Folder > Subfolder > Project`). If a name matches
+several projects the tool lists the matches and changes nothing. Tasks and projects can also be addressed by the
+`id:<id>` shown in list outputs.
+
+### GTD Queries and Reviews
+```
+"What can I work on now?"
+"What can I work on in the folder 'Clients'?"
+"Show all tasks tagged 'Waiting for'"
+"Show the available tasks tagged 'Phone'"
+"What did I complete in the last 7 days?"
+"Which projects are due for review?"
+"Mark the project 'Website 2.0' as reviewed"
+"Which projects have no next action?"
+```
+
+Dropped items and items below dropped (hidden) folders are left out of all read tools. Pass `include_dropped: true`
+to include them.
+
 ## Available Commands
 
 | Command | Description | Example |
@@ -123,11 +151,22 @@ Note: Use `|` to separate tasks and `-` prefix for subtasks
 | `list_overdue_tasks` | Show overdue items | "What's overdue?" |
 | `complete_task` | Mark as complete | "Complete budget review" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
+| `get_task` | Show all details of one task | "Show details of 'Report'" |
+| `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
 | `list_tags` | Show all tags with hierarchy | "List my tags" |
 | `create_tag` | Create a new tag | "Create tag 'Urgent'" |
-| `delete_tag` | Delete a tag | "Delete the 'Old' tag" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
+| `create_project` | Create a project, optionally in a folder | "Create project 'Website 2.0' in 'Clients'" |
+| `edit_project` | Rename, change note, folder, status or type of a project | "Put 'Website 2.0' on hold" |
+| `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
+| `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
+| `list_available_tasks` | Next actions across all projects, optionally by tag or folder | "What can I work on now?" |
+| `list_tasks_by_tag` | Open tasks with a tag, grouped by project | "Show tasks tagged 'Waiting for'" |
+| `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
+| `list_projects_for_review` | Projects whose review is due | "Which projects need a review?" |
+| `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
+| `list_stalled_projects` | Active projects without a next action | "Which projects are stalled?" |
 
 ## Development
 
@@ -150,9 +189,19 @@ omnifocus-claude-extension/
 │   │   │   ├── list_overdue_tasks.applescript
 │   │   │   ├── list_tags.applescript
 │   │   │   ├── create_tag.applescript
-│   │   │   ├── delete_tag.applescript
 │   │   │   ├── add_tag_to_task.applescript
-│   │   │   └── remove_tag_from_task.applescript
+│   │   │   ├── remove_tag_from_task.applescript
+│   │   │   ├── get_task.applescript
+│   │   │   ├── drop_task.applescript
+│   │   │   ├── create_project.applescript
+│   │   │   ├── edit_project.applescript
+│   │   │   ├── create_folder.applescript
+│   │   │   ├── rename_folder.applescript
+│   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag
+│   │   │   ├── list_completed_tasks.applescript
+│   │   │   ├── list_projects_for_review.applescript
+│   │   │   ├── mark_project_reviewed.applescript
+│   │   │   └── list_stalled_projects.applescript
 │   │   ├── add_task.applescript
 │   │   ├── complete_task.applescript
 │   │   ├── list_inbox.applescript
