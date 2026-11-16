@@ -116,6 +116,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `search_tasks` with `filter: "remaining"` or `"available"` failed
 - Completed tasks showed up in `list_inbox` and `list_overdue_tasks`
 - Adding a nested tag to a task created a second tag with the same name at top level
+- Dates: `add_task` read "2026-12-01 10:00" as a date in 2007, and the other tools set today or tomorrow when they could
+  not read a date. All tools that take a date now use one parser: `YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, `today`, `tomorrow`,
+  `next week`, `3 days`, `2 weeks`, and the date formats of the system language as a last try. A date that cannot be read
+  (or does not exist, like 2026-02-30) is refused with a clear message and nothing is changed or created; `add_task` skips
+  it and warns, as before
 
 ### Security
 - Tool output is wrapped in a block marked as untrusted data, so that task names and notes are not read as instructions

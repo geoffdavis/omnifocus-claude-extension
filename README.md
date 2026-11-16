@@ -89,6 +89,14 @@ npm run build
 "Set the planned date of 'Review Q3 reports' to Monday"
 ```
 
+**Dates.** All tools that take a date (`add_task`, `batch_add_tasks`, `create_recurring_task`, `create_project`,
+`edit_task`, `edit_project`) read them the same way. These forms do not depend on the language or region of the Mac:
+`YYYY-MM-DD` (midnight), `YYYY-MM-DD HH:MM` (also with `T` between date and time), `today`, `tomorrow`, `next week`,
+`3 days` and `2 weeks`. Anything else (for example `01.12.2026 14:30`) is read by macOS itself with the language and
+region settings of the Mac, so it works only in the formats of that Mac; a date that does not exist, like 31.31.2026, is
+refused. A date that cannot be read is never replaced by today or tomorrow: the edit and create tools refuse it and
+change nothing, and `add_task` creates the task without that date and says so.
+
 ### Batch Operations
 ```
 "Create project plan: Research phase|-Literature review|-Market analysis|Development|-Prototype|-Testing|Launch"

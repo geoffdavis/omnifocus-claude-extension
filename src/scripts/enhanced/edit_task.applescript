@@ -88,8 +88,8 @@ on run argv
                         set due date of targetTask to missing value
                         return "✏️ Cleared due date for: " & originalName
                     else
-                        -- Parse date string (basic parsing)
                         set parsedDate to my parseDate(newValue)
+                        if parsedDate is missing value then return my dateErrorText(newValue, "due_date") & " Nothing was changed."
                         set due date of targetTask to parsedDate
                         return "✏️ Set due date to " & (parsedDate as string) & " for: " & originalName
                     end if
@@ -100,6 +100,7 @@ on run argv
                         return "✏️ Cleared defer date for: " & originalName
                     else
                         set parsedDate to my parseDate(newValue)
+                        if parsedDate is missing value then return my dateErrorText(newValue, "defer_date") & " Nothing was changed."
                         set defer date of targetTask to parsedDate
                         return "✏️ Set defer date to " & (parsedDate as string) & " for: " & originalName
                     end if
@@ -110,6 +111,7 @@ on run argv
                         return "✏️ Cleared planned date for: " & originalName
                     else
                         set parsedDate to my parseDate(newValue)
+                        if parsedDate is missing value then return my dateErrorText(newValue, "planned_date") & " Nothing was changed."
                         set planned date of targetTask to parsedDate
                         return "✏️ Set planned date to " & (parsedDate as string) & " for: " & originalName
                     end if
@@ -317,75 +319,6 @@ on run argv
         end tell
     end tell
 end run
-
-on parseDate(dateString)
-    set todayDate to current date
-
-    -- ISO dates are built from their numeric parts, independent of the system language
-    set isoDate to my parseISODate(dateString)
-    if isoDate is not missing value then return isoDate
-
-    if dateString is "today" then
-        return todayDate
-    else if dateString is "tomorrow" then
-        return todayDate + 1 * days
-    else if dateString is "next week" then
-        return todayDate + 7 * days
-    else if dateString contains "days" then
-        try
-            set dayCount to word 1 of dateString as integer
-            return todayDate + dayCount * days
-        on error
-            return todayDate
-        end try
-    else
-        -- Try to parse as date directly
-        try
-            return date dateString
-        on error
-            return todayDate
-        end try
-    end if
-end parseDate
-
-on parseISODate(dateString)
-    -- Parses "YYYY-MM-DD", "YYYY-MM-DD HH:MM" or "YYYY-MM-DDTHH:MM".
-    -- Returns missing value if dateString is not in ISO form, raises an error for impossible dates.
-    set isoText to my trimItem(dateString)
-    set isoLength to length of isoText
-    if isoLength is not 10 and isoLength is not 16 then return missing value
-    if character 5 of isoText is not "-" or character 8 of isoText is not "-" then return missing value
-    
-    set hourNum to 0
-    set minuteNum to 0
-    try
-        set yearNum to (text 1 thru 4 of isoText) as integer
-        set monthNum to (text 6 thru 7 of isoText) as integer
-        set dayNum to (text 9 thru 10 of isoText) as integer
-        if isoLength is 16 then
-            if character 11 of isoText is not " " and character 11 of isoText is not "T" then return missing value
-            if character 14 of isoText is not ":" then return missing value
-            set hourNum to (text 12 thru 13 of isoText) as integer
-            set minuteNum to (text 15 thru 16 of isoText) as integer
-        end if
-    on error
-        return missing value
-    end try
-    
-    if monthNum < 1 or monthNum > 12 or dayNum < 1 or dayNum > 31 or hourNum < 0 or hourNum > 23 or minuteNum < 0 or minuteNum > 59 then
-        error "Invalid date: " & dateString
-    end if
-    
-    set isoDate to current date
-    set day of isoDate to 1
-    set year of isoDate to yearNum
-    set month of isoDate to monthNum
-    set day of isoDate to dayNum
-    set time of isoDate to hourNum * hours + minuteNum * minutes
-    -- A day that does not exist in that month (e.g. 2026-02-30) rolls over; reject it
-    if day of isoDate is not dayNum then error "Invalid date: " & dateString
-    return isoDate
-end parseISODate
 
 on resolveProject(queryText)
     -- "id:<id>" addresses exactly one project
@@ -1602,3 +1535,155 @@ on setAssignedContainer(targetTask, originalName, newValue)
     tell application "OmniFocus" to set assigned container of targetTask to containerRef
     return "📥 Assigned to " & containerLabel & ": " & originalName & ". It stays in the inbox until Clean Up (clean_up) moves it there."
 end setAssignedContainer
+
+on parseDate(dateString)
+    -- Reads a date from text. Returns missing value if the text is not a date: nothing is guessed.
+    -- Understood: YYYY-MM-DD (midnight), YYYY-MM-DD HH:MM, YYYY-MM-DDTHH:MM, today, tomorrow, next week,
+    -- "3 days", "in 3 days", "2 weeks" and, as a last try, the date formats and weekday names of the system language.
+    set todayDate to current date
+    set trimmed to my trimItem(dateString as text)
+    if trimmed is "" then return missing value
+
+    -- ISO dates are built from their numeric parts, independent of the system language
+    if my looksLikeISODate(trimmed) then return my parseISODate(trimmed)
+
+    if trimmed is "today" then return todayDate
+    if trimmed is "tomorrow" then return todayDate + 1 * days
+    if trimmed is "next week" or trimmed is "week" then return todayDate + 7 * days
+
+    -- "3 days", "in 3 days", "1 week", "2 weeks" (no short-circuit in AppleScript: check the number of words first)
+    set wordList to words of trimmed
+    if (count of wordList) = 3 then
+        if (item 1 of wordList) is "in" then set wordList to {item 2 of wordList, item 3 of wordList}
+    end if
+    if (count of wordList) = 2 then
+        if my isDateDigits(item 1 of wordList) and (length of (item 1 of wordList)) ≤ 4 then
+            set amountNum to (item 1 of wordList) as integer
+            set unitName to item 2 of wordList
+            if unitName is "day" or unitName is "days" then return todayDate + amountNum * days
+            if unitName is "week" or unitName is "weeks" then return todayDate + amountNum * weeks
+        end if
+    end if
+
+    -- A dash between digits (2026-12-01, 12-01-2026) in another form than above would be misread by the system parser
+    if my hasDigitDash(trimmed) then return missing value
+
+    set systemDate to missing value
+    try
+        set systemDate to date trimmed
+    end try
+    if systemDate is missing value then return missing value
+    if not my fallbackDateFits(trimmed, systemDate) then return missing value
+    return systemDate
+end parseDate
+
+on fallbackDateFits(theText, theDate)
+    -- The system parser rolls a date that does not exist (31.31.2026) over into a later one. For a date written with
+    -- numbers and dots or slashes, the day and the month of the result must be numbers of the text.
+    set datePart to theText
+    set spacePos to offset of " " in theText
+    if spacePos > 1 then set datePart to text 1 thru (spacePos - 1) of theText
+    if datePart does not contain "." and datePart does not contain "/" then return true
+    repeat with aChar in characters of datePart
+        if "abcdefghijklmnopqrstuvwxyzäöüß" contains (contents of aChar) then return true
+    end repeat
+    set numberList to my numberTokens(datePart)
+    if (count of numberList) < 2 then return true
+    if numberList does not contain (day of theDate) then return false
+    if numberList does not contain ((month of theDate) as integer) then return false
+    return true
+end fallbackDateFits
+
+on numberTokens(theText)
+    -- The whole numbers in a text, in order: "31.12.2026" gives {31, 12, 2026}
+    set tokenList to {}
+    set currentToken to ""
+    repeat with aChar in characters of theText
+        if "0123456789" contains (contents of aChar) then
+            set currentToken to currentToken & (contents of aChar)
+        else if currentToken is not "" then
+            set end of tokenList to currentToken as integer
+            set currentToken to ""
+        end if
+    end repeat
+    if currentToken is not "" then set end of tokenList to currentToken as integer
+    return tokenList
+end numberTokens
+
+on looksLikeISODate(theText)
+    -- True if the text starts like an ISO date: four digits and a dash
+    if (length of theText) < 5 then return false
+    if not my isDateDigits(text 1 thru 4 of theText) then return false
+    return (character 5 of theText) is "-"
+end looksLikeISODate
+
+on parseISODate(dateString)
+    -- Reads "YYYY-MM-DD" (midnight), "YYYY-MM-DD HH:MM", "YYYY-MM-DDTHH:MM" or the same with ":SS".
+    -- Returns missing value if the text has another form or the date does not exist (2026-02-30, month 13, 25:00).
+    set isoText to my trimItem(dateString)
+    set isoLength to length of isoText
+    if isoLength is not 10 and isoLength is not 16 and isoLength is not 19 then return missing value
+    if (character 5 of isoText) is not "-" or (character 8 of isoText) is not "-" then return missing value
+    if not my isDateDigits(text 1 thru 4 of isoText) or not my isDateDigits(text 6 thru 7 of isoText) or not my isDateDigits(text 9 thru 10 of isoText) then return missing value
+
+    set hourNum to 0
+    set minuteNum to 0
+    set secondNum to 0
+    if isoLength ≥ 16 then
+        if (character 11 of isoText) is not " " and (character 11 of isoText) is not "T" then return missing value
+        if (character 14 of isoText) is not ":" then return missing value
+        if not my isDateDigits(text 12 thru 13 of isoText) or not my isDateDigits(text 15 thru 16 of isoText) then return missing value
+        set hourNum to (text 12 thru 13 of isoText) as integer
+        set minuteNum to (text 15 thru 16 of isoText) as integer
+    end if
+    if isoLength is 19 then
+        if (character 17 of isoText) is not ":" then return missing value
+        if not my isDateDigits(text 18 thru 19 of isoText) then return missing value
+        set secondNum to (text 18 thru 19 of isoText) as integer
+    end if
+    set yearNum to (text 1 thru 4 of isoText) as integer
+    set monthNum to (text 6 thru 7 of isoText) as integer
+    set dayNum to (text 9 thru 10 of isoText) as integer
+    if yearNum < 1000 or monthNum < 1 or monthNum > 12 or dayNum < 1 or dayNum > 31 then return missing value
+    if hourNum > 23 or minuteNum > 59 or secondNum > 59 then return missing value
+
+    try
+        set isoDate to current date
+        set day of isoDate to 1
+        set year of isoDate to yearNum
+        set month of isoDate to monthNum
+        set day of isoDate to dayNum
+        set time of isoDate to hourNum * hours + minuteNum * minutes + secondNum
+        -- A day that does not exist in that month (2026-02-30) rolls over into the next one; refuse it
+        if (day of isoDate) is not dayNum then return missing value
+    on error
+        return missing value
+    end try
+    return isoDate
+end parseISODate
+
+on hasDigitDash(theText)
+    -- True if a dash stands between two digits
+    set textLength to length of theText
+    if textLength < 3 then return false
+    repeat with i from 2 to textLength - 1
+        if (character i of theText) is "-" then
+            if "0123456789" contains (character (i - 1) of theText) and "0123456789" contains (character (i + 1) of theText) then return true
+        end if
+    end repeat
+    return false
+end hasDigitDash
+
+on isDateDigits(theText)
+    -- True if the text is not empty and has only the digits 0 to 9
+    if theText is "" then return false
+    repeat with aChar in characters of theText
+        if "0123456789" does not contain (contents of aChar) then return false
+    end repeat
+    return true
+end isDateDigits
+
+on dateErrorText(valueText, fieldName)
+    -- The message for a date that cannot be read; the caller adds what was not done
+    return "❌ Invalid date for " & fieldName & ": " & valueText & ". Use YYYY-MM-DD, YYYY-MM-DD HH:MM, today, tomorrow, next week, \"3 days\" or \"2 weeks\"."
+end dateErrorText

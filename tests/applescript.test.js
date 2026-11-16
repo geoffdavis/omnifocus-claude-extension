@@ -274,6 +274,61 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Date parsing', () => {
+        const dateScripts = [
+            path.join(scriptsDir, 'add_task.applescript'),
+            path.join(enhancedScriptsDir, 'batch_add_tasks.applescript'),
+            path.join(enhancedScriptsDir, 'create_recurring_task.applescript'),
+            path.join(enhancedScriptsDir, 'create_project.applescript'),
+            path.join(enhancedScriptsDir, 'edit_project.applescript'),
+            path.join(enhancedScriptsDir, 'edit_task.applescript')
+        ];
+
+        test('every script that reads dates uses the same parser, which never guesses', () => {
+            for (const scriptPath of dateScripts) {
+                const content = fs.readFileSync(scriptPath, 'utf8');
+                expect(content).toContain('on parseDate(dateString)');
+                expect(content).toContain('on parseISODate(dateString)');
+                expect(content).toContain('on hasDigitDash(theText)');
+                expect(content).toContain('on dateErrorText(valueText, fieldName)');
+                // an unreadable date gives missing value, never today or tomorrow
+                expect(content).not.toMatch(/on error\s+return todayDate/);
+                expect(content).not.toContain('return date dateString');
+            }
+        });
+
+        test('an unreadable date is refused before anything is changed or created', () => {
+            const read = (dir, name) => fs.readFileSync(path.join(dir, name), 'utf8');
+            const editTask = read(enhancedScriptsDir, 'edit_task.applescript');
+            expect(editTask).toContain('my dateErrorText(newValue, "due_date") & " Nothing was changed."');
+            expect(editTask).toContain('my dateErrorText(newValue, "defer_date") & " Nothing was changed."');
+            expect(editTask).toContain('my dateErrorText(newValue, "planned_date") & " Nothing was changed."');
+            const editProject = read(enhancedScriptsDir, 'edit_project.applescript');
+            expect(editProject).toContain('my dateErrorText(newValue, "next_review_date") & " Nothing was changed."');
+            expect(editProject).toContain('my dateErrorText(newValue, "due_date") & " Nothing was changed."');
+            const createProject = read(enhancedScriptsDir, 'create_project.applescript');
+            expect(createProject).toContain('my dateErrorText(dueText, "due_date") & " Nothing was created."');
+            expect(createProject).toContain('my dateErrorText(deferText, "defer_date") & " Nothing was created."');
+            const batch = read(enhancedScriptsDir, 'batch_add_tasks.applescript');
+            expect(batch).toContain('my dateErrorText(dueDate, "due_date") & " Nothing was created."');
+            const recurring = read(enhancedScriptsDir, 'create_recurring_task.applescript');
+            expect(recurring).toContain('my dateErrorText(initialDueDate, "due_date") & " Nothing was created."');
+            expect(recurring).toContain('set due date of newTask to dueDateValue');
+            // add_task skips a date it cannot read and says so
+            const addTask = read(scriptsDir, 'add_task.applescript');
+            expect(addTask).toContain('set skippedDates to skippedDates & " due_date"');
+        });
+
+        test('the parser reads ISO dates with a time from their parts and weeks and days as numbers', () => {
+            const content = fs.readFileSync(path.join(enhancedScriptsDir, 'edit_task.applescript'), 'utf8');
+            expect(content).toContain('set time of isoDate to hourNum * hours + minuteNum * minutes + secondNum');
+            expect(content).toContain('if unitName is "week" or unitName is "weeks" then return todayDate + amountNum * weeks');
+            expect(content).toContain('if my hasDigitDash(trimmed) then return missing value');
+            // the system parser rolls 31.31.2026 over into a later date; the result must fit the numbers of the text
+            expect(content).toContain('if not my fallbackDateFits(trimmed, systemDate) then return missing value');
+        });
+    });
+
     describe('Recurring Task Recurrence Strings', () => {
         const scriptPath = path.join(enhancedScriptsDir, 'create_recurring_task.applescript');
 

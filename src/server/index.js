@@ -92,15 +92,15 @@ const tools = [
                 },
                 due_date: {
                     type: 'string',
-                    description: 'Optional due date (e.g., "tomorrow", "next week", "Friday")'
+                    description: 'Optional due date: ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or words such as "tomorrow", "next week", "3 days". A date that cannot be read is skipped with a warning.'
                 },
                 defer_date: {
                     type: 'string',
-                    description: 'Optional defer date (when the task becomes available)'
+                    description: 'Optional defer date (when the task becomes available): same forms as the due date'
                 },
                 planned_date: {
                     type: 'string',
-                    description: 'Optional planned date (when you intend to work on the task, not a deadline). Needs an OmniFocus version with planned dates.'
+                    description: 'Optional planned date (when you intend to work on the task, not a deadline): same forms as the due date. Needs an OmniFocus version with planned dates.'
                 },
                 flagged: {
                     type: 'boolean',
@@ -276,7 +276,7 @@ const tools = [
                 },
                 due_date: {
                     type: 'string',
-                    description: 'Optional due date for all tasks'
+                    description: 'Optional due date for all tasks: ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or words such as "tomorrow", "next week", "3 days". A date that cannot be read creates nothing.'
                 },
                 flagged: {
                     type: 'boolean',
@@ -312,7 +312,7 @@ const tools = [
                 },
                 initial_due_date: {
                     type: 'string',
-                    description: 'First due date for the recurring task'
+                    description: 'First due date for the recurring task: ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or words such as "tomorrow", "next week", "3 days". A date that cannot be read creates nothing.'
                 }
             },
             required: ['name']
