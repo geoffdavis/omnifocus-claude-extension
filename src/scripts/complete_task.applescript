@@ -29,7 +29,13 @@ on run argv
       
       -- Otherwise, search all tasks to show options or find in projects
       try
-        set foundTasks to every flattened task whose name contains searchName and completed is false
+        -- "id:<id>" addresses exactly one task; otherwise search open tasks by name
+        if searchName starts with "id:" and (length of searchName) > 3 then
+            set wantedID to text 4 thru -1 of searchName
+            set foundTasks to every flattened task whose id is wantedID
+        else
+            set foundTasks to every flattened task whose name contains searchName and completed is false
+        end if
         
         if (count of foundTasks) = 0 then
           return "❌ No matching tasks found for: " & searchName
@@ -50,9 +56,9 @@ on run argv
           -- Multiple matches - show them
           set taskList to "🔍 Multiple tasks found (" & (count of foundTasks) & "):" & return
           repeat with aTask in foundTasks
-            set taskList to taskList & "• " & name of aTask & return
+            set taskList to taskList & "• " & name of aTask & " [id:" & (id of aTask) & "]" & return
           end repeat
-          set taskList to taskList & return & "Please be more specific."
+          set taskList to taskList & return & "Please be more specific or use id:<id>."
           return taskList
         end if
       on error errMsg
