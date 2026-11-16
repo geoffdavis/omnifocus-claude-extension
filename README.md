@@ -97,6 +97,13 @@ region settings of the Mac, so it works only in the formats of that Mac; a date 
 refused. A date that cannot be read is never replaced by today or tomorrow: the edit and create tools refuse it and
 change nothing, and `add_task` creates the task without that date and says so.
 
+**Language and region.** The tools run on a Mac with any language and region. Keywords (`today`, `in 3 days`, `Inbox`,
+repeat rules like `every friday`, review intervals) are English and read regardless of upper and lower case, also on a
+Turkish Mac where the system treats `I` and `i` as different letters. Numbers inside repeat rules are written with the
+digits 0 to 9, also on a Mac with an Arabic or Persian region. A date text that the system reads in a way that does not fit
+the text (a time that gets lost, a PM that the language does not know) is refused. Tool results show dates and times in
+the format of the Mac. Names, notes, tags and file paths may contain any characters (umlauts, Chinese, emoji).
+
 ### Batch Operations
 ```
 "Create project plan: Research phase|-Literature review|-Market analysis|Development|-Prototype|-Testing|Launch"

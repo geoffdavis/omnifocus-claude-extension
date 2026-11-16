@@ -39,7 +39,7 @@ on run argv
         tell default document
             -- Find target project if specified
             set targetProject to missing value
-            if projectName is not "" and projectName is not "inbox" then
+            if projectName is not "" and my lowerText(projectName) is not "inbox" then
                 -- Searches open projects in all folders; accepts "Folder > Subfolder > Project" and "id:<id>"
                 set projectLookup to my resolveProject(projectName)
                 if foundProject of projectLookup is missing value then
@@ -466,6 +466,8 @@ on parseRepeatRule(ruleText)
     set invalidResult to {isValid:false, ruleString:"", scheduleName:"", errorText:problemText}
     set cleanText to my trimItem(ruleText)
     if cleanText is "" then return invalidResult
+    -- Words are compared in lower case: the system comparison of "I" and "i" depends on the region (Turkish)
+    if cleanText does not contain "=" then set cleanText to my lowerText(cleanText)
 
     -- "fixed" or "from completion" at the end
     set scheduleName to ""
@@ -577,7 +579,7 @@ on parseRepeatRule(ruleText)
             if unitFound is not "" and unitFound is not "MONTHLY" then return invalidResult
             if not (ordinalFound is -1 or (ordinalFound ≥ 1 and ordinalFound ≤ 5)) then return invalidResult
             set frequencyText to "MONTHLY"
-            set extraPart to "BYDAY=" & (ordinalFound as text) & (item 1 of weekdayCodes)
+            set extraPart to "BYDAY=" & my plainNumberText(ordinalFound) & (item 1 of weekdayCodes)
         else
             if unitFound is not "" and unitFound is not "WEEKLY" then return invalidResult
             set frequencyText to "WEEKLY"
@@ -593,14 +595,14 @@ on parseRepeatRule(ruleText)
         if dayNumber = 0 then set dayNumber to ordinalFound
         if not (dayNumber is -1 or (dayNumber ≥ 1 and dayNumber ≤ 31)) then return invalidResult
         set frequencyText to "MONTHLY"
-        set extraPart to "BYMONTHDAY=" & (dayNumber as text)
+        set extraPart to "BYMONTHDAY=" & my plainNumberText(dayNumber)
     else
         if unitFound is "" then return invalidResult
         set frequencyText to unitFound
     end if
 
     set recurrenceText to "FREQ=" & frequencyText
-    if intervalCount > 1 then set recurrenceText to recurrenceText & ";INTERVAL=" & intervalCount
+    if intervalCount > 1 then set recurrenceText to recurrenceText & ";INTERVAL=" & my plainNumberText(intervalCount)
     if extraPart is not "" then set recurrenceText to recurrenceText & ";" & extraPart
     if scheduleName is "" then
         set scheduleName to "from completion"
@@ -810,6 +812,32 @@ on capitalWord(theWord)
     return my upperText(firstChar) & restText
 end capitalWord
 
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText
+
+on lowerText(theText)
+    -- Lower case for the letters A to Z only. Used for keywords: the comparison of the system folds the letter I by the
+    -- rules of the region (on a Turkish Mac "I" is not the same as "i" even when the case is ignored).
+    set resultText to ""
+    repeat with aChar in characters of theText
+        set theChar to contents of aChar
+        set codeValue to id of theChar
+        if codeValue ≥ 65 and codeValue ≤ 90 then
+            set resultText to resultText & (character id (codeValue + 32))
+        else
+            set resultText to resultText & theChar
+        end if
+    end repeat
+    return resultText
+end lowerText
+
 on parseDate(dateString)
     -- Reads a date from text. Returns missing value if the text is not a date: nothing is guessed.
     -- Understood: YYYY-MM-DD (midnight), YYYY-MM-DD HH:MM, YYYY-MM-DDTHH:MM, today, tomorrow, next week,
@@ -821,12 +849,14 @@ on parseDate(dateString)
     -- ISO dates are built from their numeric parts, independent of the system language
     if my looksLikeISODate(trimmed) then return my parseISODate(trimmed)
 
-    if trimmed is "today" then return todayDate
-    if trimmed is "tomorrow" then return todayDate + 1 * days
-    if trimmed is "next week" or trimmed is "week" then return todayDate + 7 * days
+    -- Keywords are compared in lower case: the system comparison of "I" and "i" depends on the region (Turkish)
+    set keywordText to my lowerText(trimmed)
+    if keywordText is "today" then return todayDate
+    if keywordText is "tomorrow" then return todayDate + 1 * days
+    if keywordText is "next week" or keywordText is "week" then return todayDate + 7 * days
 
     -- "3 days", "in 3 days", "1 week", "2 weeks" (no short-circuit in AppleScript: check the number of words first)
-    set wordList to words of trimmed
+    set wordList to words of keywordText
     if (count of wordList) = 3 then
         if (item 1 of wordList) is "in" then set wordList to {item 2 of wordList, item 3 of wordList}
     end if
@@ -852,14 +882,48 @@ on parseDate(dateString)
 end parseDate
 
 on fallbackDateFits(theText, theDate)
-    -- The system parser rolls a date that does not exist (31.31.2026) over into a later one. For a date written with
-    -- numbers and dots or slashes, the day and the month of the result must be numbers of the text.
+    -- The system parser rolls a date that does not exist (31.31.2026) over into a later one and, in some regions, drops
+    -- the time of a text like "01.12.2026 14:30". The result has to fit the numbers of the text.
+    -- 1. A time in the text (14:30, 2:30 PM) has to be the time of the result.
+    set colonPos to offset of ":" in theText
+    if colonPos > 1 then
+        set hourText to ""
+        set pos to colonPos - 1
+        repeat while pos ≥ 1 and (length of hourText) < 2 and "0123456789" contains (character pos of theText)
+            set hourText to (character pos of theText) & hourText
+            set pos to pos - 1
+        end repeat
+        set minuteText to ""
+        set pos to colonPos + 1
+        repeat while pos ≤ (length of theText) and (length of minuteText) < 2 and "0123456789" contains (character pos of theText)
+            set minuteText to minuteText & (character pos of theText)
+            set pos to pos + 1
+        end repeat
+        if hourText is not "" and (length of minuteText) = 2 then
+            set hourNumber to hourText as integer
+            if (minutes of theDate) is not (minuteText as integer) then return false
+            if ((hours of theDate) mod 12) is not (hourNumber mod 12) then return false
+            -- A marker behind a 12-hour time (PM, ...) that the system does not know is dropped without a message
+            -- and leaves the hour as it is: such a time is refused.
+            if hourNumber ≥ 1 and hourNumber ≤ 12 and (hours of theDate) is hourNumber then
+                set restText to ""
+                if pos ≤ (length of theText) then set restText to text pos thru -1 of theText
+                set hasMarker to false
+                repeat with aChar in characters of restText
+                    if " 0123456789:.,/-" does not contain (contents of aChar) then set hasMarker to true
+                end repeat
+                if hasMarker and not my systemKnowsPM() then return false
+            end if
+        end if
+    end if
+    -- 2. A date written with numbers and dots or slashes: the day and the month of the result must be numbers of the text.
     set datePart to theText
     set spacePos to offset of " " in theText
     if spacePos > 1 then set datePart to text 1 thru (spacePos - 1) of theText
     if datePart does not contain "." and datePart does not contain "/" then return true
+    -- Month names in any language: anything but digits, dots and slashes
     repeat with aChar in characters of datePart
-        if "abcdefghijklmnopqrstuvwxyzäöüß" contains (contents of aChar) then return true
+        if "0123456789./" does not contain (contents of aChar) then return true
     end repeat
     set numberList to my numberTokens(datePart)
     if (count of numberList) < 2 then return true
@@ -867,6 +931,18 @@ on fallbackDateFits(theText, theDate)
     if numberList does not contain ((month of theDate) as integer) then return false
     return true
 end fallbackDateFits
+
+on systemKnowsPM()
+    -- True if the date parser of the system reads "1:00 PM" as 13:00 (it depends on the language of the system)
+    -- The text is in a variable: a date written as a literal in a script is read when the script is compiled,
+    -- and a script with a date that the system cannot read would not run at all.
+    set pmText to "1:00 PM"
+    try
+        set testDate to date pmText
+        return ((hours of testDate) is 13)
+    end try
+    return false
+end systemKnowsPM
 
 on numberTokens(theText)
     -- The whole numbers in a text, in order: "31.12.2026" gives {31, 12, 2026}

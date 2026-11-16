@@ -352,7 +352,7 @@ describe('AppleScript Integration', () => {
         test('parseRepeatRule builds the iCalendar strings for the standard repeat rules', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
             ['"DAILY"', '"WEEKLY"', '"MONTHLY"', '"YEARLY"'].forEach(part => expect(content).toContain(part));
-            expect(content).toContain('";INTERVAL=" & intervalCount');
+            expect(content).toContain('";INTERVAL=" & my plainNumberText(intervalCount)');
         });
 
         test('applyRepetition uses the schedule and the date a repetition is based on', () => {
@@ -626,6 +626,80 @@ describe('AppleScript Integration', () => {
             const content = read('edit_project.applescript');
             ['"day"', '"week"', '"month"', '"year"', '"weekly"', '"monthly"'].forEach(word => {
                 expect(content).toContain(word);
+            });
+        });
+    });
+
+    describe('Language and region of the Mac', () => {
+        const scriptsDir = path.join(enhancedScriptsDir, '..');
+        const allScripts = () => [
+            ...fs.readdirSync(scriptsDir).filter(f => f.endsWith('.applescript')).map(f => path.join(scriptsDir, f)),
+            ...fs.readdirSync(enhancedScriptsDir).filter(f => f.endsWith('.applescript')).map(f => path.join(enhancedScriptsDir, f))
+        ];
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('numbers inside iCalendar rules are written with the digits 0 to 9', () => {
+            // "as text" writes the digits of the region (Eastern Arabic digits on an Arabic Mac)
+            ['create_recurring_task.applescript', 'edit_task.applescript', 'edit_project.applescript'].forEach(name => {
+                const content = read(name);
+                expect(content).toContain('on plainNumberText(theNumber)');
+                expect(content).toContain('"BYDAY=" & my plainNumberText(ordinalFound)');
+                expect(content).toContain('"BYMONTHDAY=" & my plainNumberText(dayNumber)');
+                expect(content).toContain('";INTERVAL=" & my plainNumberText(intervalCount)');
+                expect(content).not.toContain('"BYMONTHDAY=" & (dayNumber as text)');
+            });
+        });
+
+        test('keywords are compared in lower case with a fold that does not depend on the region', () => {
+            // the comparison of the system folds the letter I by the rules of the region (Turkish)
+            ['add_task.applescript', 'enhanced/batch_add_tasks.applescript', 'enhanced/create_recurring_task.applescript',
+                'enhanced/edit_task.applescript', 'enhanced/parse_tasks.applescript', 'enhanced/duplicate_item.applescript'].forEach(name => {
+                const content = fs.readFileSync(path.join(scriptsDir, name), 'utf8');
+                expect(content).toContain('on lowerText(theText)');
+                expect(content).toMatch(/my lowerText\(\w+\) is (not )?"inbox"/);
+            });
+            const date = read('edit_task.applescript');
+            expect(date).toContain('set keywordText to my lowerText(trimmed)');
+            expect(date).toContain('if cleanText does not contain "=" then set cleanText to my lowerText(cleanText)');
+            expect(read('edit_project.applescript')).toContain('set cleanText to my lowerText(my trimItem(valueText))');
+            expect(read('create_project.applescript')).toContain('set cleanText to my lowerText(my trimItem(valueText))');
+        });
+
+        test('the check of a date from the system parser knows no language and checks the time', () => {
+            ['edit_task.applescript', 'edit_project.applescript', 'create_project.applescript'].forEach(name => {
+                const content = read(name);
+                const handler = content.slice(content.indexOf('on fallbackDateFits'), content.indexOf('end fallbackDateFits'));
+                // month names in any language: everything but digits, dots and slashes
+                expect(handler).toContain('"0123456789./" does not contain (contents of aChar)');
+                // a time of the text has to be the time of the result
+                expect(handler).toContain('(minutes of theDate) is not (minuteText as integer)');
+                expect(handler).toContain('((hours of theDate) mod 12) is not (hourNumber mod 12)');
+                // a PM marker that the system does not know is dropped by the parser: such a time is refused
+                expect(handler).toContain('if hasMarker and not my systemKnowsPM() then return false');
+                expect(content).toContain('set testDate to date pmText');
+            });
+        });
+
+        test('no script has a date written as a literal', () => {
+            // a date literal is read when the script is compiled: where the system cannot read it, the whole script does not run
+            allScripts().forEach(file => {
+                const code = fs.readFileSync(file, 'utf8').split('\n').filter(line => !line.trim().startsWith('--')).join('\n');
+                expect(code).not.toMatch(/\bdate\s+"/);
+            });
+        });
+
+        test('no script has letters of one language in its code', () => {
+            allScripts().forEach(file => {
+                const code = fs.readFileSync(file, 'utf8').split('\n').filter(line => !line.trim().startsWith('--')).join('\n');
+                expect(code).not.toContain('äöü');
+                expect(code).not.toContain('ß"');
+            });
+        });
+
+        test('the review interval takes only whole numbers', () => {
+            ['edit_project.applescript', 'create_project.applescript'].forEach(name => {
+                const content = read(name);
+                expect(content).toContain('if not my isDateDigits(item 1 of wordList) then return {isValid:false, stepCount:0, unitName:"", errorText:problemText}');
             });
         });
     });

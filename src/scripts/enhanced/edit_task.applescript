@@ -135,7 +135,7 @@ on run argv
                     end if
                     
                 else if propertyName is "project" then
-                    if newValue is "inbox" or newValue is "none" then
+                    if my lowerText(newValue) is "inbox" or newValue is "none" then
                         try
                             move targetTask to end of inbox tasks
                         on error
@@ -1053,6 +1053,161 @@ on repetitionText(theItem)
     return resultText
 end repetitionText
 
+on setAssignedContainer(targetTask, originalName, newValue)
+    -- An inbox task gets a provisional project or parent task without leaving the inbox; Clean Up moves it there
+    set inInbox to false
+    tell application "OmniFocus" to set inInbox to (in inbox of targetTask)
+    if not inInbox then
+        return "❌ Only inbox tasks have an assigned container. A task that is already in a project is moved with project or parent_task. Nothing was changed."
+    end if
+    set containerText to my trimItem(newValue)
+    if containerText is "none" or containerText is "clear" then
+        tell application "OmniFocus" to set assigned container of targetTask to missing value
+        return "📥 Removed the assigned container of: " & originalName
+    end if
+    if containerText is "" then
+        return "❌ assigned_container needs a project, \"task:<task>\" or \"none\". Nothing was changed."
+    end if
+
+    set containerRef to missing value
+    set containerLabel to ""
+    if containerText starts with "task:" then
+        set parentLookup to my resolveTask(my trimItem(text 6 thru -1 of containerText))
+        if foundTask of parentLookup is missing value then
+            return (errorText of parentLookup) & return & "Nothing was changed."
+        end if
+        set containerRef to foundTask of parentLookup
+        tell application "OmniFocus"
+            set containerProject to missing value
+            try
+                set containerProject to containing project of containerRef
+            end try
+            set containerName to name of containerRef
+            if containerProject is missing value then
+                return "❌ The task \"" & containerName & "\" is in the inbox itself and cannot be a container. Nothing was changed."
+            end if
+            if (id of containerRef) is (id of targetTask) then
+                return "❌ A task cannot be assigned to itself. Nothing was changed."
+            end if
+        end tell
+        set containerLabel to "the task \"" & containerName & "\""
+    else
+        set projectLookup to my resolveProject(containerText)
+        if foundProject of projectLookup is missing value then
+            return (errorText of projectLookup) & return & "Nothing was changed."
+        end if
+        set containerRef to foundProject of projectLookup
+        set containerLabel to "the project \"" & my projectLabel(containerRef) & "\""
+    end if
+
+    tell application "OmniFocus" to set assigned container of targetTask to containerRef
+    return "📥 Assigned to " & containerLabel & ": " & originalName & ". It stays in the inbox until Clean Up (clean_up) moves it there."
+end setAssignedContainer
+
+on resolveTagList(listText)
+    -- Finds (or creates) the tags of a comma-separated list: name, path "Parent > Child" or id:<id>.
+    -- Returns {tagObjects, namesText, errorText}; errorText is "" if every tag was found.
+    set originalDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ","
+    set tagList to text items of listText
+    set AppleScript's text item delimiters to originalDelims
+    set resolvedTags to {}
+    set namesText to ""
+    repeat with tagItem in tagList
+        set tagName to my trimItem(tagItem as string)
+        if tagName is not "" then
+            set tagLookup to my findOrCreateTag(tagName)
+            set theTag to foundTag of tagLookup
+            if theTag is missing value then
+                return {tagObjects:resolvedTags, namesText:namesText, errorText:(errorText of tagLookup)}
+            end if
+            set end of resolvedTags to theTag
+            if namesText is "" then
+                set namesText to tagName
+            else
+                set namesText to namesText & ", " & tagName
+            end if
+        end if
+    end repeat
+    return {tagObjects:resolvedTags, namesText:namesText, errorText:""}
+end resolveTagList
+
+on tagNameList(theItem)
+    -- The names of the tags of a task or project in their order, "none" without tags
+    tell application "OmniFocus" to set tagNames to name of every tag of theItem
+    if (count of tagNames) = 0 then return "none"
+    return my joinText(tagNames, ", ")
+end tagNameList
+
+on setItemTags(theItem, itemWord, itemLabel, newValue)
+    -- Replaces all tags of a task or project (itemWord "task" or "project"); "none" removes all of them
+    set forText to "for: "
+    if itemWord is "project" then set forText to "for project: "
+    if newValue is "none" or newValue is "clear" then
+        tell application "OmniFocus"
+            set existingTags to tags of theItem
+            repeat with existingTag in existingTags
+                remove existingTag from tags of theItem
+            end repeat
+        end tell
+        return "🏷️ Cleared all tags " & forText & itemLabel
+    end if
+    -- Find all tags first, so that a failed lookup leaves the item unchanged
+    set tagInfo to my resolveTagList(newValue)
+    if (errorText of tagInfo) is not "" then return (errorText of tagInfo) & return & "Tags were not changed."
+    if (count of tagObjects of tagInfo) = 0 then return "❌ No tag name given. Use \"none\" to remove all tags. Tags were not changed."
+    tell application "OmniFocus"
+        set existingTags to tags of theItem
+        repeat with existingTag in existingTags
+            remove existingTag from tags of theItem
+        end repeat
+        repeat with resolvedTag in (tagObjects of tagInfo)
+            add (contents of resolvedTag) to tags of theItem
+        end repeat
+    end tell
+    return "🏷️ Set tags to [" & (namesText of tagInfo) & "] " & forText & itemLabel
+end setItemTags
+
+on setItemPrimaryTag(theItem, itemWord, itemLabel, newValue)
+    -- Makes a tag the first tag of a task or project; the other tags stay. "none" removes the first tag.
+    if newValue is "none" or newValue is "clear" then
+        set currentPrimary to missing value
+        set primaryName to ""
+        tell application "OmniFocus"
+            try
+                set currentPrimary to primary tag of theItem
+            end try
+            if currentPrimary is not missing value then
+                set primaryName to name of currentPrimary
+                set primary tag of theItem to missing value
+            end if
+        end tell
+        if currentPrimary is missing value then return "ℹ️ The " & itemWord & " has no tags: " & itemLabel
+        return "🏷️ Removed the primary tag \"" & primaryName & "\" from: " & itemLabel & ". The other tags stay (tags now: " & my tagNameList(theItem) & ")."
+    end if
+    set tagLookup to my findOrCreateTag(my trimItem(newValue))
+    set theTag to foundTag of tagLookup
+    if theTag is missing value then
+        return (errorText of tagLookup) & return & "Nothing was changed."
+    end if
+    -- OmniFocus removes the current first tag when a new first tag is set, so the old tags are added again behind it
+    tell application "OmniFocus"
+        tell default document
+            set oldTagIDs to id of every tag of theItem
+            set primary tag of theItem to theTag
+            set tagIDsNow to id of every tag of theItem
+            repeat with oldTagID in oldTagIDs
+                if tagIDsNow does not contain (contents of oldTagID) then
+                    set oldTagMatches to every flattened tag whose id is (contents of oldTagID)
+                    if (count of oldTagMatches) > 0 then add (item 1 of oldTagMatches) to tags of theItem
+                end if
+            end repeat
+        end tell
+        set newName to name of theTag
+    end tell
+    return "🏷️ Primary tag of \"" & itemLabel & "\" is now " & newName & " (tags: " & my tagNameList(theItem) & ")"
+end setItemPrimaryTag
+
 on parseRepeatRule(ruleText)
     -- Reads a repeat rule and returns {isValid, ruleString, scheduleName, errorText}.
     --   ruleString is an iCalendar string such as FREQ=WEEKLY;INTERVAL=2 or FREQ=MONTHLY;BYDAY=-1FR
@@ -1068,6 +1223,8 @@ on parseRepeatRule(ruleText)
     set invalidResult to {isValid:false, ruleString:"", scheduleName:"", errorText:problemText}
     set cleanText to my trimItem(ruleText)
     if cleanText is "" then return invalidResult
+    -- Words are compared in lower case: the system comparison of "I" and "i" depends on the region (Turkish)
+    if cleanText does not contain "=" then set cleanText to my lowerText(cleanText)
 
     -- "fixed" or "from completion" at the end
     set scheduleName to ""
@@ -1179,7 +1336,7 @@ on parseRepeatRule(ruleText)
             if unitFound is not "" and unitFound is not "MONTHLY" then return invalidResult
             if not (ordinalFound is -1 or (ordinalFound ≥ 1 and ordinalFound ≤ 5)) then return invalidResult
             set frequencyText to "MONTHLY"
-            set extraPart to "BYDAY=" & (ordinalFound as text) & (item 1 of weekdayCodes)
+            set extraPart to "BYDAY=" & my plainNumberText(ordinalFound) & (item 1 of weekdayCodes)
         else
             if unitFound is not "" and unitFound is not "WEEKLY" then return invalidResult
             set frequencyText to "WEEKLY"
@@ -1195,14 +1352,14 @@ on parseRepeatRule(ruleText)
         if dayNumber = 0 then set dayNumber to ordinalFound
         if not (dayNumber is -1 or (dayNumber ≥ 1 and dayNumber ≤ 31)) then return invalidResult
         set frequencyText to "MONTHLY"
-        set extraPart to "BYMONTHDAY=" & (dayNumber as text)
+        set extraPart to "BYMONTHDAY=" & my plainNumberText(dayNumber)
     else
         if unitFound is "" then return invalidResult
         set frequencyText to unitFound
     end if
 
     set recurrenceText to "FREQ=" & frequencyText
-    if intervalCount > 1 then set recurrenceText to recurrenceText & ";INTERVAL=" & intervalCount
+    if intervalCount > 1 then set recurrenceText to recurrenceText & ";INTERVAL=" & my plainNumberText(intervalCount)
     if extraPart is not "" then set recurrenceText to recurrenceText & ";" & extraPart
     if scheduleName is "" then
         set scheduleName to "from completion"
@@ -1412,56 +1569,31 @@ on capitalWord(theWord)
     return my upperText(firstChar) & restText
 end capitalWord
 
-on setAssignedContainer(targetTask, originalName, newValue)
-    -- An inbox task gets a provisional project or parent task without leaving the inbox; Clean Up moves it there
-    set inInbox to false
-    tell application "OmniFocus" to set inInbox to (in inbox of targetTask)
-    if not inInbox then
-        return "❌ Only inbox tasks have an assigned container. A task that is already in a project is moved with project or parent_task. Nothing was changed."
-    end if
-    set containerText to my trimItem(newValue)
-    if containerText is "none" or containerText is "clear" then
-        tell application "OmniFocus" to set assigned container of targetTask to missing value
-        return "📥 Removed the assigned container of: " & originalName
-    end if
-    if containerText is "" then
-        return "❌ assigned_container needs a project, \"task:<task>\" or \"none\". Nothing was changed."
-    end if
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText
 
-    set containerRef to missing value
-    set containerLabel to ""
-    if containerText starts with "task:" then
-        set parentLookup to my resolveTask(my trimItem(text 6 thru -1 of containerText))
-        if foundTask of parentLookup is missing value then
-            return (errorText of parentLookup) & return & "Nothing was changed."
+on lowerText(theText)
+    -- Lower case for the letters A to Z only. Used for keywords: the comparison of the system folds the letter I by the
+    -- rules of the region (on a Turkish Mac "I" is not the same as "i" even when the case is ignored).
+    set resultText to ""
+    repeat with aChar in characters of theText
+        set theChar to contents of aChar
+        set codeValue to id of theChar
+        if codeValue ≥ 65 and codeValue ≤ 90 then
+            set resultText to resultText & (character id (codeValue + 32))
+        else
+            set resultText to resultText & theChar
         end if
-        set containerRef to foundTask of parentLookup
-        tell application "OmniFocus"
-            set containerProject to missing value
-            try
-                set containerProject to containing project of containerRef
-            end try
-            set containerName to name of containerRef
-            if containerProject is missing value then
-                return "❌ The task \"" & containerName & "\" is in the inbox itself and cannot be a container. Nothing was changed."
-            end if
-            if (id of containerRef) is (id of targetTask) then
-                return "❌ A task cannot be assigned to itself. Nothing was changed."
-            end if
-        end tell
-        set containerLabel to "the task \"" & containerName & "\""
-    else
-        set projectLookup to my resolveProject(containerText)
-        if foundProject of projectLookup is missing value then
-            return (errorText of projectLookup) & return & "Nothing was changed."
-        end if
-        set containerRef to foundProject of projectLookup
-        set containerLabel to "the project \"" & my projectLabel(containerRef) & "\""
-    end if
-
-    tell application "OmniFocus" to set assigned container of targetTask to containerRef
-    return "📥 Assigned to " & containerLabel & ": " & originalName & ". It stays in the inbox until Clean Up (clean_up) moves it there."
-end setAssignedContainer
+    end repeat
+    return resultText
+end lowerText
 
 on parseDate(dateString)
     -- Reads a date from text. Returns missing value if the text is not a date: nothing is guessed.
@@ -1474,12 +1606,14 @@ on parseDate(dateString)
     -- ISO dates are built from their numeric parts, independent of the system language
     if my looksLikeISODate(trimmed) then return my parseISODate(trimmed)
 
-    if trimmed is "today" then return todayDate
-    if trimmed is "tomorrow" then return todayDate + 1 * days
-    if trimmed is "next week" or trimmed is "week" then return todayDate + 7 * days
+    -- Keywords are compared in lower case: the system comparison of "I" and "i" depends on the region (Turkish)
+    set keywordText to my lowerText(trimmed)
+    if keywordText is "today" then return todayDate
+    if keywordText is "tomorrow" then return todayDate + 1 * days
+    if keywordText is "next week" or keywordText is "week" then return todayDate + 7 * days
 
     -- "3 days", "in 3 days", "1 week", "2 weeks" (no short-circuit in AppleScript: check the number of words first)
-    set wordList to words of trimmed
+    set wordList to words of keywordText
     if (count of wordList) = 3 then
         if (item 1 of wordList) is "in" then set wordList to {item 2 of wordList, item 3 of wordList}
     end if
@@ -1505,14 +1639,48 @@ on parseDate(dateString)
 end parseDate
 
 on fallbackDateFits(theText, theDate)
-    -- The system parser rolls a date that does not exist (31.31.2026) over into a later one. For a date written with
-    -- numbers and dots or slashes, the day and the month of the result must be numbers of the text.
+    -- The system parser rolls a date that does not exist (31.31.2026) over into a later one and, in some regions, drops
+    -- the time of a text like "01.12.2026 14:30". The result has to fit the numbers of the text.
+    -- 1. A time in the text (14:30, 2:30 PM) has to be the time of the result.
+    set colonPos to offset of ":" in theText
+    if colonPos > 1 then
+        set hourText to ""
+        set pos to colonPos - 1
+        repeat while pos ≥ 1 and (length of hourText) < 2 and "0123456789" contains (character pos of theText)
+            set hourText to (character pos of theText) & hourText
+            set pos to pos - 1
+        end repeat
+        set minuteText to ""
+        set pos to colonPos + 1
+        repeat while pos ≤ (length of theText) and (length of minuteText) < 2 and "0123456789" contains (character pos of theText)
+            set minuteText to minuteText & (character pos of theText)
+            set pos to pos + 1
+        end repeat
+        if hourText is not "" and (length of minuteText) = 2 then
+            set hourNumber to hourText as integer
+            if (minutes of theDate) is not (minuteText as integer) then return false
+            if ((hours of theDate) mod 12) is not (hourNumber mod 12) then return false
+            -- A marker behind a 12-hour time (PM, ...) that the system does not know is dropped without a message
+            -- and leaves the hour as it is: such a time is refused.
+            if hourNumber ≥ 1 and hourNumber ≤ 12 and (hours of theDate) is hourNumber then
+                set restText to ""
+                if pos ≤ (length of theText) then set restText to text pos thru -1 of theText
+                set hasMarker to false
+                repeat with aChar in characters of restText
+                    if " 0123456789:.,/-" does not contain (contents of aChar) then set hasMarker to true
+                end repeat
+                if hasMarker and not my systemKnowsPM() then return false
+            end if
+        end if
+    end if
+    -- 2. A date written with numbers and dots or slashes: the day and the month of the result must be numbers of the text.
     set datePart to theText
     set spacePos to offset of " " in theText
     if spacePos > 1 then set datePart to text 1 thru (spacePos - 1) of theText
     if datePart does not contain "." and datePart does not contain "/" then return true
+    -- Month names in any language: anything but digits, dots and slashes
     repeat with aChar in characters of datePart
-        if "abcdefghijklmnopqrstuvwxyzäöüß" contains (contents of aChar) then return true
+        if "0123456789./" does not contain (contents of aChar) then return true
     end repeat
     set numberList to my numberTokens(datePart)
     if (count of numberList) < 2 then return true
@@ -1520,6 +1688,18 @@ on fallbackDateFits(theText, theDate)
     if numberList does not contain ((month of theDate) as integer) then return false
     return true
 end fallbackDateFits
+
+on systemKnowsPM()
+    -- True if the date parser of the system reads "1:00 PM" as 13:00 (it depends on the language of the system)
+    -- The text is in a variable: a date written as a literal in a script is read when the script is compiled,
+    -- and a script with a date that the system cannot read would not run at all.
+    set pmText to "1:00 PM"
+    try
+        set testDate to date pmText
+        return ((hours of testDate) is 13)
+    end try
+    return false
+end systemKnowsPM
 
 on numberTokens(theText)
     -- The whole numbers in a text, in order: "31.12.2026" gives {31, 12, 2026}
@@ -1614,107 +1794,3 @@ on dateErrorText(valueText, fieldName)
     -- The message for a date that cannot be read; the caller adds what was not done
     return "❌ Invalid date for " & fieldName & ": " & valueText & ". Use YYYY-MM-DD, YYYY-MM-DD HH:MM, today, tomorrow, next week, \"3 days\" or \"2 weeks\"."
 end dateErrorText
-
-on resolveTagList(listText)
-    -- Finds (or creates) the tags of a comma-separated list: name, path "Parent > Child" or id:<id>.
-    -- Returns {tagObjects, namesText, errorText}; errorText is "" if every tag was found.
-    set originalDelims to AppleScript's text item delimiters
-    set AppleScript's text item delimiters to ","
-    set tagList to text items of listText
-    set AppleScript's text item delimiters to originalDelims
-    set resolvedTags to {}
-    set namesText to ""
-    repeat with tagItem in tagList
-        set tagName to my trimItem(tagItem as string)
-        if tagName is not "" then
-            set tagLookup to my findOrCreateTag(tagName)
-            set theTag to foundTag of tagLookup
-            if theTag is missing value then
-                return {tagObjects:resolvedTags, namesText:namesText, errorText:(errorText of tagLookup)}
-            end if
-            set end of resolvedTags to theTag
-            if namesText is "" then
-                set namesText to tagName
-            else
-                set namesText to namesText & ", " & tagName
-            end if
-        end if
-    end repeat
-    return {tagObjects:resolvedTags, namesText:namesText, errorText:""}
-end resolveTagList
-
-on tagNameList(theItem)
-    -- The names of the tags of a task or project in their order, "none" without tags
-    tell application "OmniFocus" to set tagNames to name of every tag of theItem
-    if (count of tagNames) = 0 then return "none"
-    return my joinText(tagNames, ", ")
-end tagNameList
-
-on setItemTags(theItem, itemWord, itemLabel, newValue)
-    -- Replaces all tags of a task or project (itemWord "task" or "project"); "none" removes all of them
-    set forText to "for: "
-    if itemWord is "project" then set forText to "for project: "
-    if newValue is "none" or newValue is "clear" then
-        tell application "OmniFocus"
-            set existingTags to tags of theItem
-            repeat with existingTag in existingTags
-                remove existingTag from tags of theItem
-            end repeat
-        end tell
-        return "🏷️ Cleared all tags " & forText & itemLabel
-    end if
-    -- Find all tags first, so that a failed lookup leaves the item unchanged
-    set tagInfo to my resolveTagList(newValue)
-    if (errorText of tagInfo) is not "" then return (errorText of tagInfo) & return & "Tags were not changed."
-    if (count of tagObjects of tagInfo) = 0 then return "❌ No tag name given. Use \"none\" to remove all tags. Tags were not changed."
-    tell application "OmniFocus"
-        set existingTags to tags of theItem
-        repeat with existingTag in existingTags
-            remove existingTag from tags of theItem
-        end repeat
-        repeat with resolvedTag in (tagObjects of tagInfo)
-            add (contents of resolvedTag) to tags of theItem
-        end repeat
-    end tell
-    return "🏷️ Set tags to [" & (namesText of tagInfo) & "] " & forText & itemLabel
-end setItemTags
-
-on setItemPrimaryTag(theItem, itemWord, itemLabel, newValue)
-    -- Makes a tag the first tag of a task or project; the other tags stay. "none" removes the first tag.
-    if newValue is "none" or newValue is "clear" then
-        set currentPrimary to missing value
-        set primaryName to ""
-        tell application "OmniFocus"
-            try
-                set currentPrimary to primary tag of theItem
-            end try
-            if currentPrimary is not missing value then
-                set primaryName to name of currentPrimary
-                set primary tag of theItem to missing value
-            end if
-        end tell
-        if currentPrimary is missing value then return "ℹ️ The " & itemWord & " has no tags: " & itemLabel
-        return "🏷️ Removed the primary tag \"" & primaryName & "\" from: " & itemLabel & ". The other tags stay (tags now: " & my tagNameList(theItem) & ")."
-    end if
-    set tagLookup to my findOrCreateTag(my trimItem(newValue))
-    set theTag to foundTag of tagLookup
-    if theTag is missing value then
-        return (errorText of tagLookup) & return & "Nothing was changed."
-    end if
-    -- OmniFocus removes the current first tag when a new first tag is set, so the old tags are added again behind it
-    tell application "OmniFocus"
-        tell default document
-            set oldTagIDs to id of every tag of theItem
-            set primary tag of theItem to theTag
-            set tagIDsNow to id of every tag of theItem
-            repeat with oldTagID in oldTagIDs
-                if tagIDsNow does not contain (contents of oldTagID) then
-                    set oldTagMatches to every flattened tag whose id is (contents of oldTagID)
-                    if (count of oldTagMatches) > 0 then add (item 1 of oldTagMatches) to tags of theItem
-                end if
-            end repeat
-        end tell
-        set newName to name of theTag
-    end tell
-    return "🏷️ Primary tag of \"" & itemLabel & "\" is now " & newName & " (tags: " & my tagNameList(theItem) & ")"
-end setItemPrimaryTag

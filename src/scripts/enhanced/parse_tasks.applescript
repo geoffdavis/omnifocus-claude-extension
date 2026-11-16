@@ -53,7 +53,7 @@ on run argv
     set destinationProject to missing value
     set destinationTask to missing value
     set destinationText to ""
-    if projectQuery is not "" and projectQuery is not "inbox" then
+    if projectQuery is not "" and my lowerText(projectQuery) is not "inbox" then
         set projectLookup to my resolveProject(projectQuery)
         if foundProject of projectLookup is missing value then
             return (errorText of projectLookup) & return & "Nothing was created."
@@ -439,3 +439,29 @@ on resolveTask(queryText)
   end repeat
   return {foundTask:missing value, errorText:matchList}
 end resolveTask
+
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText
+
+on lowerText(theText)
+    -- Lower case for the letters A to Z only. Used for keywords: the comparison of the system folds the letter I by the
+    -- rules of the region (on a Turkish Mac "I" is not the same as "i" even when the case is ignored).
+    set resultText to ""
+    repeat with aChar in characters of theText
+        set theChar to contents of aChar
+        set codeValue to id of theChar
+        if codeValue ≥ 65 and codeValue ≤ 90 then
+            set resultText to resultText & (character id (codeValue + 32))
+        else
+            set resultText to resultText & theChar
+        end if
+    end repeat
+    return resultText
+end lowerText

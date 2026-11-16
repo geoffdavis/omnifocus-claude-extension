@@ -63,7 +63,7 @@ on run argv
     set destKind to "after"
     set destItem to missing value
     if itemType is "task" then
-        if projectText is "inbox" then
+        if my lowerText(projectText) is "inbox" then
             set destKind to "inbox"
         else if projectText is not "" then
             set lookup to my resolveProject(projectText)
@@ -712,3 +712,29 @@ on itemStateNote(anItem, itemType)
     if hintText is "" then return ""
     return "ℹ️ Note: " & hintText & ". OmniFocus may not show it in the window."
 end itemStateNote
+
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText
+
+on lowerText(theText)
+    -- Lower case for the letters A to Z only. Used for keywords: the comparison of the system folds the letter I by the
+    -- rules of the region (on a Turkish Mac "I" is not the same as "i" even when the case is ignored).
+    set resultText to ""
+    repeat with aChar in characters of theText
+        set theChar to contents of aChar
+        set codeValue to id of theChar
+        if codeValue ≥ 65 and codeValue ≤ 90 then
+            set resultText to resultText & (character id (codeValue + 32))
+        else
+            set resultText to resultText & theChar
+        end if
+    end repeat
+    return resultText
+end lowerText

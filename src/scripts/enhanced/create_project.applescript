@@ -151,7 +151,7 @@ on parseReviewInterval(valueText)
     -- Reads a review interval: "2 weeks", "1 month", "every 2 weeks", "week", "weekly".
     -- Units: day, week, month, year (plural allowed). OmniFocus has no "no review" setting.
     -- Returns {isValid, stepCount, unitName, errorText}
-    set cleanText to my trimItem(valueText)
+    set cleanText to my lowerText(my trimItem(valueText))
     set problemText to "❌ Invalid review interval: " & valueText & ". Use for example \"1 week\", \"2 weeks\", \"1 month\" or \"1 year\"."
     ignoring case
         if cleanText is "daily" then return {isValid:true, stepCount:1, unitName:"day", errorText:""}
@@ -169,11 +169,8 @@ on parseReviewInterval(valueText)
     if (count of wordList) = 1 then
         set unitWord to item 1 of wordList
     else if (count of wordList) = 2 then
-        try
-            set stepCount to (item 1 of wordList) as integer
-        on error
-            return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
-        end try
+        if not my isDateDigits(item 1 of wordList) then return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
+        set stepCount to (item 1 of wordList) as integer
         set unitWord to item 2 of wordList
     else
         return {isValid:false, stepCount:0, unitName:"", errorText:problemText}
@@ -365,158 +362,6 @@ on trimText(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimText
-
-on parseDate(dateString)
-    -- Reads a date from text. Returns missing value if the text is not a date: nothing is guessed.
-    -- Understood: YYYY-MM-DD (midnight), YYYY-MM-DD HH:MM, YYYY-MM-DDTHH:MM, today, tomorrow, next week,
-    -- "3 days", "in 3 days", "2 weeks" and, as a last try, the date formats and weekday names of the system language.
-    set todayDate to current date
-    set trimmed to my trimItem(dateString as text)
-    if trimmed is "" then return missing value
-
-    -- ISO dates are built from their numeric parts, independent of the system language
-    if my looksLikeISODate(trimmed) then return my parseISODate(trimmed)
-
-    if trimmed is "today" then return todayDate
-    if trimmed is "tomorrow" then return todayDate + 1 * days
-    if trimmed is "next week" or trimmed is "week" then return todayDate + 7 * days
-
-    -- "3 days", "in 3 days", "1 week", "2 weeks" (no short-circuit in AppleScript: check the number of words first)
-    set wordList to words of trimmed
-    if (count of wordList) = 3 then
-        if (item 1 of wordList) is "in" then set wordList to {item 2 of wordList, item 3 of wordList}
-    end if
-    if (count of wordList) = 2 then
-        if my isDateDigits(item 1 of wordList) and (length of (item 1 of wordList)) ≤ 4 then
-            set amountNum to (item 1 of wordList) as integer
-            set unitName to item 2 of wordList
-            if unitName is "day" or unitName is "days" then return todayDate + amountNum * days
-            if unitName is "week" or unitName is "weeks" then return todayDate + amountNum * weeks
-        end if
-    end if
-
-    -- A dash between digits (2026-12-01, 12-01-2026) in another form than above would be misread by the system parser
-    if my hasDigitDash(trimmed) then return missing value
-
-    set systemDate to missing value
-    try
-        set systemDate to date trimmed
-    end try
-    if systemDate is missing value then return missing value
-    if not my fallbackDateFits(trimmed, systemDate) then return missing value
-    return systemDate
-end parseDate
-
-on fallbackDateFits(theText, theDate)
-    -- The system parser rolls a date that does not exist (31.31.2026) over into a later one. For a date written with
-    -- numbers and dots or slashes, the day and the month of the result must be numbers of the text.
-    set datePart to theText
-    set spacePos to offset of " " in theText
-    if spacePos > 1 then set datePart to text 1 thru (spacePos - 1) of theText
-    if datePart does not contain "." and datePart does not contain "/" then return true
-    repeat with aChar in characters of datePart
-        if "abcdefghijklmnopqrstuvwxyzäöüß" contains (contents of aChar) then return true
-    end repeat
-    set numberList to my numberTokens(datePart)
-    if (count of numberList) < 2 then return true
-    if numberList does not contain (day of theDate) then return false
-    if numberList does not contain ((month of theDate) as integer) then return false
-    return true
-end fallbackDateFits
-
-on numberTokens(theText)
-    -- The whole numbers in a text, in order: "31.12.2026" gives {31, 12, 2026}
-    set tokenList to {}
-    set currentToken to ""
-    repeat with aChar in characters of theText
-        if "0123456789" contains (contents of aChar) then
-            set currentToken to currentToken & (contents of aChar)
-        else if currentToken is not "" then
-            set end of tokenList to currentToken as integer
-            set currentToken to ""
-        end if
-    end repeat
-    if currentToken is not "" then set end of tokenList to currentToken as integer
-    return tokenList
-end numberTokens
-
-on looksLikeISODate(theText)
-    -- True if the text starts like an ISO date: four digits and a dash
-    if (length of theText) < 5 then return false
-    if not my isDateDigits(text 1 thru 4 of theText) then return false
-    return (character 5 of theText) is "-"
-end looksLikeISODate
-
-on parseISODate(dateString)
-    -- Reads "YYYY-MM-DD" (midnight), "YYYY-MM-DD HH:MM", "YYYY-MM-DDTHH:MM" or the same with ":SS".
-    -- Returns missing value if the text has another form or the date does not exist (2026-02-30, month 13, 25:00).
-    set isoText to my trimItem(dateString)
-    set isoLength to length of isoText
-    if isoLength is not 10 and isoLength is not 16 and isoLength is not 19 then return missing value
-    if (character 5 of isoText) is not "-" or (character 8 of isoText) is not "-" then return missing value
-    if not my isDateDigits(text 1 thru 4 of isoText) or not my isDateDigits(text 6 thru 7 of isoText) or not my isDateDigits(text 9 thru 10 of isoText) then return missing value
-
-    set hourNum to 0
-    set minuteNum to 0
-    set secondNum to 0
-    if isoLength ≥ 16 then
-        if (character 11 of isoText) is not " " and (character 11 of isoText) is not "T" then return missing value
-        if (character 14 of isoText) is not ":" then return missing value
-        if not my isDateDigits(text 12 thru 13 of isoText) or not my isDateDigits(text 15 thru 16 of isoText) then return missing value
-        set hourNum to (text 12 thru 13 of isoText) as integer
-        set minuteNum to (text 15 thru 16 of isoText) as integer
-    end if
-    if isoLength is 19 then
-        if (character 17 of isoText) is not ":" then return missing value
-        if not my isDateDigits(text 18 thru 19 of isoText) then return missing value
-        set secondNum to (text 18 thru 19 of isoText) as integer
-    end if
-    set yearNum to (text 1 thru 4 of isoText) as integer
-    set monthNum to (text 6 thru 7 of isoText) as integer
-    set dayNum to (text 9 thru 10 of isoText) as integer
-    if yearNum < 1000 or monthNum < 1 or monthNum > 12 or dayNum < 1 or dayNum > 31 then return missing value
-    if hourNum > 23 or minuteNum > 59 or secondNum > 59 then return missing value
-
-    try
-        set isoDate to current date
-        set day of isoDate to 1
-        set year of isoDate to yearNum
-        set month of isoDate to monthNum
-        set day of isoDate to dayNum
-        set time of isoDate to hourNum * hours + minuteNum * minutes + secondNum
-        -- A day that does not exist in that month (2026-02-30) rolls over into the next one; refuse it
-        if (day of isoDate) is not dayNum then return missing value
-    on error
-        return missing value
-    end try
-    return isoDate
-end parseISODate
-
-on hasDigitDash(theText)
-    -- True if a dash stands between two digits
-    set textLength to length of theText
-    if textLength < 3 then return false
-    repeat with i from 2 to textLength - 1
-        if (character i of theText) is "-" then
-            if "0123456789" contains (character (i - 1) of theText) and "0123456789" contains (character (i + 1) of theText) then return true
-        end if
-    end repeat
-    return false
-end hasDigitDash
-
-on isDateDigits(theText)
-    -- True if the text is not empty and has only the digits 0 to 9
-    if theText is "" then return false
-    repeat with aChar in characters of theText
-        if "0123456789" does not contain (contents of aChar) then return false
-    end repeat
-    return true
-end isDateDigits
-
-on dateErrorText(valueText, fieldName)
-    -- The message for a date that cannot be read; the caller adds what was not done
-    return "❌ Invalid date for " & fieldName & ": " & valueText & ". Use YYYY-MM-DD, YYYY-MM-DD HH:MM, today, tomorrow, next week, \"3 days\" or \"2 weeks\"."
-end dateErrorText
 
 on splitTagPath(queryText)
     -- Splits "Parent > Child" into trimmed, non-empty parts
@@ -847,3 +692,229 @@ on setItemPrimaryTag(theItem, itemWord, itemLabel, newValue)
     end tell
     return "🏷️ Primary tag of \"" & itemLabel & "\" is now " & newName & " (tags: " & my tagNameList(theItem) & ")"
 end setItemPrimaryTag
+
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText
+
+on lowerText(theText)
+    -- Lower case for the letters A to Z only. Used for keywords: the comparison of the system folds the letter I by the
+    -- rules of the region (on a Turkish Mac "I" is not the same as "i" even when the case is ignored).
+    set resultText to ""
+    repeat with aChar in characters of theText
+        set theChar to contents of aChar
+        set codeValue to id of theChar
+        if codeValue ≥ 65 and codeValue ≤ 90 then
+            set resultText to resultText & (character id (codeValue + 32))
+        else
+            set resultText to resultText & theChar
+        end if
+    end repeat
+    return resultText
+end lowerText
+
+on parseDate(dateString)
+    -- Reads a date from text. Returns missing value if the text is not a date: nothing is guessed.
+    -- Understood: YYYY-MM-DD (midnight), YYYY-MM-DD HH:MM, YYYY-MM-DDTHH:MM, today, tomorrow, next week,
+    -- "3 days", "in 3 days", "2 weeks" and, as a last try, the date formats and weekday names of the system language.
+    set todayDate to current date
+    set trimmed to my trimItem(dateString as text)
+    if trimmed is "" then return missing value
+
+    -- ISO dates are built from their numeric parts, independent of the system language
+    if my looksLikeISODate(trimmed) then return my parseISODate(trimmed)
+
+    -- Keywords are compared in lower case: the system comparison of "I" and "i" depends on the region (Turkish)
+    set keywordText to my lowerText(trimmed)
+    if keywordText is "today" then return todayDate
+    if keywordText is "tomorrow" then return todayDate + 1 * days
+    if keywordText is "next week" or keywordText is "week" then return todayDate + 7 * days
+
+    -- "3 days", "in 3 days", "1 week", "2 weeks" (no short-circuit in AppleScript: check the number of words first)
+    set wordList to words of keywordText
+    if (count of wordList) = 3 then
+        if (item 1 of wordList) is "in" then set wordList to {item 2 of wordList, item 3 of wordList}
+    end if
+    if (count of wordList) = 2 then
+        if my isDateDigits(item 1 of wordList) and (length of (item 1 of wordList)) ≤ 4 then
+            set amountNum to (item 1 of wordList) as integer
+            set unitName to item 2 of wordList
+            if unitName is "day" or unitName is "days" then return todayDate + amountNum * days
+            if unitName is "week" or unitName is "weeks" then return todayDate + amountNum * weeks
+        end if
+    end if
+
+    -- A dash between digits (2026-12-01, 12-01-2026) in another form than above would be misread by the system parser
+    if my hasDigitDash(trimmed) then return missing value
+
+    set systemDate to missing value
+    try
+        set systemDate to date trimmed
+    end try
+    if systemDate is missing value then return missing value
+    if not my fallbackDateFits(trimmed, systemDate) then return missing value
+    return systemDate
+end parseDate
+
+on fallbackDateFits(theText, theDate)
+    -- The system parser rolls a date that does not exist (31.31.2026) over into a later one and, in some regions, drops
+    -- the time of a text like "01.12.2026 14:30". The result has to fit the numbers of the text.
+    -- 1. A time in the text (14:30, 2:30 PM) has to be the time of the result.
+    set colonPos to offset of ":" in theText
+    if colonPos > 1 then
+        set hourText to ""
+        set pos to colonPos - 1
+        repeat while pos ≥ 1 and (length of hourText) < 2 and "0123456789" contains (character pos of theText)
+            set hourText to (character pos of theText) & hourText
+            set pos to pos - 1
+        end repeat
+        set minuteText to ""
+        set pos to colonPos + 1
+        repeat while pos ≤ (length of theText) and (length of minuteText) < 2 and "0123456789" contains (character pos of theText)
+            set minuteText to minuteText & (character pos of theText)
+            set pos to pos + 1
+        end repeat
+        if hourText is not "" and (length of minuteText) = 2 then
+            set hourNumber to hourText as integer
+            if (minutes of theDate) is not (minuteText as integer) then return false
+            if ((hours of theDate) mod 12) is not (hourNumber mod 12) then return false
+            -- A marker behind a 12-hour time (PM, ...) that the system does not know is dropped without a message
+            -- and leaves the hour as it is: such a time is refused.
+            if hourNumber ≥ 1 and hourNumber ≤ 12 and (hours of theDate) is hourNumber then
+                set restText to ""
+                if pos ≤ (length of theText) then set restText to text pos thru -1 of theText
+                set hasMarker to false
+                repeat with aChar in characters of restText
+                    if " 0123456789:.,/-" does not contain (contents of aChar) then set hasMarker to true
+                end repeat
+                if hasMarker and not my systemKnowsPM() then return false
+            end if
+        end if
+    end if
+    -- 2. A date written with numbers and dots or slashes: the day and the month of the result must be numbers of the text.
+    set datePart to theText
+    set spacePos to offset of " " in theText
+    if spacePos > 1 then set datePart to text 1 thru (spacePos - 1) of theText
+    if datePart does not contain "." and datePart does not contain "/" then return true
+    -- Month names in any language: anything but digits, dots and slashes
+    repeat with aChar in characters of datePart
+        if "0123456789./" does not contain (contents of aChar) then return true
+    end repeat
+    set numberList to my numberTokens(datePart)
+    if (count of numberList) < 2 then return true
+    if numberList does not contain (day of theDate) then return false
+    if numberList does not contain ((month of theDate) as integer) then return false
+    return true
+end fallbackDateFits
+
+on systemKnowsPM()
+    -- True if the date parser of the system reads "1:00 PM" as 13:00 (it depends on the language of the system)
+    -- The text is in a variable: a date written as a literal in a script is read when the script is compiled,
+    -- and a script with a date that the system cannot read would not run at all.
+    set pmText to "1:00 PM"
+    try
+        set testDate to date pmText
+        return ((hours of testDate) is 13)
+    end try
+    return false
+end systemKnowsPM
+
+on numberTokens(theText)
+    -- The whole numbers in a text, in order: "31.12.2026" gives {31, 12, 2026}
+    set tokenList to {}
+    set currentToken to ""
+    repeat with aChar in characters of theText
+        if "0123456789" contains (contents of aChar) then
+            set currentToken to currentToken & (contents of aChar)
+        else if currentToken is not "" then
+            set end of tokenList to currentToken as integer
+            set currentToken to ""
+        end if
+    end repeat
+    if currentToken is not "" then set end of tokenList to currentToken as integer
+    return tokenList
+end numberTokens
+
+on looksLikeISODate(theText)
+    -- True if the text starts like an ISO date: four digits and a dash
+    if (length of theText) < 5 then return false
+    if not my isDateDigits(text 1 thru 4 of theText) then return false
+    return (character 5 of theText) is "-"
+end looksLikeISODate
+
+on parseISODate(dateString)
+    -- Reads "YYYY-MM-DD" (midnight), "YYYY-MM-DD HH:MM", "YYYY-MM-DDTHH:MM" or the same with ":SS".
+    -- Returns missing value if the text has another form or the date does not exist (2026-02-30, month 13, 25:00).
+    set isoText to my trimItem(dateString)
+    set isoLength to length of isoText
+    if isoLength is not 10 and isoLength is not 16 and isoLength is not 19 then return missing value
+    if (character 5 of isoText) is not "-" or (character 8 of isoText) is not "-" then return missing value
+    if not my isDateDigits(text 1 thru 4 of isoText) or not my isDateDigits(text 6 thru 7 of isoText) or not my isDateDigits(text 9 thru 10 of isoText) then return missing value
+
+    set hourNum to 0
+    set minuteNum to 0
+    set secondNum to 0
+    if isoLength ≥ 16 then
+        if (character 11 of isoText) is not " " and (character 11 of isoText) is not "T" then return missing value
+        if (character 14 of isoText) is not ":" then return missing value
+        if not my isDateDigits(text 12 thru 13 of isoText) or not my isDateDigits(text 15 thru 16 of isoText) then return missing value
+        set hourNum to (text 12 thru 13 of isoText) as integer
+        set minuteNum to (text 15 thru 16 of isoText) as integer
+    end if
+    if isoLength is 19 then
+        if (character 17 of isoText) is not ":" then return missing value
+        if not my isDateDigits(text 18 thru 19 of isoText) then return missing value
+        set secondNum to (text 18 thru 19 of isoText) as integer
+    end if
+    set yearNum to (text 1 thru 4 of isoText) as integer
+    set monthNum to (text 6 thru 7 of isoText) as integer
+    set dayNum to (text 9 thru 10 of isoText) as integer
+    if yearNum < 1000 or monthNum < 1 or monthNum > 12 or dayNum < 1 or dayNum > 31 then return missing value
+    if hourNum > 23 or minuteNum > 59 or secondNum > 59 then return missing value
+
+    try
+        set isoDate to current date
+        set day of isoDate to 1
+        set year of isoDate to yearNum
+        set month of isoDate to monthNum
+        set day of isoDate to dayNum
+        set time of isoDate to hourNum * hours + minuteNum * minutes + secondNum
+        -- A day that does not exist in that month (2026-02-30) rolls over into the next one; refuse it
+        if (day of isoDate) is not dayNum then return missing value
+    on error
+        return missing value
+    end try
+    return isoDate
+end parseISODate
+
+on hasDigitDash(theText)
+    -- True if a dash stands between two digits
+    set textLength to length of theText
+    if textLength < 3 then return false
+    repeat with i from 2 to textLength - 1
+        if (character i of theText) is "-" then
+            if "0123456789" contains (character (i - 1) of theText) and "0123456789" contains (character (i + 1) of theText) then return true
+        end if
+    end repeat
+    return false
+end hasDigitDash
+
+on isDateDigits(theText)
+    -- True if the text is not empty and has only the digits 0 to 9
+    if theText is "" then return false
+    repeat with aChar in characters of theText
+        if "0123456789" does not contain (contents of aChar) then return false
+    end repeat
+    return true
+end isDateDigits
+
+on dateErrorText(valueText, fieldName)
+    -- The message for a date that cannot be read; the caller adds what was not done
+    return "❌ Invalid date for " & fieldName & ": " & valueText & ". Use YYYY-MM-DD, YYYY-MM-DD HH:MM, today, tomorrow, next week, \"3 days\" or \"2 weeks\"."
+end dateErrorText
