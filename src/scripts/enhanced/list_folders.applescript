@@ -2,65 +2,82 @@ on run argv
     -- List the folders of OmniFocus as a hierarchy with ID, number of projects and subfolders, hidden folders and notes
     -- Usage: list_folders.applescript
 
-    set folderCount to 0
-    set outputText to ""
+    -- Every Apple Event costs about 17 ms, a query for one property of all elements about 0.05 s: the properties of all
+    -- folders and the folders of all projects are fetched at once (the same position in each list is the same item)
     tell application "OmniFocus"
         tell default document
-            set topFolders to every folder
+            set folderIDList to id of every flattened folder
+            set folderNameList to name of every flattened folder
+            set folderParentIDList to id of container of every flattened folder
+            set folderHiddenList to hidden of every flattened folder
+            set folderNoteList to note of every flattened folder
+            set projectFolderIDList to id of folder of every flattened project
         end tell
     end tell
-    if (count of topFolders) = 0 then
+    set folderCount to count of folderIDList
+    if folderCount = 0 then
         return "📁 No folders found in OmniFocus."
     end if
-    set outputText to my formatFolders(topFolders, 0)
-    tell application "OmniFocus"
-        tell default document
-            set folderCount to count of (every flattened folder)
-        end tell
-    end tell
+
+    -- Projects directly in each folder
+    set projectCounts to {}
+    repeat with i from 1 to folderCount
+        set end of projectCounts to 0
+    end repeat
+    repeat with aFolderID in projectFolderIDList
+        if (contents of aFolderID) is not missing value then
+            set folderIndex to my indexOfItem(contents of aFolderID, folderIDList)
+            if folderIndex > 0 then set item folderIndex of projectCounts to (item folderIndex of projectCounts) + 1
+        end if
+    end repeat
+
+    set outputText to ""
+    repeat with i from 1 to folderCount
+        -- Top-level folders: the container is the database, which is not in the list of folders
+        if my indexOfItem(item i of folderParentIDList, folderIDList) = 0 then
+            set outputText to outputText & my formatFolder(i, 0, folderIDList, folderNameList, folderParentIDList, folderHiddenList, folderNoteList, projectCounts)
+        end if
+    end repeat
     return "📁 Folders (" & folderCount & "):" & return & outputText
 end run
 
-on formatFolders(folderList, depth)
-    -- Recursively lists folders; indentation shows the hierarchy
-    set output to ""
+on formatFolder(folderIndex, depth, folderIDList, folderNameList, folderParentIDList, folderHiddenList, folderNoteList, projectCounts)
+    -- A folder and, indented below it, its subfolders (recursively); the indentation shows the hierarchy
     set indent to ""
     repeat depth times
         set indent to indent & "  "
     end repeat
-    tell application "OmniFocus"
-        repeat with aFolder in folderList
-            set projectCount to 0
-            set subfolderList to {}
-            set folderHidden to false
-            set hasNote to false
-            try
-                set projectCount to count of (every project of aFolder)
-            end try
-            try
-                set subfolderList to every folder of aFolder
-            end try
-            try
-                set folderHidden to hidden of aFolder
-            end try
-            try
-                if (note of aFolder as text) is not "" then set hasNote to true
-            end try
-            set lineText to indent & "• " & (name of aFolder)
-            set lineText to lineText & " (" & my countText(projectCount, "project", "projects")
-            if (count of subfolderList) > 0 then set lineText to lineText & ", " & my countText(count of subfolderList, "subfolder", "subfolders")
-            set lineText to lineText & ")"
-            if folderHidden then set lineText to lineText & " ⏸ hidden"
-            if hasNote then set lineText to lineText & " 📝"
-            set lineText to lineText & " [id:" & (id of aFolder) & "]"
-            set output to output & lineText & return
-            if (count of subfolderList) > 0 then
-                set output to output & my formatFolders(subfolderList, depth + 1)
-            end if
-        end repeat
-    end tell
+    set folderID to item folderIndex of folderIDList
+    set subfolderIndexes to {}
+    repeat with j from 1 to count of folderIDList
+        if (item j of folderParentIDList) is folderID then set end of subfolderIndexes to j
+    end repeat
+    set hasNote to false
+    set noteValue to item folderIndex of folderNoteList
+    if noteValue is not missing value then
+        if (noteValue as text) is not "" then set hasNote to true
+    end if
+    set lineText to indent & "• " & (item folderIndex of folderNameList)
+    set lineText to lineText & " (" & my countText(item folderIndex of projectCounts, "project", "projects")
+    if (count of subfolderIndexes) > 0 then set lineText to lineText & ", " & my countText(count of subfolderIndexes, "subfolder", "subfolders")
+    set lineText to lineText & ")"
+    if item folderIndex of folderHiddenList then set lineText to lineText & " ⏸ hidden"
+    if hasNote then set lineText to lineText & " 📝"
+    set lineText to lineText & " [id:" & folderID & "]"
+    set output to lineText & return
+    repeat with subIndex in subfolderIndexes
+        set output to output & my formatFolder(contents of subIndex, depth + 1, folderIDList, folderNameList, folderParentIDList, folderHiddenList, folderNoteList, projectCounts)
+    end repeat
     return output
-end formatFolders
+end formatFolder
+
+on indexOfItem(anItem, aList)
+    -- Position of anItem in aList, 0 if it is not in the list
+    repeat with i from 1 to count of aList
+        if (item i of aList) is anItem then return i
+    end repeat
+    return 0
+end indexOfItem
 
 on countText(n, singularWord, pluralWord)
     -- "1 project", "2 projects"

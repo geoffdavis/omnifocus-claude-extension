@@ -133,11 +133,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of an AppleScript error. Attachment numbers (`edit_task`, `edit_project`, `edit_folder`, `save_attachment`), the
   limit of `search_tasks` and `estimated_minutes` of `add_task` are whole numbers only (`1.5` was rounded or failed,
   depending on the region), and a number with more than nine digits is no longer converted in dates and repeat rules
+- `today_tasks` named the database instead of the inbox for tasks in the inbox (`(OmniFocus)`); they show `(Inbox)`
 - Dates: `add_task` read "2026-12-01 10:00" as a date in 2007, and the other tools set today or tomorrow when they could
   not read a date. All tools that take a date now use one parser: `YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, `today`, `tomorrow`,
   `next week`, `3 days`, `2 weeks`, and the date formats of the system language as a last try. A date that cannot be read
   (or does not exist, like 2026-02-30) is refused with a clear message and nothing is changed or created; `add_task` skips
   it and warns, as before
+
+### Performance
+- The read tools no longer ask OmniFocus once per task, project or tag. Every Apple Event costs about 17 ms, so a tool that
+  read three properties of each of 1,300 tasks needed more than a minute (`list_tags` with counts 28 s, `search_tasks`
+  over all tasks 135 s, `list_available_tasks` 30 s, `list_projects` with statistics 19 s). The tools now read each
+  property of all tasks, projects, folders or tags with one query (about 0.05 s) and filter, group and sort in the
+  script. Measured with 1,318 tasks, 74 projects, 147 tags and 29 folders: all 48 calls of the test run together took 49 s
+  instead of 589 s (`list_tags` with counts 1.4 s, `list_projects` with statistics 1.0 s, `search_tasks` over all tasks
+  2.2 s, `list_available_tasks` 1.2 s); the output is the same
+- Tasks and projects below hidden (dropped) folders are recognized through the ID of their project (one query for all
+  folders and one for all projects) instead of a list of all their task IDs or one query per item
+- Lists sorted by date (`list_overdue_tasks`, `list_deferred_tasks`, `list_due_soon`) are sorted in the script
+  (stable merge sort, equal dates keep the order of OmniFocus) instead of comparing two dates with Apple Events per
+  comparison, which took 17 s for 33 tasks
+- Projects are found by name or path with one query for all names instead of one query per project; the same for
+  tags and folders
+- The server runs scripts asynchronously, one after the other, and stops a script after 120 seconds
+  (`OMNIFOCUS_SCRIPT_TIMEOUT_SECONDS` changes the limit) with the message to check OmniFocus before repeating a change.
+  A script that does not return no longer blocks the server, and an answer that is still being written is not lost when
+  Claude Desktop closes the connection
 
 ### Security
 - Tool output is wrapped in a block marked as untrusted data, so that task names and notes are not read as instructions

@@ -290,17 +290,19 @@ on resolveProject(queryText)
     set folderQuery to {}
     if (count of queryParts) > 1 then set folderQuery to items 1 thru -2 of queryParts
     
+    -- The names of all projects come with one query (an Apple Event per project costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allProjects to every flattened project
+            set allProjectNames to name of every flattened project
         end tell
     end tell
     
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aProject in allProjects
-        set candidateProject to contents of aProject
-        tell application "OmniFocus" to set candidateName to name of candidateProject
+    repeat with projectIndex from 1 to count of allProjects
+        set candidateProject to item projectIndex of allProjects
+        set candidateName to item projectIndex of allProjectNames
         ignoring case
             if candidateName is projectQuery then
                 set end of exactMatches to candidateProject
@@ -431,17 +433,19 @@ on resolveTag(queryText, allowPartial)
     set parentQuery to {}
     if (count of queryParts) > 1 then set parentQuery to items 1 thru -2 of queryParts
 
+    -- The names of all tags come with one query (an Apple Event per tag costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allTags to every flattened tag
+            set allTagNames to name of every flattened tag
         end tell
     end tell
 
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aTag in allTags
-        set candidateTag to contents of aTag
-        tell application "OmniFocus" to set candidateName to name of candidateTag
+    repeat with i from 1 to count of allTags
+        set candidateTag to item i of allTags
+        set candidateName to item i of allTagNames
         ignoring case
             if candidateName is nameQuery then
                 set end of exactMatches to candidateTag

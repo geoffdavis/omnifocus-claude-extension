@@ -81,209 +81,242 @@ on run argv
         end tell
     end if
 
-    set hiddenIDs to my hiddenFolderTaskIDs()
+    set hiddenProjectIDList to my hiddenFolderProjectIDs()
+    set checkHidden to ((count of hiddenProjectIDList) > 0)
 
+    -- Every Apple Event costs about 17 ms, a query for one property of all elements about 0.1 s: the properties of all
+    -- tasks, projects and folders are fetched at once (the same position in each list is the same item)
     tell application "OmniFocus"
         tell default document
-            -- Candidate tasks: open ones that carry the tag, or all open ones without a tag filter
-            set candidateTasks to {}
-            if (count of tagObjects) > 0 then
-                repeat with aTag in tagObjects
-                    set tagTasks to (every task of (contents of aTag) whose effectively completed is false and effectively dropped is false)
-                    repeat with aTask in tagTasks
-                        set end of candidateTasks to contents of aTask
-                    end repeat
-                end repeat
-            else
-                set openTasks to every flattened task whose effectively completed is false and effectively dropped is false
-                repeat with aTask in openTasks
-                    set end of candidateTasks to contents of aTask
-                end repeat
-            end if
-
-            set nowDate to current date
-            set seenIDs to {}
-            set matchCount to 0
-            set hitLimit to false
-            set groupKeys to {}
-            set groupHeadings to {}
-            set groupTexts to {}
-            set flatTexts to {}
-            set flatDates to {}
-            set projectCacheIDs to {}
-            set projectCacheLabels to {}
-            set projectCacheFolders to {}
-
-            repeat with aTask in candidateTasks
-                -- With show_age all matches are collected first, the limit applies after sorting
-                if matchCount ≥ maxResults and not showAge then
-                    set hitLimit to true
-                    exit repeat
-                end if
-
-                set theTask to contents of aTask
-                set taskID to id of theTask
-                set keepTask to true
-
-                -- Duplicates (a task with a tag and one of its child tags) and tasks below hidden folders
-                if seenIDs contains taskID then set keepTask to false
-                if keepTask and (hiddenIDs contains taskID) then set keepTask to false
-                if keepTask and projectFilterLabel is not "" and (projectTaskIDs does not contain taskID) then set keepTask to false
-
-                -- Availability
-                if keepTask and availableOnly then
-                    try
-                        if blocked of theTask then set keepTask to false
-                    end try
-                end if
-                if keepTask and availableOnly then
-                    try
-                        set deferDate to defer date of theTask
-                        if deferDate is not missing value and deferDate > nowDate then set keepTask to false
-                    end try
-                end if
-                if keepTask and availableOnly then
-                    -- Action groups are not actionable themselves, their open subtasks are
-                    try
-                        if (count of (tasks of theTask whose effectively completed is false and effectively dropped is false)) > 0 then set keepTask to false
-                    end try
-                end if
-
-                -- Time filter
-                if keepTask and maxMinutes > 0 then
-                    set estimateValue to missing value
-                    try
-                        set estimateValue to estimated minutes of theTask
-                    end try
-                    if estimateValue is missing value or estimateValue is 0 then
-                        if not includeUnestimated then set keepTask to false
-                    else if estimateValue > maxMinutes then
-                        set keepTask to false
-                    end if
-                end if
-
-                -- Project, folder filter and group
-                set theProject to missing value
-                if keepTask then
-                    try
-                        set theProject to containing project of theTask
-                    end try
-                    if theProject is missing value then
-                        if (not includeInbox) or folderQuery is not "" then set keepTask to false
-                    else if (id of theProject) is taskID then
-                        -- A project without tasks is returned like a task and has the same id
-                        set keepTask to false
-                    end if
-                end if
-                if keepTask and availableOnly and theProject is not missing value then
-                    try
-                        if effective status of theProject is not active status then set keepTask to false
-                    end try
-                end if
-
-                set groupKey to "inbox"
-                set groupHeading to "📥 Inbox"
-                if keepTask and theProject is not missing value then
-                    set groupKey to id of theProject
-                    set cacheIndex to my indexOfItem(groupKey, projectCacheIDs)
-                    if cacheIndex = 0 then
-                        set folderNames to my projectFolderNames(theProject)
-                        set folderPathText to my joinText(folderNames, " > ")
-                        set projectLabelText to name of theProject
-                        if folderPathText is not "" then set projectLabelText to folderPathText & " > " & projectLabelText
-                        set end of projectCacheIDs to groupKey
-                        set end of projectCacheLabels to projectLabelText
-                        set end of projectCacheFolders to folderPathText
-                    else
-                        set projectLabelText to item cacheIndex of projectCacheLabels
-                        set folderPathText to item cacheIndex of projectCacheFolders
-                    end if
-                    set groupHeading to "📁 " & projectLabelText
-                    if folderQuery is not "" then
-                        ignoring case
-                            if folderPathText does not contain folderQuery then set keepTask to false
-                        end ignoring
-                    end if
-                end if
-
-                if keepTask then
-                    set matchCount to matchCount + 1
-                    set end of seenIDs to taskID
-
-                    set entry to "• " & (name of theTask)
-                    if flagged of theTask then set entry to entry & " 🚩"
-                    try
-                        set dueDate to due date of theTask
-                        if dueDate is not missing value then
-                            if dueDate < nowDate then
-                                set entry to entry & " ⚠️ overdue since " & (date string of dueDate)
-                            else
-                                set entry to entry & " 📅 due " & (date string of dueDate)
-                            end if
-                        end if
-                    end try
-                    if not availableOnly then
-                        set isDeferred to false
-                        try
-                            set deferDate to defer date of theTask
-                            if deferDate is not missing value and deferDate > nowDate then
-                                set isDeferred to true
-                                set entry to entry & " ⏸ deferred until " & (date string of deferDate)
-                            end if
-                        end try
-                        -- OmniFocus also calls deferred tasks blocked; only mention other reasons
-                        if not isDeferred then
-                            try
-                                if blocked of theTask then set entry to entry & " 🔒 blocked"
-                            end try
-                        end if
-                    end if
-                    try
-                        set estimateValue to estimated minutes of theTask
-                        if estimateValue is not missing value and estimateValue > 0 then set entry to entry & " ⏱ " & estimateValue & " min"
-                    end try
-                    try
-                        set tagNames to name of tags of theTask
-                        if (count of tagNames) > 0 then set entry to entry & " 🏷 " & my joinText(tagNames, ", ")
-                    end try
-                    set createdDate to missing value
-                    if showAge then
-                        try
-                            set createdDate to creation date of theTask
-                        end try
-                        if createdDate is not missing value then set entry to entry & " 🕒 " & my ageText(createdDate, nowDate)
-                    end if
-                    set entry to entry & " [id:" & taskID & "]"
-
-                    if showAge then
-                        -- One flat list, oldest first (tasks without a creation date last), with the project
-                        set entry to entry & " " & groupHeading
-                        set insertAt to (count of flatTexts) + 1
-                        if createdDate is not missing value then
-                            repeat with i from 1 to count of flatDates
-                                set otherDate to item i of flatDates
-                                if otherDate is missing value or otherDate > createdDate then
-                                    set insertAt to i
-                                    exit repeat
-                                end if
-                            end repeat
-                        end if
-                        set flatTexts to my insertAtIndex(flatTexts, entry, insertAt)
-                        set flatDates to my insertAtIndex(flatDates, createdDate, insertAt)
-                    else
-                        set groupIndex to my indexOfItem(groupKey, groupKeys)
-                        if groupIndex = 0 then
-                            set end of groupKeys to groupKey
-                            set end of groupHeadings to groupHeading
-                            set end of groupTexts to entry
-                        else
-                            set item groupIndex of groupTexts to (item groupIndex of groupTexts) & return & entry
-                        end if
-                    end if
-                end if
+            set taskIDList to id of every flattened task
+            set taskNameList to name of every flattened task
+            set flaggedList to flagged of every flattened task
+            set dueDateList to due date of every flattened task
+            set deferDateList to defer date of every flattened task
+            set blockedList to blocked of every flattened task
+            set effCompletedList to effectively completed of every flattened task
+            set effDroppedList to effectively dropped of every flattened task
+            set estimateList to estimated minutes of every flattened task
+            set tagNameLists to name of tags of every flattened task
+            set taskProjectIDList to id of containing project of every flattened task
+            set parentIDList to id of parent task of every flattened task
+            set creationDateList to {}
+            if showAge then set creationDateList to creation date of every flattened task
+            set projectIDList to id of every flattened project
+            set projectNameList to name of every flattened project
+            set projectStatusList to effective status of every flattened project
+            set projectFolderIDList to id of folder of every flattened project
+            set folderIDList to id of every flattened folder
+            set folderNameList to name of every flattened folder
+            set folderParentIDList to id of container of every flattened folder
+            set projectActiveList to {}
+            repeat with aStatus in projectStatusList
+                set end of projectActiveList to ((contents of aStatus) is active status)
             end repeat
         end tell
     end tell
+    set nowDate to current date
+
+    -- Position of a task ID in taskIDList without a loop: the IDs as one text, found with "offset"
+    set taskIDText to linefeed & my joinText(taskIDList, linefeed) & linefeed
+
+    -- Tasks that have open subtasks (action groups)
+    set parentsWithOpenTasks to {}
+    if availableOnly then
+        repeat with i from 1 to count of taskIDList
+            if not (item i of effCompletedList) and not (item i of effDroppedList) then
+                set parentID to item i of parentIDList
+                if parentID is not missing value then
+                    if parentsWithOpenTasks does not contain parentID then set end of parentsWithOpenTasks to parentID
+                end if
+            end if
+        end repeat
+    end if
+
+    -- Candidate tasks (positions in the lists): open ones that carry the tag, or all open ones without a tag filter
+    set candidateIndexes to {}
+    if (count of tagObjects) > 0 then
+        repeat with aTag in tagObjects
+            tell application "OmniFocus" to set tagTaskIDs to id of every task of (contents of aTag)
+            repeat with tagTaskID in tagTaskIDs
+                set i to my indexOfID(taskIDText, contents of tagTaskID)
+                if i > 0 then
+                    if not (item i of effCompletedList) and not (item i of effDroppedList) then set end of candidateIndexes to i
+                end if
+            end repeat
+        end repeat
+    else
+        repeat with i from 1 to count of taskIDList
+            if not (item i of effCompletedList) and not (item i of effDroppedList) then set end of candidateIndexes to i
+        end repeat
+    end if
+
+    set seenIDs to {}
+    set matchCount to 0
+    set hitLimit to false
+    set groupKeys to {}
+    set groupHeadings to {}
+    set groupTexts to {}
+    set flatTexts to {}
+    set flatDates to {}
+    set projectCacheIDs to {}
+    set projectCacheLabels to {}
+    set projectCacheFolders to {}
+
+    repeat with candidateIndex in candidateIndexes
+        -- With show_age all matches are collected first, the limit applies after sorting
+        if matchCount ≥ maxResults and not showAge then
+            set hitLimit to true
+            exit repeat
+        end if
+
+        set i to contents of candidateIndex
+        set taskID to item i of taskIDList
+        set projectID to item i of taskProjectIDList
+        set keepTask to true
+
+        -- Duplicates (a task with a tag and one of its child tags) and tasks below hidden folders
+        if seenIDs contains taskID then set keepTask to false
+        if keepTask and checkHidden and projectID is not missing value then
+            if hiddenProjectIDList contains projectID then set keepTask to false
+        end if
+        if keepTask and projectFilterLabel is not "" and (projectTaskIDs does not contain taskID) then set keepTask to false
+
+        -- Availability: not blocked, not deferred to the future and no action group (its open subtasks are actionable)
+        if keepTask and availableOnly then
+            if item i of blockedList then set keepTask to false
+            set deferDate to item i of deferDateList
+            if deferDate is not missing value then
+                if deferDate > nowDate then set keepTask to false
+            end if
+            if parentsWithOpenTasks contains taskID then set keepTask to false
+        end if
+
+        -- Time filter
+        if keepTask and maxMinutes > 0 then
+            set estimateValue to item i of estimateList
+            if estimateValue is missing value then
+                if not includeUnestimated then set keepTask to false
+            else if estimateValue is 0 then
+                if not includeUnestimated then set keepTask to false
+            else if estimateValue > maxMinutes then
+                set keepTask to false
+            end if
+        end if
+
+        -- Project, folder filter and group
+        set projectIndex to 0
+        if keepTask then
+            if projectID is missing value then
+                if (not includeInbox) or folderQuery is not "" then set keepTask to false
+            else if projectID is taskID then
+                -- A project without tasks is returned like a task and has the same id
+                set keepTask to false
+            else
+                set projectIndex to my indexOfItem(projectID, projectIDList)
+                if projectIndex = 0 then set keepTask to false
+            end if
+        end if
+        if keepTask and availableOnly and projectIndex > 0 then
+            if not (item projectIndex of projectActiveList) then set keepTask to false
+        end if
+
+        set groupKey to "inbox"
+        set groupHeading to "📥 Inbox"
+        if keepTask and projectIndex > 0 then
+            set groupKey to projectID
+            set cacheIndex to my indexOfItem(groupKey, projectCacheIDs)
+            if cacheIndex = 0 then
+                set folderPathText to my folderPathOf(item projectIndex of projectFolderIDList, folderIDList, folderNameList, folderParentIDList)
+                set projectLabelText to item projectIndex of projectNameList
+                if folderPathText is not "" then set projectLabelText to folderPathText & " > " & projectLabelText
+                set end of projectCacheIDs to groupKey
+                set end of projectCacheLabels to projectLabelText
+                set end of projectCacheFolders to folderPathText
+            else
+                set projectLabelText to item cacheIndex of projectCacheLabels
+                set folderPathText to item cacheIndex of projectCacheFolders
+            end if
+            set groupHeading to "📁 " & projectLabelText
+            if folderQuery is not "" then
+                ignoring case
+                    if folderPathText does not contain folderQuery then set keepTask to false
+                end ignoring
+            end if
+        end if
+
+        if keepTask then
+            set matchCount to matchCount + 1
+            set end of seenIDs to taskID
+
+            set entry to "• " & (item i of taskNameList)
+            if item i of flaggedList then set entry to entry & " 🚩"
+            set dueDate to item i of dueDateList
+            if dueDate is not missing value then
+                if dueDate < nowDate then
+                    set entry to entry & " ⚠️ overdue since " & (date string of dueDate)
+                else
+                    set entry to entry & " 📅 due " & (date string of dueDate)
+                end if
+            end if
+            if not availableOnly then
+                set isDeferred to false
+                set deferDate to item i of deferDateList
+                if deferDate is not missing value then
+                    if deferDate > nowDate then
+                        set isDeferred to true
+                        set entry to entry & " ⏸ deferred until " & (date string of deferDate)
+                    end if
+                end if
+                -- OmniFocus also calls deferred tasks blocked; only mention other reasons
+                if not isDeferred then
+                    if item i of blockedList then set entry to entry & " 🔒 blocked"
+                end if
+            end if
+            set estimateValue to item i of estimateList
+            if estimateValue is not missing value then
+                if estimateValue > 0 then set entry to entry & " ⏱ " & estimateValue & " min"
+            end if
+            set tagNames to item i of tagNameLists
+            if class of tagNames is not list then set tagNames to {tagNames}
+            if (count of tagNames) > 0 then set entry to entry & " 🏷 " & my joinText(tagNames, ", ")
+            set createdDate to missing value
+            if showAge then
+                set createdDate to item i of creationDateList
+                if createdDate is not missing value then set entry to entry & " 🕒 " & my ageText(createdDate, nowDate)
+            end if
+            set entry to entry & " [id:" & taskID & "]"
+
+            if showAge then
+                -- One flat list, oldest first (tasks without a creation date last), with the project
+                set entry to entry & " " & groupHeading
+                set insertAt to (count of flatTexts) + 1
+                if createdDate is not missing value then
+                    repeat with k from 1 to count of flatDates
+                        set otherDate to item k of flatDates
+                        if otherDate is missing value then
+                            set insertAt to k
+                            exit repeat
+                        else if otherDate > createdDate then
+                            set insertAt to k
+                            exit repeat
+                        end if
+                    end repeat
+                end if
+                set flatTexts to my insertAtIndex(flatTexts, entry, insertAt)
+                set flatDates to my insertAtIndex(flatDates, createdDate, insertAt)
+            else
+                set groupIndex to my indexOfItem(groupKey, groupKeys)
+                if groupIndex = 0 then
+                    set end of groupKeys to groupKey
+                    set end of groupHeadings to groupHeading
+                    set end of groupTexts to entry
+                else
+                    set item groupIndex of groupTexts to (item groupIndex of groupTexts) & return & entry
+                end if
+            end if
+        end if
+    end repeat
 
     -- Build the report
     set titleText to "🔎 Open tasks"
@@ -327,29 +360,6 @@ on run argv
     return reportText
 end run
 
-on hiddenFolderTaskIDs()
-    -- IDs of all tasks in projects below a hidden (dropped) folder
-    set idList to {}
-    tell application "OmniFocus"
-        tell default document
-            try
-                set hiddenFolders to every flattened folder whose hidden is true
-                repeat with aFolder in hiddenFolders
-                    set folderProjects to every flattened project of (contents of aFolder)
-                    repeat with aProject in folderProjects
-                        try
-                            set idList to idList & (id of every flattened task of root task of (contents of aProject))
-                        on error
-                            set idList to idList & (id of every flattened task of (contents of aProject))
-                        end try
-                    end repeat
-                end repeat
-            end try
-        end tell
-    end tell
-    return idList
-end hiddenFolderTaskIDs
-
 on indexOfItem(anItem, aList)
     -- Position of anItem in aList, 0 if it is not in the list
     repeat with i from 1 to count of aList
@@ -357,6 +367,34 @@ on indexOfItem(anItem, aList)
     end repeat
     return 0
 end indexOfItem
+
+on indexOfID(idText, theID)
+    -- Position of an ID in a list that was joined into one text (linefeed & id1 & linefeed & id2 & linefeed ...), 0 if it is
+    -- not in it. The search is done by the system and does not loop over the list.
+    set matchPosition to 0
+    considering case
+        set matchPosition to offset of (linefeed & theID & linefeed) in idText
+    end considering
+    if matchPosition = 0 then return 0
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to linefeed
+    set linefeedCount to (count of text items of (text 1 thru matchPosition of idText)) - 1
+    set AppleScript's text item delimiters to oldDelims
+    return linefeedCount
+end indexOfID
+
+on folderPathOf(folderID, folderIDList, folderNameList, folderParentIDList)
+    -- "Folder > Subfolder" of the folder with this ID, from the lists of all folders ("" without a folder)
+    set pathNames to {}
+    set currentID to folderID
+    repeat while currentID is not missing value
+        set folderIndex to my indexOfItem(currentID, folderIDList)
+        if folderIndex = 0 then exit repeat
+        set beginning of pathNames to item folderIndex of folderNameList
+        set currentID to item folderIndex of folderParentIDList
+    end repeat
+    return my joinText(pathNames, " > ")
+end folderPathOf
 
 on splitTagPath(queryText)
     -- Splits "Parent > Child" into trimmed, non-empty parts
@@ -402,17 +440,19 @@ on resolveTag(queryText, allowPartial)
     set parentQuery to {}
     if (count of queryParts) > 1 then set parentQuery to items 1 thru -2 of queryParts
 
+    -- The names of all tags come with one query (an Apple Event per tag costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allTags to every flattened tag
+            set allTagNames to name of every flattened tag
         end tell
     end tell
 
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aTag in allTags
-        set candidateTag to contents of aTag
-        tell application "OmniFocus" to set candidateName to name of candidateTag
+    repeat with i from 1 to count of allTags
+        set candidateTag to item i of allTags
+        set candidateName to item i of allTagNames
         ignoring case
             if candidateName is nameQuery then
                 set end of exactMatches to candidateTag
@@ -622,17 +662,19 @@ on resolveProject(queryText)
     set folderQuery to {}
     if (count of queryParts) > 1 then set folderQuery to items 1 thru -2 of queryParts
     
+    -- The names of all projects come with one query (an Apple Event per project costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allProjects to every flattened project
+            set allProjectNames to name of every flattened project
         end tell
     end tell
     
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aProject in allProjects
-        set candidateProject to contents of aProject
-        tell application "OmniFocus" to set candidateName to name of candidateProject
+    repeat with projectIndex from 1 to count of allProjects
+        set candidateProject to item projectIndex of allProjects
+        set candidateName to item projectIndex of allProjectNames
         ignoring case
             if candidateName is projectQuery then
                 set end of exactMatches to candidateProject
@@ -734,3 +776,27 @@ on trimItem(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimItem
+
+on hiddenFolderProjectIDs()
+    -- IDs of all projects below a hidden (dropped) folder, at any depth. One query per list instead of one per project:
+    -- every Apple Event costs about 17 ms, a query for all elements about 50 ms.
+    set idList to {}
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hiddenFlags to effectively hidden of every flattened folder
+                if hiddenFlags does not contain true then return {}
+                set hiddenFolderIDList to id of every flattened folder whose effectively hidden is true
+                set projectIDList to id of every flattened project
+                set projectFolderIDList to id of folder of every flattened project
+                repeat with i from 1 to count of projectIDList
+                    set folderID to item i of projectFolderIDList
+                    if folderID is not missing value then
+                        if hiddenFolderIDList contains folderID then set end of idList to item i of projectIDList
+                    end if
+                end repeat
+            end try
+        end tell
+    end tell
+    return idList
+end hiddenFolderProjectIDs

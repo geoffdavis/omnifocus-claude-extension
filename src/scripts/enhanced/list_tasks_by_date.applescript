@@ -126,11 +126,15 @@ on run argv
     set statusList to {}
     set projectStates to {}
     set projectIDs to {}
+    set nameList to {}
+    set containerProjectIDList to {}
     try
         tell application "OmniFocus"
             if itemType is "tasks" then
                 set refList to every flattened task of scopeRef
                 set idList to id of every flattened task of scopeRef
+                set nameList to name of every flattened task of scopeRef
+                set containerProjectIDList to id of containing project of every flattened task of scopeRef
                 set doneList to completed of every flattened task of scopeRef
                 set droppedList to effectively dropped of every flattened task of scopeRef
                 if fieldName is "created" then
@@ -176,10 +180,24 @@ on run argv
         return "❌ OmniFocus could not read the " & itemType & ": " & errMsg
     end try
 
+    -- Projects and folders of the whole database: label with folder path and the hidden folder check come from these lists
+    tell application "OmniFocus"
+        tell default document
+            set allProjectIDList to id of every flattened project
+            set allProjectNameList to name of every flattened project
+            set allProjectFolderIDList to id of folder of every flattened project
+            set folderIDList to id of every flattened folder
+            set folderNameList to name of every flattened folder
+            set folderParentIDList to id of container of every flattened folder
+        end tell
+    end tell
+    set hiddenProjectIDList to my hiddenFolderProjectIDs()
+
     set listSize to count of idList
     set listsFit to ((count of refList) is listSize and (count of dateList) is listSize)
     if itemType is "tasks" then
         set listsFit to (listsFit and (count of doneList) is listSize and (count of droppedList) is listSize)
+        set listsFit to (listsFit and (count of nameList) is listSize and (count of containerProjectIDList) is listSize)
         if fieldName is "dropped" then set listsFit to (listsFit and (count of directDropList) is listSize)
     else
         set listsFit to (listsFit and (count of projectStates) is listSize)
@@ -259,7 +277,6 @@ on run argv
         if shownCount ≥ maxResults then exit repeat
         set processedCount to processedCount + 1
         set fullIndex to item sortedPosition of keptIndexes
-        set theItem to item fullIndex of refList
         set itemID to item fullIndex of idList
         set stateText to item sortedPosition of keptStates
         set whenDate to item fullIndex of dateList
@@ -267,21 +284,23 @@ on run argv
         -- Project (task) or the project itself, with folder path and the hidden folder check (cached per project)
         set labelText to "Inbox"
         set isHidden to false
-        set theProject to missing value
+        set theProjectID to missing value
         if itemType is "tasks" then
-            try
-                tell application "OmniFocus" to set theProject to containing project of theItem
-            end try
+            set theProjectID to item fullIndex of containerProjectIDList
         else
-            set theProject to theItem
+            set theProjectID to itemID
         end if
-        if theProject is not missing value then
-            tell application "OmniFocus" to set projectID to id of theProject
-            set cacheIndex to my indexOfItem(projectID, projectCacheIDs)
+        if theProjectID is not missing value then
+            set cacheIndex to my indexOfItem(theProjectID, projectCacheIDs)
             if cacheIndex = 0 then
-                set labelText to my projectLabel(theProject)
-                set isHidden to my projectInHiddenFolder(theProject)
-                set end of projectCacheIDs to projectID
+                set projectIndex to my indexOfItem(theProjectID, allProjectIDList)
+                if projectIndex > 0 then
+                    set labelText to item projectIndex of allProjectNameList
+                    set folderPathText to my folderPathOf(item projectIndex of allProjectFolderIDList, folderIDList, folderNameList, folderParentIDList)
+                    if folderPathText is not "" then set labelText to folderPathText & " > " & labelText
+                end if
+                set isHidden to (hiddenProjectIDList contains theProjectID)
+                set end of projectCacheIDs to theProjectID
                 set end of projectCacheLabels to labelText
                 set end of projectCacheHidden to isHidden
             else
@@ -294,9 +313,7 @@ on run argv
             set hiddenCount to hiddenCount + 1
         else
             set entryText to "• " & labelText
-            if itemType is "tasks" then
-                tell application "OmniFocus" to set entryText to "• " & (name of theItem) & " [" & labelText & "]"
-            end if
+            if itemType is "tasks" then set entryText to "• " & (item fullIndex of nameList) & " [" & labelText & "]"
             if stateText is "completed" then set entryText to entryText & " ✓"
             if stateText is "dropped" and fieldName is not "dropped" then set entryText to entryText & " 🚫"
             if stateText is "on hold" then set entryText to entryText & " (on hold)"
@@ -329,24 +346,22 @@ on run argv
     return reportText
 end run
 
-on projectInHiddenFolder(aProject)
-    -- True if the project is below a hidden (dropped) folder
-    tell application "OmniFocus"
-        try
-            set currentFolder to folder of aProject
-            repeat while currentFolder is not missing value
-                if hidden of currentFolder then return true
-                set parentContainer to container of currentFolder
-                if class of parentContainer is folder then
-                    set currentFolder to parentContainer
-                else
-                    set currentFolder to missing value
-                end if
-            end repeat
-        end try
-    end tell
-    return false
-end projectInHiddenFolder
+on folderPathOf(folderID, folderIDList, folderNameList, folderParentIDList)
+    -- "Folder > Subfolder" of the folder with this ID, from the lists of all folders ("" without a folder)
+    set pathNames to {}
+    set currentID to folderID
+    repeat while currentID is not missing value
+        set folderIndex to my indexOfItem(currentID, folderIDList)
+        if folderIndex = 0 then exit repeat
+        set beginning of pathNames to item folderIndex of folderNameList
+        set currentID to item folderIndex of folderParentIDList
+    end repeat
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to " > "
+    set pathText to pathNames as text
+    set AppleScript's text item delimiters to oldDelims
+    return pathText
+end folderPathOf
 
 on sortPositions(keyList)
     -- The positions 1 to n of keyList, largest key first (bottom-up merge sort, equal keys keep their order)
@@ -501,17 +516,19 @@ on resolveProject(queryText)
     set folderQuery to {}
     if (count of queryParts) > 1 then set folderQuery to items 1 thru -2 of queryParts
     
+    -- The names of all projects come with one query (an Apple Event per project costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allProjects to every flattened project
+            set allProjectNames to name of every flattened project
         end tell
     end tell
     
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aProject in allProjects
-        set candidateProject to contents of aProject
-        tell application "OmniFocus" to set candidateName to name of candidateProject
+    repeat with projectIndex from 1 to count of allProjects
+        set candidateProject to item projectIndex of allProjects
+        set candidateName to item projectIndex of allProjectNames
         ignoring case
             if candidateName is projectQuery then
                 set end of exactMatches to candidateProject
@@ -613,3 +630,27 @@ on trimItem(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimItem
+
+on hiddenFolderProjectIDs()
+    -- IDs of all projects below a hidden (dropped) folder, at any depth. One query per list instead of one per project:
+    -- every Apple Event costs about 17 ms, a query for all elements about 50 ms.
+    set idList to {}
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hiddenFlags to effectively hidden of every flattened folder
+                if hiddenFlags does not contain true then return {}
+                set hiddenFolderIDList to id of every flattened folder whose effectively hidden is true
+                set projectIDList to id of every flattened project
+                set projectFolderIDList to id of folder of every flattened project
+                repeat with i from 1 to count of projectIDList
+                    set folderID to item i of projectFolderIDList
+                    if folderID is not missing value then
+                        if hiddenFolderIDList contains folderID then set end of idList to item i of projectIDList
+                    end if
+                end repeat
+            end try
+        end tell
+    end tell
+    return idList
+end hiddenFolderProjectIDs

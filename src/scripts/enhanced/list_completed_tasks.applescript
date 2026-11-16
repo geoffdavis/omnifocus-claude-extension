@@ -20,81 +20,97 @@ on run argv
     if dayCount < 1 then set dayCount to 7
     if maxResults < 1 then set maxResults to 100
 
-    set hiddenIDs to my hiddenFolderTaskIDs()
+    set hiddenProjectIDList to my hiddenFolderProjectIDs()
+    set checkHidden to ((count of hiddenProjectIDList) > 0)
     set cutoffDate to (current date) - dayCount * days
 
-    set sortKeys to {}
-    set sortEntries to {}
-    set sortDays to {}
-    set projectCacheIDs to {}
-    set projectCacheLabels to {}
-
+    -- Every Apple Event costs about 17 ms, a query for one property of all elements about 0.1 s: the properties of all
+    -- tasks, projects and folders are fetched at once (the same position in each list is the same item)
     tell application "OmniFocus"
         tell default document
-            set doneTasks to every flattened task whose completed is true and completion date ≥ cutoffDate
-
-            repeat with aTask in doneTasks
-                set theTask to contents of aTask
-                set taskID to id of theTask
-                if hiddenIDs does not contain taskID then
-                    set completedAt to completion date of theTask
-
-                    -- Project with folder path (cached per project)
-                    set projectLabelText to "Inbox"
-                    set theProject to missing value
-                    try
-                        set theProject to containing project of theTask
-                    end try
-                    if theProject is not missing value then
-                        set projectID to id of theProject
-                        set cacheIndex to my indexOfItem(projectID, projectCacheIDs)
-                        if cacheIndex = 0 then
-                            set folderNames to my projectFolderNames(theProject)
-                            set projectLabelText to name of theProject
-                            if (count of folderNames) > 0 then set projectLabelText to (my joinText(folderNames, " > ")) & " > " & projectLabelText
-                            set end of projectCacheIDs to projectID
-                            set end of projectCacheLabels to projectLabelText
-                        else
-                            set projectLabelText to item cacheIndex of projectCacheLabels
-                        end if
-                    end if
-
-                    set entry to "• " & (name of theTask) & " [" & projectLabelText & "] ✓ " & (time string of completedAt) & " [id:" & taskID & "]"
-                    set keyValue to completedAt - cutoffDate
-                    set dayText to date string of completedAt
-
-                    -- Insert so that the newest task comes first
-                    set insertAt to (count of sortKeys) + 1
-                    repeat with i from 1 to count of sortKeys
-                        if keyValue > (item i of sortKeys) then
-                            set insertAt to i
-                            exit repeat
-                        end if
-                    end repeat
-                    set sortKeys to my insertItem(sortKeys, keyValue, insertAt)
-                    set sortEntries to my insertItem(sortEntries, entry, insertAt)
-                    set sortDays to my insertItem(sortDays, dayText, insertAt)
-                end if
-            end repeat
+            set completedList to completed of every flattened task
+            set completionDateList to completion date of every flattened task
+            set taskIDList to id of every flattened task
+            set taskNameList to name of every flattened task
+            set taskProjectIDList to id of containing project of every flattened task
+            set projectIDList to id of every flattened project
+            set projectNameList to name of every flattened project
+            set projectFolderIDList to id of folder of every flattened project
+            set folderIDList to id of every flattened folder
+            set folderNameList to name of every flattened folder
+            set folderParentIDList to id of container of every flattened folder
         end tell
     end tell
 
-    set totalCount to count of sortKeys
+    -- The completed tasks of the period (positions in the lists) and when they were completed
+    set doneIndexes to {}
+    set sortKeys to {}
+    repeat with i from 1 to count of taskIDList
+        if item i of completedList then
+            set completedAt to item i of completionDateList
+            if completedAt is not missing value then
+                if completedAt ≥ cutoffDate then
+                    set isHidden to false
+                    if checkHidden then
+                        set projectID to item i of taskProjectIDList
+                        if projectID is not missing value then
+                            if hiddenProjectIDList contains projectID then set isHidden to true
+                        end if
+                    end if
+                    if not isHidden then
+                        set end of doneIndexes to i
+                        set end of sortKeys to completedAt - cutoffDate
+                    end if
+                end if
+            end if
+        end if
+    end repeat
+
+    set totalCount to count of doneIndexes
     if totalCount = 0 then
         return "✅ No tasks completed in the last " & dayCount & " days"
     end if
 
+    -- Newest first (tasks completed at the same time keep their order)
+    set sortedPositions to my sortPositions(sortKeys)
     set shownCount to totalCount
     if shownCount > maxResults then set shownCount to maxResults
 
+    set projectCacheIDs to {}
+    set projectCacheLabels to {}
     set reportText to "✅ Completed in the last " & dayCount & " days (" & totalCount & ")"
     set lastDay to ""
-    repeat with i from 1 to shownCount
-        if (item i of sortDays) is not lastDay then
-            set lastDay to item i of sortDays
+    repeat with n from 1 to shownCount
+        set i to item (item n of sortedPositions) of doneIndexes
+        set completedAt to item i of completionDateList
+        set taskID to item i of taskIDList
+
+        -- Project with folder path (cached per project)
+        set projectLabelText to "Inbox"
+        set projectID to item i of taskProjectIDList
+        if projectID is not missing value then
+            set cacheIndex to my indexOfItem(projectID, projectCacheIDs)
+            if cacheIndex = 0 then
+                set projectIndex to my indexOfItem(projectID, projectIDList)
+                if projectIndex > 0 then
+                    set projectLabelText to item projectIndex of projectNameList
+                    set folderPathText to my folderPathOf(item projectIndex of projectFolderIDList, folderIDList, folderNameList, folderParentIDList)
+                    if folderPathText is not "" then set projectLabelText to folderPathText & " > " & projectLabelText
+                end if
+                set end of projectCacheIDs to projectID
+                set end of projectCacheLabels to projectLabelText
+            else
+                set projectLabelText to item cacheIndex of projectCacheLabels
+            end if
+        end if
+
+        set entry to "• " & (item i of taskNameList) & " [" & projectLabelText & "] ✓ " & (time string of completedAt) & " [id:" & taskID & "]"
+        set dayText to date string of completedAt
+        if dayText is not lastDay then
+            set lastDay to dayText
             set reportText to reportText & return & return & "📅 " & lastDay
         end if
-        set reportText to reportText & return & (item i of sortEntries)
+        set reportText to reportText & return & entry
     end repeat
     if totalCount > shownCount then
         set reportText to reportText & return & return & "… " & (totalCount - shownCount) & " more not shown (limit " & maxResults & ")."
@@ -102,13 +118,61 @@ on run argv
     return reportText
 end run
 
-on insertItem(aList, anItem, idx)
-    -- Returns a copy of aList with anItem inserted at position idx
-    set listLength to count of aList
-    if idx > listLength then return aList & {anItem}
-    if idx = 1 then return {anItem} & aList
-    return (items 1 thru (idx - 1) of aList) & {anItem} & (items idx thru -1 of aList)
-end insertItem
+on sortPositions(keyList)
+    -- The positions 1 to n of keyList, largest key first (bottom-up merge sort, equal keys keep their order)
+    set itemCount to count of keyList
+    set orderList to {}
+    repeat with i from 1 to itemCount
+        set end of orderList to i
+    end repeat
+    set blockSize to 1
+    repeat while blockSize < itemCount
+        set mergedList to {}
+        set blockStart to 1
+        repeat while blockStart ≤ itemCount
+            set leftPos to blockStart
+            set leftEnd to blockStart + blockSize - 1
+            if leftEnd > itemCount then set leftEnd to itemCount
+            set rightPos to blockStart + blockSize
+            set rightEnd to blockStart + 2 * blockSize - 1
+            if rightEnd > itemCount then set rightEnd to itemCount
+            repeat while leftPos ≤ leftEnd and rightPos ≤ rightEnd
+                if (item (item leftPos of orderList) of keyList) ≥ (item (item rightPos of orderList) of keyList) then
+                    set end of mergedList to item leftPos of orderList
+                    set leftPos to leftPos + 1
+                else
+                    set end of mergedList to item rightPos of orderList
+                    set rightPos to rightPos + 1
+                end if
+            end repeat
+            repeat while leftPos ≤ leftEnd
+                set end of mergedList to item leftPos of orderList
+                set leftPos to leftPos + 1
+            end repeat
+            repeat while rightPos ≤ rightEnd
+                set end of mergedList to item rightPos of orderList
+                set rightPos to rightPos + 1
+            end repeat
+            set blockStart to blockStart + 2 * blockSize
+        end repeat
+        set orderList to mergedList
+        set blockSize to blockSize * 2
+    end repeat
+    return orderList
+end sortPositions
+
+on folderPathOf(folderID, folderIDList, folderNameList, folderParentIDList)
+    -- "Folder > Subfolder" of the folder with this ID, from the lists of all folders ("" without a folder)
+    set pathNames to {}
+    set currentID to folderID
+    repeat while currentID is not missing value
+        set folderIndex to my indexOfItem(currentID, folderIDList)
+        if folderIndex = 0 then exit repeat
+        set beginning of pathNames to item folderIndex of folderNameList
+        set currentID to item folderIndex of folderParentIDList
+    end repeat
+    return my joinText(pathNames, " > ")
+end folderPathOf
 
 on indexOfItem(anItem, aList)
     -- Position of anItem in aList, 0 if it is not in the list
@@ -127,45 +191,26 @@ on joinText(textItems, separator)
     return joinedText
 end joinText
 
-on projectFolderNames(aProject)
-    -- Folder names from the outermost folder down to the one holding the project; {} at top level
-    set folderNames to {}
-    tell application "OmniFocus"
-        try
-            set currentFolder to folder of aProject
-            repeat while currentFolder is not missing value
-                set beginning of folderNames to name of currentFolder
-                set parentContainer to container of currentFolder
-                if class of parentContainer is folder then
-                    set currentFolder to parentContainer
-                else
-                    set currentFolder to missing value
-                end if
-            end repeat
-        end try
-    end tell
-    return folderNames
-end projectFolderNames
-
-on hiddenFolderTaskIDs()
-    -- IDs of all tasks in projects below a hidden (dropped) folder
+on hiddenFolderProjectIDs()
+    -- IDs of all projects below a hidden (dropped) folder, at any depth. One query per list instead of one per project:
+    -- every Apple Event costs about 17 ms, a query for all elements about 50 ms.
     set idList to {}
     tell application "OmniFocus"
         tell default document
             try
-                set hiddenFolders to every flattened folder whose hidden is true
-                repeat with aFolder in hiddenFolders
-                    set folderProjects to every flattened project of (contents of aFolder)
-                    repeat with aProject in folderProjects
-                        try
-                            set idList to idList & (id of every flattened task of root task of (contents of aProject))
-                        on error
-                            set idList to idList & (id of every flattened task of (contents of aProject))
-                        end try
-                    end repeat
+                set hiddenFlags to effectively hidden of every flattened folder
+                if hiddenFlags does not contain true then return {}
+                set hiddenFolderIDList to id of every flattened folder whose effectively hidden is true
+                set projectIDList to id of every flattened project
+                set projectFolderIDList to id of folder of every flattened project
+                repeat with i from 1 to count of projectIDList
+                    set folderID to item i of projectFolderIDList
+                    if folderID is not missing value then
+                        if hiddenFolderIDList contains folderID then set end of idList to item i of projectIDList
+                    end if
                 end repeat
             end try
         end tell
     end tell
     return idList
-end hiddenFolderTaskIDs
+end hiddenFolderProjectIDs

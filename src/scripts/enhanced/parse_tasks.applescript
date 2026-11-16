@@ -259,17 +259,19 @@ on resolveProject(queryText)
     set folderQuery to {}
     if (count of queryParts) > 1 then set folderQuery to items 1 thru -2 of queryParts
     
+    -- The names of all projects come with one query (an Apple Event per project costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allProjects to every flattened project
+            set allProjectNames to name of every flattened project
         end tell
     end tell
     
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aProject in allProjects
-        set candidateProject to contents of aProject
-        tell application "OmniFocus" to set candidateName to name of candidateProject
+    repeat with projectIndex from 1 to count of allProjects
+        set candidateProject to item projectIndex of allProjects
+        set candidateName to item projectIndex of allProjectNames
         ignoring case
             if candidateName is projectQuery then
                 set end of exactMatches to candidateProject

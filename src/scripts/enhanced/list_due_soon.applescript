@@ -34,45 +34,58 @@ on run argv
     set minutes of endDate to 59
     set seconds of endDate to 59
     set endDate to endDate + daysAhead * days
-    set hiddenIDs to my hiddenFolderTaskIDs()
+    set hiddenProjectIDList to my hiddenFolderProjectIDs()
 
+    -- Every Apple Event costs about 17 ms, a query for one property of all tasks about 0.1 s: the properties of all tasks,
+    -- projects and folders are fetched at once (the same position in each list is the same item) and filtered and
+    -- sorted in the script
     tell application "OmniFocus"
         tell default document
-            set dueTasks to every flattened task whose due date ≥ nowDate and due date ≤ endDate and effectively completed is false and effectively dropped is false
+            set taskIDList to id of every flattened task
+            set taskNameList to name of every flattened task
+            set flaggedList to flagged of every flattened task
+            set dueDateList to due date of every flattened task
+            set deferDateList to defer date of every flattened task
+            set blockedList to blocked of every flattened task
+            set estimateList to estimated minutes of every flattened task
+            set effCompletedList to effectively completed of every flattened task
+            set effDroppedList to effectively dropped of every flattened task
+            set containerIDList to id of containing project of every flattened task
+            set containerNameList to name of containing project of every flattened task
+            set tagIDsList to id of tags of every flattened task
+            set tagNamesList to name of tags of every flattened task
+            set projectIDList to id of every flattened project
+            set projectFolderIDList to id of folder of every flattened project
+            set folderIDList to id of every flattened folder
+            set folderNameList to name of every flattened folder
+            set folderParentIDList to id of container of every flattened folder
         end tell
     end tell
 
-    -- Sort by due date, soonest first
-    set sortedTasks to {}
-    set sortedDates to {}
-    repeat with aTask in dueTasks
-        set theTask to contents of aTask
-        tell application "OmniFocus" to set taskID to id of theTask
-        if hiddenIDs does not contain taskID then
-            tell application "OmniFocus" to set taskDue to due date of theTask
-            set insertAt to (count of sortedDates) + 1
-            repeat with i from 1 to count of sortedDates
-                if (item i of sortedDates) > taskDue then
-                    set insertAt to i
-                    exit repeat
-                end if
-            end repeat
-            set sortedTasks to my insertAtIndex(sortedTasks, theTask, insertAt)
-            set sortedDates to my insertAtIndex(sortedDates, taskDue, insertAt)
+    -- Open tasks due from now until the end date, not in projects below hidden (dropped) folders
+    set dueIndexes to {}
+    repeat with t from 1 to count of taskIDList
+        set taskDue to item t of dueDateList
+        if taskDue is not missing value then
+            if taskDue ≥ nowDate and taskDue ≤ endDate and not (item t of effCompletedList) and not (item t of effDroppedList) then
+                if not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList) then set end of dueIndexes to t
+            end if
         end if
     end repeat
+
+    -- Sort by due date, soonest first
+    set sortedIndexes to my sortPositionsAscending(dueIndexes, dueDateList)
 
     set dayWord to "days"
     if daysAhead is 1 then set dayWord to "day"
     set titleText to "📅 Due in the next " & daysAhead & " " & dayWord
-    if (count of sortedTasks) = 0 then
+    if (count of sortedIndexes) = 0 then
         return titleText & ": none"
     end if
 
     set hitLimit to false
-    if (count of sortedTasks) > maxResults then
-        set sortedTasks to items 1 thru maxResults of sortedTasks
-        set sortedDates to items 1 thru maxResults of sortedDates
+    if (count of sortedIndexes) > maxResults then
+        set sortedIndexes to items 1 thru maxResults of sortedIndexes
         set hitLimit to true
     end if
 
@@ -80,10 +93,21 @@ on run argv
     set groupKeys to {}
     set groupHeadings to {}
     set groupTexts to {}
-    repeat with idx from 1 to count of sortedTasks
-        set theTask to item idx of sortedTasks
-        set taskDue to item idx of sortedDates
-        set entryInfo to my dueEntry(theTask, taskDue, nowDate, groupMode)
+    repeat with idx from 1 to count of sortedIndexes
+        set t to item idx of sortedIndexes
+        set taskDue to item t of dueDateList
+        set taskID to item t of taskIDList
+        set projectID to item t of containerIDList
+        set projectText to "Inbox"
+        if projectID is not missing value then
+            set projectText to item t of containerNameList
+            set projectIndex to my indexOfItem(projectID, projectIDList)
+            if projectIndex > 0 then
+                set folderPath to my folderPathOf(item projectIndex of projectFolderIDList, folderIDList, folderNameList, folderParentIDList)
+                if folderPath is not "" then set projectText to folderPath & " > " & projectText
+            end if
+        end if
+        set entryInfo to my dueEntry(item t of taskNameList, taskID, item t of flaggedList, taskDue, item t of deferDateList, item t of blockedList, item t of estimateList, projectID, projectText, my listOf(item t of tagIDsList), my listOf(item t of tagNamesList), nowDate, groupMode)
 
         set theKeys to {}
         set theHeadings to {}
@@ -120,7 +144,7 @@ on run argv
         end repeat
     end repeat
 
-    set reportText to titleText & " (" & (count of sortedTasks) & ")"
+    set reportText to titleText & " (" & (count of sortedIndexes) & ")"
     if groupMode is "tag" then set reportText to reportText & ", grouped by tag (a task with several tags appears under each of them)"
     repeat with i from 1 to count of groupKeys
         set reportText to reportText & return & return & (item i of groupHeadings) & return & (item i of groupTexts)
@@ -131,25 +155,9 @@ on run argv
     return reportText
 end run
 
-on dueEntry(theTask, taskDue, nowDate, groupMode)
-    -- One line for a task, plus what is needed to group it.
+on dueEntry(taskName, taskID, isFlagged, taskDue, deferDate, isBlocked, estimateValue, projectID, projectText, tagIDs, tagNames, nowDate, groupMode)
+    -- One line for a task from values that are already read (no Apple Events), plus what is needed to group it.
     -- Returns {entryText, tagIDs, tagNames, projectKey, projectHeading}
-    set theProject to missing value
-    tell application "OmniFocus"
-        set taskName to name of theTask
-        set taskID to id of theTask
-        set isFlagged to flagged of theTask
-        try
-            set theProject to containing project of theTask
-        end try
-        set tagIDs to {}
-        set tagNames to {}
-        try
-            set tagIDs to id of every tag of theTask
-            set tagNames to name of every tag of theTask
-        end try
-    end tell
-
     set entryText to "• " & taskName
     if isFlagged then set entryText to entryText & " 🚩"
     if groupMode is "day" then
@@ -159,36 +167,28 @@ on dueEntry(theTask, taskDue, nowDate, groupMode)
         if (time of taskDue) is not 0 then set entryText to entryText & " " & my timeText(taskDue)
     end if
 
-    tell application "OmniFocus"
-        -- OmniFocus also calls deferred tasks blocked; only mention other reasons
-        set isDeferred to false
-        try
-            set deferDate to defer date of theTask
-            if deferDate is not missing value and deferDate > nowDate then
-                set isDeferred to true
-                set entryText to entryText & " ⏸ deferred until " & (date string of deferDate)
-            end if
-        end try
-        if not isDeferred then
-            try
-                if blocked of theTask then set entryText to entryText & " 🔒 blocked"
-            end try
+    -- OmniFocus also calls deferred tasks blocked; only mention other reasons
+    set isDeferred to false
+    if deferDate is not missing value then
+        if deferDate > nowDate then
+            set isDeferred to true
+            set entryText to entryText & " ⏸ deferred until " & (date string of deferDate)
         end if
-        try
-            set estimateValue to estimated minutes of theTask
-            if estimateValue is not missing value and estimateValue > 0 then set entryText to entryText & " ⏱ " & estimateValue & " min"
-        end try
-    end tell
+    end if
+    if not isDeferred then
+        if isBlocked then set entryText to entryText & " 🔒 blocked"
+    end if
+    if estimateValue is not missing value then
+        if estimateValue > 0 then set entryText to entryText & " ⏱ " & estimateValue & " min"
+    end if
 
     set projectKey to "inbox"
     set projectHeading to "📥 Inbox"
-    set projectText to "Inbox"
-    if theProject is not missing value then
-        tell application "OmniFocus" to set projectKey to id of theProject
-        set projectText to my projectLabel(theProject)
+    if projectID is not missing value then
+        set projectKey to projectID
         set projectHeading to "📁 " & projectText
     end if
-    if theProject is not missing value and projectKey is taskID then
+    if projectID is not missing value and projectKey is taskID then
         -- An empty project is returned like a task and has the same id
         set entryText to "• 📂 " & text 3 thru -1 of entryText
     else if groupMode is not "project" then
@@ -200,6 +200,13 @@ on dueEntry(theTask, taskDue, nowDate, groupMode)
     return {entryText:entryText, tagIDs:tagIDs, tagNames:tagNames, projectKey:projectKey, projectHeading:projectHeading}
 end dueEntry
 
+on listOf(aValue)
+    -- The value as a list: a list stays, a missing value is an empty list, a single value is a list of one
+    if aValue is missing value then return {}
+    if class of aValue is list then return aValue
+    return {aValue}
+end listOf
+
 on timeText(aDate)
     -- "09:30"
     set hourText to text -2 thru -1 of ("0" & (hours of aDate))
@@ -207,28 +214,93 @@ on timeText(aDate)
     return hourText & ":" & minuteText
 end timeText
 
-on hiddenFolderTaskIDs()
-    -- IDs of all tasks in projects below a hidden (dropped) folder
+on trimItem(theText)
+    set whitespaceChars to {" ", tab, return, linefeed}
+    set textLength to length of theText
+    if textLength is 0 then return ""
+    set textStart to 1
+    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
+        set textStart to textStart + 1
+    end repeat
+    if textStart > textLength then return ""
+    set textEnd to textLength
+    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
+        set textEnd to textEnd - 1
+    end repeat
+    return text textStart thru textEnd of theText
+end trimItem
+
+on hiddenFolderProjectIDs()
+    -- IDs of all projects below a hidden (dropped) folder, at any depth. One query per list instead of one per project:
+    -- every Apple Event costs about 17 ms, a query for all elements about 50 ms.
     set idList to {}
     tell application "OmniFocus"
         tell default document
             try
-                set hiddenFolders to every flattened folder whose hidden is true
-                repeat with aFolder in hiddenFolders
-                    set folderProjects to every flattened project of (contents of aFolder)
-                    repeat with aProject in folderProjects
-                        try
-                            set idList to idList & (id of every flattened task of root task of (contents of aProject))
-                        on error
-                            set idList to idList & (id of every flattened task of (contents of aProject))
-                        end try
-                    end repeat
+                set hiddenFlags to effectively hidden of every flattened folder
+                if hiddenFlags does not contain true then return {}
+                set hiddenFolderIDList to id of every flattened folder whose effectively hidden is true
+                set projectIDList to id of every flattened project
+                set projectFolderIDList to id of folder of every flattened project
+                repeat with i from 1 to count of projectIDList
+                    set folderID to item i of projectFolderIDList
+                    if folderID is not missing value then
+                        if hiddenFolderIDList contains folderID then set end of idList to item i of projectIDList
+                    end if
                 end repeat
             end try
         end tell
     end tell
     return idList
-end hiddenFolderTaskIDs
+end hiddenFolderProjectIDs
+
+on sortPositionsAscending(positionList, keyList)
+    -- The positions in positionList ordered by the key at each position (keyList), smallest key first
+    -- (bottom-up merge sort, equal keys keep their order). No Apple Events: the keys are values in a list.
+    set itemCount to count of positionList
+    set orderList to positionList
+    set blockSize to 1
+    repeat while blockSize < itemCount
+        set mergedList to {}
+        set blockStart to 1
+        repeat while blockStart ≤ itemCount
+            set leftPos to blockStart
+            set leftEnd to blockStart + blockSize - 1
+            if leftEnd > itemCount then set leftEnd to itemCount
+            set rightPos to blockStart + blockSize
+            set rightEnd to blockStart + 2 * blockSize - 1
+            if rightEnd > itemCount then set rightEnd to itemCount
+            repeat while leftPos ≤ leftEnd and rightPos ≤ rightEnd
+                if (item (item leftPos of orderList) of keyList) ≤ (item (item rightPos of orderList) of keyList) then
+                    set end of mergedList to item leftPos of orderList
+                    set leftPos to leftPos + 1
+                else
+                    set end of mergedList to item rightPos of orderList
+                    set rightPos to rightPos + 1
+                end if
+            end repeat
+            repeat while leftPos ≤ leftEnd
+                set end of mergedList to item leftPos of orderList
+                set leftPos to leftPos + 1
+            end repeat
+            repeat while rightPos ≤ rightEnd
+                set end of mergedList to item rightPos of orderList
+                set rightPos to rightPos + 1
+            end repeat
+            set blockStart to blockStart + 2 * blockSize
+        end repeat
+        set orderList to mergedList
+        set blockSize to blockSize * 2
+    end repeat
+    return orderList
+end sortPositionsAscending
+
+on isHiddenProjectID(containerID, hiddenProjectIDList)
+    -- True if the ID is the ID of a project below a hidden (dropped) folder (tasks outside projects have no project ID)
+    if containerID is missing value then return false
+    if (count of hiddenProjectIDList) = 0 then return false
+    return (hiddenProjectIDList contains containerID)
+end isHiddenProjectID
 
 on indexOfItem(anItem, aList)
     -- Position of anItem in aList, 0 if it is not in the list
@@ -247,55 +319,15 @@ on joinText(textItems, separator)
     return joinedText
 end joinText
 
-on insertAtIndex(aList, anItem, slotIndex)
-    -- A copy of aList with anItem inserted before the item at slotIndex (at the end if slotIndex is past the end)
-    if slotIndex ≤ 1 then return {anItem} & aList
-    if slotIndex > (count of aList) then return aList & {anItem}
-    return (items 1 thru (slotIndex - 1) of aList) & {anItem} & (items slotIndex thru -1 of aList)
-end insertAtIndex
-
-on trimItem(theText)
-    set whitespaceChars to {" ", tab, return, linefeed}
-    set textLength to length of theText
-    if textLength is 0 then return ""
-    set textStart to 1
-    repeat while textStart ≤ textLength and character textStart of theText is in whitespaceChars
-        set textStart to textStart + 1
+on folderPathOf(folderID, folderIDList, folderNameList, folderParentIDList)
+    -- "Folder > Subfolder" of the folder with this ID, from the lists of all folders ("" without a folder)
+    set pathNames to {}
+    set currentID to folderID
+    repeat while currentID is not missing value
+        set folderIndex to my indexOfItem(currentID, folderIDList)
+        if folderIndex = 0 then exit repeat
+        set beginning of pathNames to item folderIndex of folderNameList
+        set currentID to item folderIndex of folderParentIDList
     end repeat
-    if textStart > textLength then return ""
-    set textEnd to textLength
-    repeat while textEnd ≥ textStart and character textEnd of theText is in whitespaceChars
-        set textEnd to textEnd - 1
-    end repeat
-    return text textStart thru textEnd of theText
-end trimItem
-
-on projectFolderNames(aProject)
-    -- Folder names from the outermost folder down to the one holding the project; {} at top level
-    set folderNames to {}
-    tell application "OmniFocus"
-        try
-            set currentFolder to folder of aProject
-            repeat while currentFolder is not missing value
-                set beginning of folderNames to name of currentFolder
-                set parentContainer to container of currentFolder
-                if class of parentContainer is folder then
-                    set currentFolder to parentContainer
-                else
-                    set currentFolder to missing value
-                end if
-            end repeat
-        end try
-    end tell
-    return folderNames
-end projectFolderNames
-
-on projectLabel(aProject)
-    -- "Folder > Subfolder > Project", the same form resolveProject accepts
-    tell application "OmniFocus" to set projectName to name of aProject
-    set labelText to ""
-    repeat with folderName in my projectFolderNames(aProject)
-        set labelText to labelText & folderName & " > "
-    end repeat
-    return labelText & projectName
-end projectLabel
+    return my joinText(pathNames, " > ")
+end folderPathOf

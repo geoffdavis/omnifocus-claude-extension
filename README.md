@@ -508,6 +508,14 @@ This is the most common issue. Claude Desktop runs the extension via `node`, whi
 
 You can verify the permission in **System Settings > Privacy & Security > Automation** - look for `node` with OmniFocus enabled.
 
+### A tool is slow or stops after two minutes
+
+The tools read OmniFocus with a few queries for all tasks, projects or tags at once, so even a database with several
+thousand tasks answers in a few seconds. Searches in notes (`search_tasks`) and the 100 entries of `get_settings` are the
+slowest calls. A script that does not finish within 120 seconds is stopped with a message; check in OmniFocus whether a
+change was made before you repeat it. Set `OMNIFOCUS_SCRIPT_TIMEOUT_SECONDS` in the environment of the server to
+change the limit.
+
 ### Extension Not Loading
 
 1. Check Claude Desktop logs: `~/Library/Logs/Claude/`

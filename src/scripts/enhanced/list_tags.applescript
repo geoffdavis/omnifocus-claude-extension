@@ -1,122 +1,124 @@
 on run argv
     -- List all tags in OmniFocus with hierarchy (indentation shows parent/child relationships)
     -- Usage: list_tags.applescript [include_counts]
-    -- Pass "true" as first argument to include per-tag task counts (slower on large databases)
+    -- Pass "true" as first argument to include per-tag task counts
 
     set includeCounts to false
     if (count of argv) > 0 then
         if item 1 of argv is "true" then set includeCounts to true
     end if
 
+    -- Every Apple Event costs about 17 ms, a query for one property of all tags about 0.05 s: the properties of all tags
+    -- are fetched at once (the same position in each list is the same tag) and the hierarchy is built from them.
     tell application "OmniFocus"
         tell default document
-            set topTags to every tag
-            if (count of topTags) = 0 then
-                return "🏷️ No tags found in OmniFocus."
-            end if
-
-            set flatTags to every flattened tag
-            set resultText to "🏷️ Tags (" & (count of flatTags) & "):" & return
-
-            if includeCounts then
-                -- Build a tag id→count map in a single pass over tasks
-                set tagCountRecord to {}
-                set activeTasks to every flattened task whose completed is false
-                repeat with aTask in activeTasks
-                    set taskTags to tags of aTask
-                    repeat with aTag in taskTags
-                        set tID to id of aTag
-                        set found to false
-                        repeat with entry in tagCountRecord
-                            if tagID of entry is tID then
-                                set tagCount of entry to (tagCount of entry) + 1
-                                set found to true
-                                exit repeat
-                            end if
-                        end repeat
-                        if not found then
-                            set end of tagCountRecord to {tagID:tID, tagCount:1}
-                        end if
-                    end repeat
-                end repeat
-
-                set resultText to resultText & my formatTagsWithCounts(topTags, 0, tagCountRecord)
-            else
-                set resultText to resultText & my formatTags(topTags, 0)
-            end if
-
-            return resultText
+            set tagIDList to id of every flattened tag
+            if (count of tagIDList) = 0 then return "🏷️ No tags found in OmniFocus."
+            set tagNameList to name of every flattened tag
+            set tagParentIDList to id of container of every flattened tag
+            set tagHiddenList to hidden of every flattened tag
+            set tagAllowsList to allows next action of every flattened tag
+            set tagLocationList to {}
+            try
+                set tagLocationList to location of every flattened tag
+            end try
         end tell
     end tell
+    set tagCount to count of tagIDList
+    set tagIDText to linefeed & my joinText(tagIDList, linefeed) & linefeed
+
+    -- Number of open tasks per tag (the tasks that are not completed), counted in one pass over all tasks
+    set tagTaskCounts to {}
+    if includeCounts then
+        repeat with i from 1 to tagCount
+            set end of tagTaskCounts to 0
+        end repeat
+        tell application "OmniFocus"
+            tell default document
+                set taskTagIDLists to id of tags of every flattened task
+                set taskCompletedList to completed of every flattened task
+            end tell
+        end tell
+        repeat with t from 1 to count of taskCompletedList
+            if not (item t of taskCompletedList) then
+                set idsOfTask to item t of taskTagIDLists
+                if class of idsOfTask is not list then set idsOfTask to {idsOfTask}
+                repeat with aTagID in idsOfTask
+                    set tagIndex to my indexOfID(tagIDText, contents of aTagID)
+                    if tagIndex > 0 then set item tagIndex of tagTaskCounts to (item tagIndex of tagTaskCounts) + 1
+                end repeat
+            end if
+        end repeat
+    end if
+
+    set resultText to "🏷️ Tags (" & tagCount & "):" & return
+    repeat with i from 1 to tagCount
+        -- Depth in the hierarchy: the number of parent tags (the container of a top level tag is the document)
+        set depth to 0
+        set parentID to item i of tagParentIDList
+        repeat
+            set parentIndex to my indexOfID(tagIDText, parentID)
+            if parentIndex = 0 then exit repeat
+            set depth to depth + 1
+            set parentID to item parentIndex of tagParentIDList
+        end repeat
+        set indent to ""
+        repeat depth times
+            set indent to indent & "  "
+        end repeat
+
+        set lineText to indent & "• " & (item i of tagNameList)
+        if includeCounts then
+            if (item i of tagTaskCounts) > 0 then set lineText to lineText & " (" & (item i of tagTaskCounts) & " tasks)"
+        end if
+        if item i of tagHiddenList then set lineText to lineText & " ⏸ hidden"
+        if not (item i of tagAllowsList) then set lineText to lineText & " 🚫 no next action"
+        if (count of tagLocationList) = tagCount then
+            if (item i of tagLocationList) is not missing value then
+                set locationText to my locationTextOfTagID(item i of tagIDList)
+                if locationText is not "" then set lineText to lineText & " 📍 " & locationText
+            end if
+        end if
+        set resultText to resultText & lineText & " [id:" & (item i of tagIDList) & "]" & return
+    end repeat
+    return resultText
 end run
 
--- Recursively format tags with indentation (no counts)
-on formatTags(tagList, depth)
-    set output to ""
-    tell application "OmniFocus"
-        repeat with aTag in tagList
-            set indent to ""
-            repeat depth times
-                set indent to indent & "  "
-            end repeat
-            set output to output & indent & "• " & name of aTag & my tagSuffix(aTag) & return
-            set childTags to every tag of aTag
-            if (count of childTags) > 0 then
-                set output to output & my formatTags(childTags, depth + 1)
-            end if
-        end repeat
-    end tell
-    return output
-end formatTags
+on indexOfID(idText, theID)
+    -- Position of an ID in a list that was joined into one text (linefeed & id1 & linefeed & id2 & linefeed ...), 0 if it is
+    -- not in it. The search is done by the system and does not loop over the list.
+    if theID is missing value then return 0
+    set matchPosition to 0
+    considering case
+        set matchPosition to offset of (linefeed & theID & linefeed) in idText
+    end considering
+    if matchPosition = 0 then return 0
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to linefeed
+    set linefeedCount to (count of text items of (text 1 thru matchPosition of idText)) - 1
+    set AppleScript's text item delimiters to oldDelims
+    return linefeedCount
+end indexOfID
 
--- Recursively format tags with indentation and task counts
-on formatTagsWithCounts(tagList, depth, tagCountRecord)
-    set output to ""
-    tell application "OmniFocus"
-        repeat with aTag in tagList
-            set indent to ""
-            repeat depth times
-                set indent to indent & "  "
-            end repeat
-            set tagName to name of aTag
-            set tID to id of aTag
-            set taggedCount to 0
-            repeat with entry in tagCountRecord
-                if tagID of entry is tID then
-                    set taggedCount to tagCount of entry
-                    exit repeat
-                end if
-            end repeat
-            set output to output & indent & "• " & tagName
-            if taggedCount > 0 then
-                set output to output & " (" & taggedCount & " tasks)"
-            end if
-            set output to output & my tagSuffix(aTag) & return
-            set childTags to every tag of aTag
-            if (count of childTags) > 0 then
-                set output to output & my formatTagsWithCounts(childTags, depth + 1, tagCountRecord)
-            end if
-        end repeat
-    end tell
-    return output
-end formatTagsWithCounts
+on joinText(textItems, separator)
+    -- Joins a list of text items with a separator
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to separator
+    set joinedText to textItems as text
+    set AppleScript's text item delimiters to oldDelims
+    return joinedText
+end joinText
 
--- Flags and id shown behind a tag name: hidden tags, tags that do not allow next actions, the location, "[id:...]"
-on tagSuffix(aTag)
-    set suffixText to ""
+on locationTextOfTagID(tagID)
+    -- The location text of the tag with this ID (only asked for tags that have a location)
     tell application "OmniFocus"
-        try
-            if hidden of aTag then set suffixText to suffixText & " ⏸ hidden"
-        end try
-        try
-            if not (allows next action of aTag) then set suffixText to suffixText & " 🚫 no next action"
-        end try
-        set locationText to my tagLocationText(aTag)
-        if locationText is not "" then set suffixText to suffixText & " 📍 " & locationText
-        set suffixText to suffixText & " [id:" & (id of aTag) & "]"
+        tell default document
+            set tagMatches to every flattened tag whose id is tagID
+        end tell
     end tell
-    return suffixText
-end tagSuffix
+    if (count of tagMatches) = 0 then return ""
+    return my tagLocationText(item 1 of tagMatches)
+end locationTextOfTagID
 
 on readTagLocation(aTag)
     -- The location of a tag as {name, latitude, longitude, altitude, radius in km, trigger}, or missing value.

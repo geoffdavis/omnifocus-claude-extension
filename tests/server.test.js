@@ -404,6 +404,50 @@ describe('MCP Server', () => {
         });
     });
 
+    describe('Script execution', () => {
+        const os = require('os');
+
+        // Runs the server with a stand-in "osascript" (a shell script) in front of the real one on the PATH and
+        // sends initialize and one tools/call; stdin is closed right after the request.
+        function callWithFakeOsascript(fakeBody, env, toolName = 'list_inbox') {
+            const fakeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-osascript-'));
+            fs.writeFileSync(path.join(fakeDir, 'osascript'), `#!/bin/sh\n${fakeBody}\n`, { mode: 0o755 });
+            const child = spawn('node', [serverPath], {
+                env: { ...process.env, ...env, PATH: `${fakeDir}${path.delimiter}${process.env.PATH}` }
+            });
+            let output = '';
+            return new Promise((resolve, reject) => {
+                let sent = false;
+                child.stdout.on('data', data => {
+                    output += data.toString();
+                    if (!sent && output.includes('"id":1')) {
+                        sent = true;
+                        child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: toolName, arguments: {} }, id: 2 }) + '\n');
+                        child.stdin.end();
+                    }
+                });
+                child.on('close', () => {
+                    fs.rmSync(fakeDir, { recursive: true, force: true });
+                    const responses = output.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+                    resolve(responses.find(response => response.id === 2));
+                });
+                child.on('error', reject);
+                child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1 }) + '\n');
+            });
+        }
+
+        test('the answer of a script that takes a while still arrives after the input was closed', async () => {
+            const response = await callWithFakeOsascript('sleep 1; echo "slow but fine"', {});
+            expect(JSON.stringify(response)).toContain('slow but fine');
+        }, 15000);
+
+        test('a script that does not finish is stopped after the timeout, with a clear message', async () => {
+            const response = await callWithFakeOsascript('sleep 30', { OMNIFOCUS_SCRIPT_TIMEOUT_SECONDS: '1' });
+            expect(JSON.stringify(response)).toContain('stopped after 1 seconds');
+            expect(JSON.stringify(response)).toContain('Check in OmniFocus whether a change was made');
+        }, 15000);
+    });
+
     describe('Tool Coverage', () => {
         test('every tool in the tools array has a corresponding switch case in executeTool', () => {
             const serverContent = fs.readFileSync(serverPath, 'utf8');

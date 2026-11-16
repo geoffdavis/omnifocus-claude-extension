@@ -366,40 +366,33 @@ describe('AppleScript Integration', () => {
     describe('list_tags Hierarchy Support', () => {
         const scriptPath = path.join(enhancedScriptsDir, 'list_tags.applescript');
 
-        test('uses recursive formatTags handler for hierarchical output', () => {
+        test('builds the hierarchy from the parent IDs of all tags (no recursion with one query per tag)', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/on formatTags\(tagList, depth\)/);
-            expect(content).toMatch(/my formatTags\(childTags, depth \+ 1\)/);
-        });
-
-        test('uses recursive formatTagsWithCounts handler for hierarchical output with counts', () => {
-            const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/on formatTagsWithCounts\(tagList, depth, tagCountRecord\)/);
-            expect(content).toMatch(/my formatTagsWithCounts\(childTags, depth \+ 1, tagCountRecord\)/);
+            expect(content).toMatch(/set tagParentIDList to id of container of every flattened tag/);
+            expect(content).toMatch(/set parentIndex to my indexOfID\(tagIDText, parentID\)/);
+            expect(content).not.toMatch(/on formatTags\(/);
+            expect(content).not.toMatch(/every tag of aTag/);
         });
 
         test('indents child tags based on depth', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            // Both handlers should build indent strings by repeating spaces per depth level
             expect(content).toMatch(/repeat depth times/);
             expect(content).toMatch(/set indent to indent & "  "/);
         });
 
-        test('fetches child tags for recursion', () => {
+        test('reads the properties of all tags with one query each', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/set childTags to every tag of aTag/);
+            expect(content).toMatch(/set tagIDList to id of every flattened tag/);
+            expect(content).toMatch(/set tagNameList to name of every flattened tag/);
+            expect(content).toMatch(/set tagHiddenList to hidden of every flattened tag/);
+            expect(content).toMatch(/set tagAllowsList to allows next action of every flattened tag/);
         });
 
-        test('uses every flattened tag for total count', () => {
+        test('counts the open tasks of all tags in one pass with the tag IDs of all tasks', () => {
             const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/set flatTags to every flattened tag/);
-            expect(content).toMatch(/count of flatTags/);
-        });
-
-        test('uses tag id instead of name for count map', () => {
-            const content = fs.readFileSync(scriptPath, 'utf8');
-            expect(content).toMatch(/set tID to id of aTag/);
-            expect(content).toMatch(/tagID:tID/);
+            expect(content).toMatch(/set taskTagIDLists to id of tags of every flattened task/);
+            expect(content).toMatch(/set taskCompletedList to completed of every flattened task/);
+            expect(content).toMatch(/set item tagIndex of tagTaskCounts to/);
         });
     });
 
@@ -415,13 +408,15 @@ describe('AppleScript Integration', () => {
 
         test('list_tasks_filtered.applescript leaves out completed, dropped and hidden-folder tasks', () => {
             const content = read('list_tasks_filtered.applescript');
-            expect(content).toContain('effectively completed is false and effectively dropped is false');
-            expect(content).toContain('every flattened folder whose hidden is true');
+            expect(content).toContain('effectively completed of every flattened task');
+            expect(content).toContain('effectively dropped of every flattened task');
+            expect(content).toContain('hiddenProjectIDList contains projectID');
+            expect(content).toContain('effectively hidden of every flattened folder');
         });
 
         test('list_tasks_filtered.applescript does not list a project without tasks as a task', () => {
             const content = read('list_tasks_filtered.applescript');
-            expect(content).toContain('(id of theProject) is taskID');
+            expect(content).toContain('projectID is taskID');
         });
 
         test('list_tasks_filtered.applescript reports ambiguous tags instead of guessing', () => {
@@ -433,7 +428,7 @@ describe('AppleScript Integration', () => {
         test('list_tasks_filtered.applescript filters by estimated minutes', () => {
             const content = read('list_tasks_filtered.applescript');
             expect(content).toContain('item 7 of argv');
-            expect(content).toContain('estimated minutes of theTask');
+            expect(content).toContain('estimated minutes of every flattened task');
             expect(content).toContain('estimateValue > maxMinutes');
             expect(content).toContain('includeUnestimated');
         });
@@ -441,7 +436,7 @@ describe('AppleScript Integration', () => {
         test('list_tasks_filtered.applescript shows the age and sorts oldest first', () => {
             const content = read('list_tasks_filtered.applescript');
             expect(content).toContain('item 9 of argv');
-            expect(content).toContain('creation date of theTask');
+            expect(content).toContain('creation date of every flattened task');
             expect(content).toContain('on ageText(');
             expect(content).toContain('oldest first');
             // the limit applies after sorting
@@ -450,8 +445,8 @@ describe('AppleScript Integration', () => {
 
         test('list_completed_tasks.applescript filters by completion date', () => {
             const content = read('list_completed_tasks.applescript');
-            expect(content).toContain('completion date');
-            expect(content).toContain('every flattened folder whose hidden is true');
+            expect(content).toContain('completion date of every flattened task');
+            expect(content).toContain('effectively hidden of every flattened folder');
         });
 
         test('list_tasks_by_date.applescript queries by creation, modification and drop date', () => {
@@ -467,7 +462,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('changed while the');
             expect(content).toContain('on resolveProject(');
             // hidden folders are left out, newest first, the limit applies after sorting
-            expect(content).toContain('on projectInHiddenFolder(');
+            expect(content).toContain('hiddenProjectIDList contains theProjectID');
             // the root task of a project (same ID as the project) is not a task of the list
             expect(content).toContain('projectIDs contains (item i of idList)');
             expect(content).toContain('on sortPositions(');
@@ -618,7 +613,8 @@ describe('AppleScript Integration', () => {
 
         test('list_projects_for_review.applescript shows the review interval', () => {
             const content = read('list_projects_for_review.applescript');
-            expect(content).toContain('reviewIntervalText(theProject)');
+            expect(content).toContain('review interval of every flattened project');
+            expect(content).toContain('reviewIntervalText(item (contents of i) of reviewIntervalList)');
             expect(content).toContain('every " & stepCount');
         });
 
@@ -751,15 +747,103 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Mass data: one query per property, not per item', () => {
+        // Every Apple Event costs about 17 ms; a query for one property of all elements costs about 0.05 s.
+        // The read scripts therefore fetch the properties of all tasks and projects at once and work on lists.
+        const readScripts = [
+            ['today_tasks.applescript', scriptsDir],
+            ['weekly_review.applescript', scriptsDir],
+            ['list_projects.applescript', enhancedScriptsDir],
+            ['list_projects_for_review.applescript', enhancedScriptsDir],
+            ['list_stalled_projects.applescript', enhancedScriptsDir],
+            ['list_folders.applescript', enhancedScriptsDir],
+            ['list_tags.applescript', enhancedScriptsDir],
+            ['list_overdue_tasks.applescript', enhancedScriptsDir],
+            ['list_deferred_tasks.applescript', enhancedScriptsDir],
+            ['list_flagged_tasks.applescript', enhancedScriptsDir],
+            ['list_due_soon.applescript', enhancedScriptsDir],
+            ['list_completed_tasks.applescript', enhancedScriptsDir],
+            ['list_tasks_by_date.applescript', enhancedScriptsDir],
+            ['list_tasks_filtered.applescript', enhancedScriptsDir],
+            ['search_tasks.applescript', enhancedScriptsDir]
+        ];
+        const read = (name, dir) => fs.readFileSync(path.join(dir, name), 'utf8');
+
+        test.each(readScripts)('%s has no filter query over all tasks or projects and no hidden-task ID list', (name, dir) => {
+            const content = read(name, dir);
+            // "whose" and "where" are evaluated for every element, about 10 ms each
+            // (a lookup of one project by its ID is allowed)
+            expect(content).not.toMatch(/every flattened (task|project) (whose|where)(?! id is)/);
+            expect(content).not.toMatch(/\b(tasks|flattened tasks) of aProject whose/);
+            // a task is hidden through the ID of its project, not through a list of all its task IDs
+            expect(content).not.toContain('hiddenFolderTaskIDs');
+            expect(content).not.toContain('isHiddenItem');
+        });
+
+        test.each(readScripts)('%s does not sort with Apple Events', (name, dir) => {
+            const content = read(name, dir);
+            expect(content).not.toMatch(/due date of item j of/);
+            expect(content).not.toMatch(/defer date of item j of/);
+        });
+
+        test('the task lists are filtered and sorted in the script (merge sort, equal dates keep their order)', () => {
+            ['list_overdue_tasks.applescript', 'list_deferred_tasks.applescript', 'list_due_soon.applescript'].forEach(name => {
+                const content = read(name, enhancedScriptsDir);
+                expect(content).toContain('on sortPositionsAscending(positionList, keyList)');
+                expect(content).toContain('on isHiddenProjectID(containerID, hiddenProjectIDList)');
+                expect(content).toContain('effectively completed of every flattened task');
+                expect(content).toContain('due date of every flattened task');
+            });
+            expect(read('list_flagged_tasks.applescript', enhancedScriptsDir)).toContain('flagged of every flattened task');
+            expect(read('today_tasks.applescript', scriptsDir)).toContain('parent task of every flattened task');
+        });
+
+        test('the open tasks of all projects are counted in one pass, without the root task of a project', () => {
+            ['list_projects_for_review.applescript', 'list_stalled_projects.applescript', 'weekly_review.applescript'].forEach(name => {
+                const content = read(name, name === 'weekly_review.applescript' ? scriptsDir : enhancedScriptsDir);
+                expect(content).toContain('my openTaskCounts(projectIDList)');
+                expect(content).toContain('on openTaskCounts(projectIDList)');
+                // the root task of a project has no parent task
+                expect(content).toContain('id of parent task of every flattened task');
+            });
+            expect(read('list_stalled_projects.applescript', enhancedScriptsDir)).toContain('id of next task of every flattened project');
+            expect(read('list_stalled_projects.applescript', enhancedScriptsDir)).toContain('singleton action holder of every flattened project');
+        });
+
+        test('list_projects counts the tasks directly below each project from the lists of all tasks', () => {
+            const content = read('list_projects.applescript', enhancedScriptsDir);
+            expect(content).toContain('id of parent task of every flattened task');
+            expect(content).toContain('blocked of every flattened task');
+            expect(content).toContain('defer date of every flattened task');
+            expect(content).toContain('my indexOfID(activeIDText, parentID)');
+            expect(content).not.toContain('countAvailable');
+            // the totals are added up from the counts of the projects, not queried a second time
+            expect(content).toContain('totalRemaining + (item n of remainingCounts)');
+        });
+
+        test('list_folders builds the hierarchy from the parent IDs and counts projects from the folder of each project', () => {
+            const content = read('list_folders.applescript', enhancedScriptsDir);
+            expect(content).toContain('id of container of every flattened folder');
+            expect(content).toContain('id of folder of every flattened project');
+            expect(content).not.toContain('every project of aFolder');
+        });
+
+        test('the hidden-folder lookup asks once per list, not once per folder or project', () => {
+            const content = read('list_overdue_tasks.applescript', enhancedScriptsDir);
+            expect(content).toContain('effectively hidden of every flattened folder');
+            expect(content).toContain('id of folder of every flattened project');
+        });
+    });
+
     describe('Due soon', () => {
         const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
 
         test('list_due_soon.applescript lists open tasks due between now and the end of the last day', () => {
             const content = read('list_due_soon.applescript');
-            expect(content).toContain('due date ≥ nowDate and due date ≤ endDate');
-            expect(content).toContain('effectively completed is false and effectively dropped is false');
+            expect(content).toContain('taskDue ≥ nowDate and taskDue ≤ endDate');
+            expect(content).toContain('not (item t of effCompletedList) and not (item t of effDroppedList)');
             expect(content).toContain('set hours of endDate to 23');
-            expect(content).toContain('hiddenFolderTaskIDs()');
+            expect(content).toContain('isHiddenProjectID(item t of containerIDList, hiddenProjectIDList)');
         });
 
         test('list_due_soon.applescript groups by tag, day or project and sorts by due date', () => {
@@ -768,7 +852,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('groupMode is "day"');
             expect(content).toContain('Unknown grouping');
             expect(content).toContain('(no tag)');
-            expect(content).toContain('(item i of sortedDates) > taskDue');
+            expect(content).toContain('my sortPositionsAscending(dueIndexes, dueDateList)');
         });
 
         test('list_due_soon.applescript passes through the days, grouping and limit arguments', () => {
@@ -1015,9 +1099,9 @@ describe('AppleScript Integration', () => {
 
         test('list_folders.applescript shows the hierarchy with IDs, hidden folders and notes', () => {
             const content = read('list_folders.applescript');
-            expect(content).toContain('on formatFolders(folderList, depth)');
-            expect(content).toContain('hidden of aFolder');
-            expect(content).toContain('" [id:" & (id of aFolder) & "]"');
+            expect(content).toContain('on formatFolder(');
+            expect(content).toContain('hidden of every flattened folder');
+            expect(content).toContain('" [id:" & folderID & "]"');
         });
 
         test('edit_folder.applescript supports all properties and does not create a loop or a duplicate name', () => {
@@ -1324,15 +1408,17 @@ describe('AppleScript Integration', () => {
 
         test('list_tags.applescript shows IDs, hidden tags and tags without next actions', () => {
             const content = read('list_tags.applescript');
-            expect(content).toContain('on tagSuffix(aTag)');
-            expect(content).toContain('hidden of aTag');
-            expect(content).toContain('allows next action of aTag');
+            expect(content).toContain('hidden of every flattened tag');
+            expect(content).toContain('allows next action of every flattened tag');
+            expect(content).toContain('⏸ hidden');
+            expect(content).toContain('🚫 no next action');
         });
 
         test('list_tags.applescript shows the location of a tag', () => {
             const content = read('list_tags.applescript');
-            expect(content).toContain('my tagLocationText(aTag)');
-            expect(content).toContain('location of aTag');
+            expect(content).toContain('location of every flattened tag');
+            expect(content).toContain('my locationTextOfTagID(item i of tagIDList)');
+            expect(content).toContain('my tagLocationText(item 1 of tagMatches)');
             expect(content).toContain('📍');
             expect(content).toContain('on singleLineText(theText)');
         });

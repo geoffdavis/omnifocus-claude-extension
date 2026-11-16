@@ -7,7 +7,7 @@
  */
 
 const readline = require('readline');
-const { execFileSync } = require('child_process');
+const { execFile } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -1139,8 +1139,19 @@ for (const tool of tools) {
     }
 }
 
-// Execute AppleScript file with arguments
-function executeAppleScriptFile(scriptName, args = []) {
+// How long a script may run before it is stopped (seconds). Claude Desktop gives up on a tool call after a while;
+// a script that hangs (for example OmniFocus waiting for a dialog) must not hold the server forever.
+const SCRIPT_TIMEOUT_SECONDS = (() => {
+    const configured = Number.parseInt(process.env.OMNIFOCUS_SCRIPT_TIMEOUT_SECONDS, 10);
+    return Number.isFinite(configured) && configured > 0 ? configured : 120;
+})();
+
+// Scripts run one after the other: OmniFocus works through one script at a time, and two scripts that change data
+// at the same time could get in each other's way.
+let scriptQueue = Promise.resolve();
+
+// Execute AppleScript file with arguments (asynchronous: the server stays responsive while a script runs)
+async function executeAppleScriptFile(scriptName, args = []) {
     // Try enhanced scripts first
     let scriptPath = path.join(__dirname, '..', 'scripts', 'enhanced', `${scriptName}.applescript`);
 
@@ -1149,28 +1160,40 @@ function executeAppleScriptFile(scriptName, args = []) {
         scriptPath = path.join(__dirname, '..', 'scripts', `${scriptName}.applescript`);
     }
 
-    // Check if script file exists — throw before the try so the message isn't
-    // wrapped by the generic "AppleScript execution failed:" catch below.
+    // Check if script file exists — throw before the run so the message isn't
+    // wrapped by the generic "AppleScript execution failed:" error below.
     if (!fs.existsSync(scriptPath)) {
         throw new Error(`Script file not found: ${scriptName}.applescript (looked in ${scriptPath})`);
     }
 
-    try {
-        const scriptArgs = args.map(arg => String(arg));
-        const argv = [scriptPath, ...scriptArgs];
+    const scriptArgs = args.map(arg => String(arg));
+    const argv = [scriptPath, ...scriptArgs];
+
+    const run = () => new Promise((resolve, reject) => {
         log(`Executing script: ${scriptName} (${scriptArgs.length} args)`);
-
-        const result = execFileSync('osascript', argv, {
+        execFile('osascript', argv, {
             encoding: 'utf8',
-            maxBuffer: 1024 * 1024 * 10 // Increased buffer for search results
+            maxBuffer: 1024 * 1024 * 10, // Increased buffer for search results
+            timeout: SCRIPT_TIMEOUT_SECONDS * 1000,
+            killSignal: 'SIGKILL'
+        }, (error, stdout) => {
+            if (error) {
+                log(`AppleScript execution error in ${scriptName} (exit status ${error.code})`);
+                if (error.killed) {
+                    reject(new Error(`AppleScript execution failed: ${scriptName} was stopped after ${SCRIPT_TIMEOUT_SECONDS} seconds without a result. Check in OmniFocus whether a change was made before repeating it.`));
+                } else {
+                    reject(new Error(`AppleScript execution failed: ${error.message}`));
+                }
+                return;
+            }
+            // osascript separates lines with CR; use LF so the lines stay readable
+            resolve(stdout.replace(/\r\n?/g, '\n').trim());
         });
+    });
 
-        // osascript separates lines with CR; use LF so the lines stay readable
-        return result.replace(/\r\n?/g, '\n').trim();
-    } catch (error) {
-        log(`AppleScript execution error in ${scriptName} (exit status ${error.status})`);
-        throw new Error(`AppleScript execution failed: ${error.message}`);
-    }
+    const result = scriptQueue.then(run, run);
+    scriptQueue = result.catch(() => {});
+    return result;
 }
 
 // Whole number between 1 and max; falls back to defaultValue for missing or invalid input
@@ -1278,11 +1301,11 @@ async function executeTool(name, args) {
                     args.planned_date || '',
                     args.parent_task || ''
                 ];
-                result = executeAppleScriptFile('add_task', taskArgs);
+                result = await executeAppleScriptFile('add_task', taskArgs);
                 break;
 
             case 'search_tasks':
-                result = executeAppleScriptFile('search_tasks', [
+                result = await executeAppleScriptFile('search_tasks', [
                     args.query || '',
                     args.filter || 'remaining',
                     String(sanitizeLimit(args.limit, 50)),
@@ -1291,7 +1314,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'edit_task':
-                result = executeAppleScriptFile('edit_task', [
+                result = await executeAppleScriptFile('edit_task', [
                     args.task_name || '',
                     args.property || '',
                     args.value || ''
@@ -1299,7 +1322,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'batch_add_tasks':
-                result = executeAppleScriptFile('batch_add_tasks', [
+                result = await executeAppleScriptFile('batch_add_tasks', [
                     args.tasks || '',
                     args.project || '',
                     args.due_date || '',
@@ -1309,7 +1332,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'create_recurring_task':
-                result = executeAppleScriptFile('create_recurring_task', [
+                result = await executeAppleScriptFile('create_recurring_task', [
                     args.name || '',
                     args.repeat_rule || 'weekly',
                     args.project || '',
@@ -1318,14 +1341,14 @@ async function executeTool(name, args) {
                 break;
 
             case 'list_projects':
-                result = executeAppleScriptFile('list_projects', [
+                result = await executeAppleScriptFile('list_projects', [
                     String(args.include_stats || false),
                     String(args.include_dropped === true)
                 ]);
                 break;
 
             case 'complete_task':
-                result = executeAppleScriptFile('complete_task', [args.task_name || '']);
+                result = await executeAppleScriptFile('complete_task', [args.task_name || '']);
                 break;
 
             case 'list_inbox':
@@ -1334,11 +1357,11 @@ async function executeTool(name, args) {
             case 'list_deferred_tasks':
             case 'list_flagged_tasks':
             case 'list_overdue_tasks':
-                result = executeAppleScriptFile(name, [String(args.include_dropped === true)]);
+                result = await executeAppleScriptFile(name, [String(args.include_dropped === true)]);
                 break;
 
             case 'parse_tasks':
-                result = executeAppleScriptFile('parse_tasks', [
+                result = await executeAppleScriptFile('parse_tasks', [
                     typeof args.text === 'string' ? args.text : '',
                     args.project || '',
                     args.parent_task || '',
@@ -1349,36 +1372,36 @@ async function executeTool(name, args) {
                 break;
 
             case 'get_selected_link':
-                result = executeAppleScriptFile('get_selected_link', [
+                result = await executeAppleScriptFile('get_selected_link', [
                     typeof args.app === 'string' ? args.app : '',
                     String(sanitizeLimit(args.limit, 10, 50))
                 ]);
                 break;
 
             case 'undo':
-                result = executeAppleScriptFile('undo', [
+                result = await executeAppleScriptFile('undo', [
                     args.action === 'redo' ? 'redo' : 'undo',
                     String(sanitizeLimit(args.steps, 1, 20))
                 ]);
                 break;
 
             case 'synchronize':
-                result = executeAppleScriptFile('synchronize', [
+                result = await executeAppleScriptFile('synchronize', [
                     String(args.wait_seconds === undefined ? 15 : Math.max(0, Math.min(120, Math.floor(Number(args.wait_seconds)) || 0))),
                     String(args.status_only === true)
                 ]);
                 break;
 
             case 'clean_up':
-                result = executeAppleScriptFile('clean_up', []);
+                result = await executeAppleScriptFile('clean_up', []);
                 break;
 
             case 'list_perspectives':
-                result = executeAppleScriptFile('list_perspectives', []);
+                result = await executeAppleScriptFile('list_perspectives', []);
                 break;
 
             case 'list_due_soon':
-                result = executeAppleScriptFile('list_due_soon', [
+                result = await executeAppleScriptFile('list_due_soon', [
                     String(sanitizeLimit(args.days, 7, 365)),
                     ['tag', 'day', 'project'].includes(args.group_by) ? args.group_by : 'tag',
                     String(sanitizeLimit(args.limit, 100))
@@ -1386,27 +1409,27 @@ async function executeTool(name, args) {
                 break;
 
             case 'list_tags':
-                result = executeAppleScriptFile('list_tags', [
+                result = await executeAppleScriptFile('list_tags', [
                     String(args.include_counts || false)
                 ]);
                 break;
 
             case 'create_tag':
-                result = executeAppleScriptFile('create_tag', [
+                result = await executeAppleScriptFile('create_tag', [
                     args.name || '',
                     args.parent_tag || ''
                 ]);
                 break;
 
             case 'add_tag_to_task':
-                result = executeAppleScriptFile('add_tag_to_task', [
+                result = await executeAppleScriptFile('add_tag_to_task', [
                     args.task_name || '',
                     args.tag_name || ''
                 ]);
                 break;
 
             case 'remove_tag_from_task':
-                result = executeAppleScriptFile('remove_tag_from_task', [
+                result = await executeAppleScriptFile('remove_tag_from_task', [
                     args.task_name || '',
                     args.tag_name || ''
                 ]);
@@ -1414,14 +1437,14 @@ async function executeTool(name, args) {
 
             case 'drop_task':
                 // Deleting needs the explicit boolean true; anything else only drops
-                result = executeAppleScriptFile('drop_task', [
+                result = await executeAppleScriptFile('drop_task', [
                     args.task_name || '',
                     String(args.confirm_delete === true)
                 ]);
                 break;
 
             case 'create_project':
-                result = executeAppleScriptFile('create_project', [
+                result = await executeAppleScriptFile('create_project', [
                     args.name || '',
                     args.folder || '',
                     args.note || '',
@@ -1434,7 +1457,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'edit_project':
-                result = executeAppleScriptFile('edit_project', [
+                result = await executeAppleScriptFile('edit_project', [
                     args.project || '',
                     args.property || '',
                     args.value || ''
@@ -1442,32 +1465,32 @@ async function executeTool(name, args) {
                 break;
 
             case 'create_folder':
-                result = executeAppleScriptFile('create_folder', [
+                result = await executeAppleScriptFile('create_folder', [
                     args.name || '',
                     args.parent_folder || ''
                 ]);
                 break;
 
             case 'list_projects_for_review':
-                result = executeAppleScriptFile('list_projects_for_review', [
+                result = await executeAppleScriptFile('list_projects_for_review', [
                     String(args.days_ahead === undefined ? 0 : Math.max(0, Math.min(3650, Math.floor(args.days_ahead))))
                 ]);
                 break;
 
             case 'mark_project_reviewed':
-                result = executeAppleScriptFile('mark_project_reviewed', [args.project || '']);
+                result = await executeAppleScriptFile('mark_project_reviewed', [args.project || '']);
                 break;
 
             case 'list_stalled_projects':
-                result = executeAppleScriptFile('list_stalled_projects', []);
+                result = await executeAppleScriptFile('list_stalled_projects', []);
                 break;
 
             case 'get_task':
-                result = executeAppleScriptFile('get_task', [args.task_name || '']);
+                result = await executeAppleScriptFile('get_task', [args.task_name || '']);
                 break;
 
             case 'get_project':
-                result = executeAppleScriptFile('get_project', [
+                result = await executeAppleScriptFile('get_project', [
                     args.project || '',
                     args.include_completed === true ? 'true' : 'false',
                     String(sanitizeLimit(args.limit, 300, 100000))
@@ -1475,7 +1498,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'list_available_tasks':
-                result = executeAppleScriptFile('list_tasks_filtered', [
+                result = await executeAppleScriptFile('list_tasks_filtered', [
                     args.tag || '',
                     args.folder || '',
                     'true',
@@ -1494,7 +1517,7 @@ async function executeTool(name, args) {
                     result = '❌ Tag name is required.';
                     break;
                 }
-                result = executeAppleScriptFile('list_tasks_filtered', [
+                result = await executeAppleScriptFile('list_tasks_filtered', [
                     args.tag || '',
                     '',
                     String(args.available_only === true),
@@ -1509,14 +1532,14 @@ async function executeTool(name, args) {
                 break;
 
             case 'list_completed_tasks':
-                result = executeAppleScriptFile('list_completed_tasks', [
+                result = await executeAppleScriptFile('list_completed_tasks', [
                     String(sanitizeLimit(args.days, 7, 3650)),
                     String(sanitizeLimit(args.limit, 100))
                 ]);
                 break;
 
             case 'list_tasks_by_date':
-                result = executeAppleScriptFile('list_tasks_by_date', [
+                result = await executeAppleScriptFile('list_tasks_by_date', [
                     args.date_field || '',
                     args.item_type || '',
                     args.days === undefined || args.days === null || args.days === '' ? '' : String(sanitizeLimit(args.days, 7, 36500)),
@@ -1529,7 +1552,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'get_settings':
-                result = executeAppleScriptFile('get_settings', [
+                result = await executeAppleScriptFile('get_settings', [
                     ['document', 'application', 'all'].includes(args.scope) ? args.scope : 'document',
                     args.filter || '',
                     String(sanitizeLimit(args.limit, 100))
@@ -1537,20 +1560,20 @@ async function executeTool(name, args) {
                 break;
 
             case 'create_backup':
-                result = executeAppleScriptFile('create_backup', [
+                result = await executeAppleScriptFile('create_backup', [
                     args.path || '',
                     args.compression === undefined ? 'true' : String(args.compression === true)
                 ]);
                 break;
 
             case 'reopen_task':
-                result = executeAppleScriptFile('reopen_task', [
+                result = await executeAppleScriptFile('reopen_task', [
                     args.task_name || ''
                 ]);
                 break;
 
             case 'edit_tag':
-                result = executeAppleScriptFile('edit_tag', [
+                result = await executeAppleScriptFile('edit_tag', [
                     args.tag || '',
                     args.property || '',
                     args.value !== undefined && args.value !== null ? String(args.value) : ''
@@ -1558,11 +1581,11 @@ async function executeTool(name, args) {
                 break;
 
             case 'list_folders':
-                result = executeAppleScriptFile('list_folders', []);
+                result = await executeAppleScriptFile('list_folders', []);
                 break;
 
             case 'edit_folder':
-                result = executeAppleScriptFile('edit_folder', [
+                result = await executeAppleScriptFile('edit_folder', [
                     args.folder || '',
                     args.property || '',
                     args.value !== undefined && args.value !== null ? String(args.value) : ''
@@ -1570,7 +1593,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'delete_folder':
-                result = executeAppleScriptFile('delete_folder', [
+                result = await executeAppleScriptFile('delete_folder', [
                     args.folder || '',
                     String(args.confirm_delete === true),
                     String(args.delete_contents === true)
@@ -1578,7 +1601,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'save_attachment':
-                result = executeAppleScriptFile('save_attachment', [
+                result = await executeAppleScriptFile('save_attachment', [
                     args.item_type || '',
                     args.item || '',
                     String(sanitizeLimit(args.number, 1, 100000)),
@@ -1587,11 +1610,11 @@ async function executeTool(name, args) {
                 break;
 
             case 'get_selection':
-                result = executeAppleScriptFile('get_selection', []);
+                result = await executeAppleScriptFile('get_selection', []);
                 break;
 
             case 'set_view':
-                result = executeAppleScriptFile('set_view', [
+                result = await executeAppleScriptFile('set_view', [
                     args.perspective || '',
                     args.search === undefined || args.search === null ? '' : String(args.search),
                     args.search === undefined || args.search === null ? 'no' : 'yes',
@@ -1600,14 +1623,14 @@ async function executeTool(name, args) {
                 break;
 
             case 'show_item':
-                result = executeAppleScriptFile('show_item', [
+                result = await executeAppleScriptFile('show_item', [
                     args.item_type || '',
                     args.item || ''
                 ]);
                 break;
 
             case 'duplicate_item':
-                result = executeAppleScriptFile('duplicate_item', [
+                result = await executeAppleScriptFile('duplicate_item', [
                     args.item_type || '',
                     args.item || '',
                     args.project || '',
@@ -1619,7 +1642,7 @@ async function executeTool(name, args) {
                 break;
 
             case 'rename_folder':
-                result = executeAppleScriptFile('rename_folder', [
+                result = await executeAppleScriptFile('rename_folder', [
                     args.folder || '',
                     args.new_name || ''
                 ]);
@@ -1736,6 +1759,10 @@ log('Starting OmniFocus MCP Server v2.0...');
 
 let buffer = '';
 
+// Requests that are still being answered (a script may run for a while): the server stays up until they are done
+let pendingRequests = 0;
+let inputClosed = false;
+
 rl.on('line', (line) => {
     try {
         const request = JSON.parse(line);
@@ -1745,15 +1772,22 @@ rl.on('line', (line) => {
             return;
         }
 
-        handleRequest(request);
+        pendingRequests++;
+        handleRequest(request).finally(() => {
+            pendingRequests--;
+            if (inputClosed && pendingRequests === 0) process.exit(0);
+        });
     } catch (error) {
         log('Parse error: invalid JSON received');
     }
 });
 
 rl.on('close', () => {
-    log('Server shutting down');
-    process.exit(0);
+    inputClosed = true;
+    if (pendingRequests === 0) {
+        log('Server shutting down');
+        process.exit(0);
+    }
 });
 
 // Handle errors

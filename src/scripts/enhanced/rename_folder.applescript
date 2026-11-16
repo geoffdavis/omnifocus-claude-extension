@@ -68,17 +68,21 @@ on resolveFolder(queryText)
     set parentQuery to {}
     if (count of queryParts) > 1 then set parentQuery to items 1 thru -2 of queryParts
 
+    -- The names and parents of all folders come with one query each (an Apple Event per folder costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allFolders to every flattened folder
+            set allFolderIDs to id of every flattened folder
+            set allFolderNames to name of every flattened folder
+            set allFolderParentIDs to id of container of every flattened folder
         end tell
     end tell
 
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aFolder in allFolders
-        set candidateFolder to contents of aFolder
-        set folderNames to my folderNamePath(candidateFolder)
+    repeat with folderIndex from 1 to count of allFolders
+        set candidateFolder to item folderIndex of allFolders
+        set folderNames to my folderNamesFromLists(folderIndex, allFolderIDs, allFolderNames, allFolderParentIDs)
         set candidateName to item -1 of folderNames
         set parentNames to {}
         if (count of folderNames) > 1 then set parentNames to items 1 thru -2 of folderNames
@@ -164,3 +168,22 @@ on trimText(theText)
     end repeat
     return text textStart thru textEnd of theText
 end trimText
+
+on folderNamesFromLists(folderIndex, idList, nameList, parentIDList)
+    -- Folder names from the outermost folder down to the folder at this position, from the lists of all folders
+    set pathNames to {item folderIndex of nameList}
+    set parentID to item folderIndex of parentIDList
+    repeat
+        set parentIndex to 0
+        repeat with k from 1 to count of idList
+            if (item k of idList) is parentID then
+                set parentIndex to k
+                exit repeat
+            end if
+        end repeat
+        if parentIndex = 0 then exit repeat
+        set beginning of pathNames to item parentIndex of nameList
+        set parentID to item parentIndex of parentIDList
+    end repeat
+    return pathNames
+end folderNamesFromLists

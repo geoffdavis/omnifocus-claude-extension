@@ -197,17 +197,19 @@ on resolveProject(queryText)
     set folderQuery to {}
     if (count of queryParts) > 1 then set folderQuery to items 1 thru -2 of queryParts
     
+    -- The names of all projects come with one query (an Apple Event per project costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allProjects to every flattened project
+            set allProjectNames to name of every flattened project
         end tell
     end tell
     
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aProject in allProjects
-        set candidateProject to contents of aProject
-        tell application "OmniFocus" to set candidateName to name of candidateProject
+    repeat with projectIndex from 1 to count of allProjects
+        set candidateProject to item projectIndex of allProjects
+        set candidateName to item projectIndex of allProjectNames
         ignoring case
             if candidateName is projectQuery then
                 set end of exactMatches to candidateProject
@@ -331,17 +333,21 @@ on resolveFolder(queryText)
     set parentQuery to {}
     if (count of queryParts) > 1 then set parentQuery to items 1 thru -2 of queryParts
 
+    -- The names and parents of all folders come with one query each (an Apple Event per folder costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allFolders to every flattened folder
+            set allFolderIDs to id of every flattened folder
+            set allFolderNames to name of every flattened folder
+            set allFolderParentIDs to id of container of every flattened folder
         end tell
     end tell
 
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aFolder in allFolders
-        set candidateFolder to contents of aFolder
-        set folderNames to my folderNamePath(candidateFolder)
+    repeat with folderIndex from 1 to count of allFolders
+        set candidateFolder to item folderIndex of allFolders
+        set folderNames to my folderNamesFromLists(folderIndex, allFolderIDs, allFolderNames, allFolderParentIDs)
         set candidateName to item -1 of folderNames
         set parentNames to {}
         if (count of folderNames) > 1 then set parentNames to items 1 thru -2 of folderNames
@@ -472,17 +478,19 @@ on resolveTag(queryText, allowPartial)
     set parentQuery to {}
     if (count of queryParts) > 1 then set parentQuery to items 1 thru -2 of queryParts
 
+    -- The names of all tags come with one query (an Apple Event per tag costs about 17 ms)
     tell application "OmniFocus"
         tell default document
             set allTags to every flattened tag
+            set allTagNames to name of every flattened tag
         end tell
     end tell
 
     set exactMatches to {}
     set partialMatches to {}
-    repeat with aTag in allTags
-        set candidateTag to contents of aTag
-        tell application "OmniFocus" to set candidateName to name of candidateTag
+    repeat with i from 1 to count of allTags
+        set candidateTag to item i of allTags
+        set candidateName to item i of allTagNames
         ignoring case
             if candidateName is nameQuery then
                 set end of exactMatches to candidateTag
@@ -710,3 +718,22 @@ on itemStateNote(anItem, itemType)
     if hintText is "" then return ""
     return "ℹ️ Note: " & hintText & ". OmniFocus may not show it in the window."
 end itemStateNote
+
+on folderNamesFromLists(folderIndex, idList, nameList, parentIDList)
+    -- Folder names from the outermost folder down to the folder at this position, from the lists of all folders
+    set pathNames to {item folderIndex of nameList}
+    set parentID to item folderIndex of parentIDList
+    repeat
+        set parentIndex to 0
+        repeat with k from 1 to count of idList
+            if (item k of idList) is parentID then
+                set parentIndex to k
+                exit repeat
+            end if
+        end repeat
+        if parentIndex = 0 then exit repeat
+        set beginning of pathNames to item parentIndex of nameList
+        set parentID to item parentIndex of parentIDList
+    end repeat
+    return pathNames
+end folderNamesFromLists
