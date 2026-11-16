@@ -72,6 +72,16 @@ on run argv
             set dueValue to due date of targetProject
             if dueValue is not missing value then set dateLine to dateLine & " | Due: " & (dueValue as string)
         end try
+        -- The time zone setting only matters for a project with a due or defer date
+        if dateLine contains "Due:" or dateLine contains "Deferred until:" then
+            try
+                if should use floating time zone of targetProject then
+                    set dateLine to dateLine & " | Time zone: floating"
+                else
+                    set dateLine to dateLine & " | Time zone: fixed"
+                end if
+            end try
+        end if
         if dateLine is not "" then set reportText to reportText & (text 4 thru -1 of dateLine) & return
 
         try

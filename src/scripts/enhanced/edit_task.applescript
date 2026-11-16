@@ -1,8 +1,11 @@
 on run argv
     -- Edit an existing task
     -- Usage: edit_task.applescript "task name" "property" "new value"
-    -- Properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up,
-    --   parent_task, sequential, complete_with_last_item
+    -- Properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up,
+    --   parent_task, sequential, complete_with_last_item, floating_time_zone, assigned_container
+    --   primary_tag: the first tag of the task: an existing tag moves to the front, a new tag is added in front (name, path or id; "none" removes the first tag)
+    --   floating_time_zone: "true" = due and defer date keep their clock time in every time zone, "false" = fixed time zone
+    --   assigned_container: an inbox task gets a provisional project (name, path or id) or parent task ("task:<name or id:id>") and stays in the inbox until Clean Up; "none" removes it
     --   append_note: adds the text as a new line at the end of the note (note replaces the whole note)
     --   attach_file: attaches the file with the given full path to the note (a copy is stored in OmniFocus)
     --   link_file: links the file with the given full path in the note (the file stays where it is)
@@ -210,6 +213,52 @@ on run argv
                         return "🏷️ Set tags to [" & addedTags & "] for: " & originalName
                     end if
 
+                else if propertyName is "primary_tag" then
+                    -- The first tag of the task
+                    if newValue is "none" or newValue is "clear" then
+                        set currentPrimary to missing value
+                        try
+                            set currentPrimary to primary tag of targetTask
+                        end try
+                        if currentPrimary is missing value then return "ℹ️ The task has no tags: " & originalName
+                        set primaryName to name of currentPrimary
+                        set primary tag of targetTask to missing value
+                        return "🏷️ Removed the primary tag \"" & primaryName & "\" from: " & originalName & ". The other tags stay (tags now: " & my tagNameList(targetTask) & ")."
+                    end if
+                    set tagLookup to my findOrCreateTag(my trimItem(newValue))
+                    set theTag to foundTag of tagLookup
+                    if theTag is missing value then
+                        return (errorText of tagLookup) & return & "Nothing was changed."
+                    end if
+                    -- Setting the primary tag replaces all tags of the task with this one, so the others are added again behind it
+                    set oldTagIDs to id of every tag of targetTask
+                    set primary tag of targetTask to theTag
+                    set tagIDsNow to id of every tag of targetTask
+                    repeat with oldTagID in oldTagIDs
+                        if tagIDsNow does not contain (contents of oldTagID) then
+                            set oldTagMatches to every flattened tag whose id is (contents of oldTagID)
+                            if (count of oldTagMatches) > 0 then add (item 1 of oldTagMatches) to tags of targetTask
+                        end if
+                    end repeat
+                    return "🏷️ Primary tag of \"" & originalName & "\" is now " & (name of theTag) & " (tags: " & my tagNameList(targetTask) & ")"
+
+                else if propertyName is "floating_time_zone" or propertyName is "floating" then
+                    set flagValue to my parseFlag(newValue)
+                    if flagValue is "" then return "❌ Invalid value for floating_time_zone: " & newValue & ". Use true or false. Nothing was changed."
+                    set should use floating time zone of targetTask to (flagValue is "true")
+                    set hintText to ""
+                    if (due date of targetTask) is missing value and (defer date of targetTask) is missing value then
+                        set hintText to " (the task has no due or defer date, so OmniFocus keeps the default of the database until it has one)"
+                    end if
+                    if flagValue is "true" then
+                        return "🌍 Due and defer date keep their clock time in every time zone: " & originalName & hintText
+                    else
+                        return "📍 Due and defer date use a fixed time zone: " & originalName & hintText
+                    end if
+
+                else if propertyName is "assigned_container" or propertyName is "assigned" then
+                    return my setAssignedContainer(targetTask, originalName, newValue)
+
                 else if propertyName is "parent_task" or propertyName is "parent" then
                     -- Move the task below another open task (it keeps its own subtasks)
                     set parentLookup to my resolveTask(newValue)
@@ -259,7 +308,7 @@ on run argv
                     end if
 
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up, parent_task, sequential, complete_with_last_item, attach_file, link_file, remove_attachment"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up, parent_task, sequential, complete_with_last_item, floating_time_zone, assigned_container, attach_file, link_file, remove_attachment"
                 end if
                 
             on error errMsg
@@ -1495,3 +1544,61 @@ on capitalWord(theWord)
     if (length of theWord) > 1 then set restText to text 2 thru -1 of theWord
     return my upperText(firstChar) & restText
 end capitalWord
+
+on tagNameList(theTask)
+    -- The names of the tags of a task in their order, "none" without tags
+    tell application "OmniFocus" to set tagNames to name of every tag of theTask
+    if (count of tagNames) = 0 then return "none"
+    return my joinText(tagNames, ", ")
+end tagNameList
+
+on setAssignedContainer(targetTask, originalName, newValue)
+    -- An inbox task gets a provisional project or parent task without leaving the inbox; Clean Up moves it there
+    set inInbox to false
+    tell application "OmniFocus" to set inInbox to (in inbox of targetTask)
+    if not inInbox then
+        return "❌ Only inbox tasks have an assigned container. A task that is already in a project is moved with project or parent_task. Nothing was changed."
+    end if
+    set containerText to my trimItem(newValue)
+    if containerText is "none" or containerText is "clear" then
+        tell application "OmniFocus" to set assigned container of targetTask to missing value
+        return "📥 Removed the assigned container of: " & originalName
+    end if
+    if containerText is "" then
+        return "❌ assigned_container needs a project, \"task:<task>\" or \"none\". Nothing was changed."
+    end if
+
+    set containerRef to missing value
+    set containerLabel to ""
+    if containerText starts with "task:" then
+        set parentLookup to my resolveTask(my trimItem(text 6 thru -1 of containerText))
+        if foundTask of parentLookup is missing value then
+            return (errorText of parentLookup) & return & "Nothing was changed."
+        end if
+        set containerRef to foundTask of parentLookup
+        tell application "OmniFocus"
+            set containerProject to missing value
+            try
+                set containerProject to containing project of containerRef
+            end try
+            set containerName to name of containerRef
+            if containerProject is missing value then
+                return "❌ The task \"" & containerName & "\" is in the inbox itself and cannot be a container. Nothing was changed."
+            end if
+            if (id of containerRef) is (id of targetTask) then
+                return "❌ A task cannot be assigned to itself. Nothing was changed."
+            end if
+        end tell
+        set containerLabel to "the task \"" & containerName & "\""
+    else
+        set projectLookup to my resolveProject(containerText)
+        if foundProject of projectLookup is missing value then
+            return (errorText of projectLookup) & return & "Nothing was changed."
+        end if
+        set containerRef to foundProject of projectLookup
+        set containerLabel to "the project \"" & my projectLabel(containerRef) & "\""
+    end if
+
+    tell application "OmniFocus" to set assigned container of targetTask to containerRef
+    return "📥 Assigned to " & containerLabel & ": " & originalName & ". It stays in the inbox until Clean Up (clean_up) moves it there."
+end setAssignedContainer

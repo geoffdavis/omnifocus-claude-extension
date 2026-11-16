@@ -2,7 +2,7 @@ on run argv
     -- Edit an existing project
     -- Usage: edit_project.applescript "project name or Folder > Project" "property" "new value"
     -- Properties: name, note, append_note, folder, status, type, review_interval, next_review_date,
-    --             due_date, defer_date, planned_date, flagged, complete_with_last_item,
+    --             due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone,
     --             repeat, repeat_based_on, repeat_catch_up, attach_file, link_file, remove_attachment
     --   repeat: "weekly", "2 weeks", "every monday and thursday", "monthly on the 15th", "last friday of the month", ...
     --     or an iCalendar rule ("FREQ=WEEKLY;BYDAY=MO,TH"); add "fixed" for a fixed schedule or "from completion";
@@ -17,6 +17,7 @@ on run argv
     --   next_review_date: a date, or "none" to derive it again from the last review and the interval
     --   due_date, defer_date, planned_date: a date, or "none" to clear it
     --   flagged, complete_with_last_item: true or false
+    --   floating_time_zone: "true" = due and defer date keep their clock time in every time zone, "false" = fixed time zone
     
     if (count of argv) < 3 then
         return "❌ Project, property and value are required."
@@ -214,6 +215,21 @@ on run argv
                         return "☑️ Project no longer completes with its last item: " & originalLabel
                     end if
 
+                else if propertyName is "floating_time_zone" or propertyName is "floating" then
+                    -- Due and defer date keep their clock time in every time zone
+                    set flagValue to my parseFlag(newValue)
+                    if flagValue is "" then return "❌ Invalid value for floating_time_zone: " & newValue & ". Use true or false. Nothing was changed."
+                    set should use floating time zone of targetProject to (flagValue is "true")
+                    set hintText to ""
+                    if (due date of targetProject) is missing value and (defer date of targetProject) is missing value then
+                        set hintText to " (the project has no due or defer date, so OmniFocus keeps the default of the database until it has one)"
+                    end if
+                    if flagValue is "true" then
+                        return "🌍 Due and defer date keep their clock time in every time zone: " & originalLabel & hintText
+                    else
+                        return "📍 Due and defer date use a fixed time zone: " & originalLabel & hintText
+                    end if
+
                 else if propertyName is "repeat" or propertyName is "repetition" then
                     return my setRepetition(targetProject, "project", originalLabel, newValue)
 
@@ -224,7 +240,7 @@ on run argv
                     return my changeRepetition(targetProject, "project", originalLabel, "catch_up", newValue)
 
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, repeat, repeat_based_on, repeat_catch_up, attach_file, link_file, remove_attachment"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, repeat, repeat_based_on, repeat_catch_up, attach_file, link_file, remove_attachment"
                 end if
             on error errMsg
                 return "❌ Error updating project: " & errMsg

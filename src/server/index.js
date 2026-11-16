@@ -204,7 +204,7 @@ const tools = [
     },
     {
         name: 'edit_task',
-        description: 'Edit properties of an existing task, including adding to its note (append_note), its repetition (repeat), moving it below another task (parent_task) and the behavior of its subtasks (sequential, complete_with_last_item)',
+        description: 'Edit properties of an existing task, including adding to its note (append_note), its repetition (repeat), moving it below another task (parent_task), the behavior of its subtasks (sequential, complete_with_last_item), its primary tag, its time zone setting (floating_time_zone) and the provisional project of an inbox task (assigned_container)',
         inputSchema: {
             type: 'object',
             properties: {
@@ -214,12 +214,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'append_note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'parent_task', 'sequential', 'complete_with_last_item', 'attach_file', 'link_file', 'remove_attachment'],
+                    enum: ['name', 'note', 'append_note', 'due_date', 'defer_date', 'planned_date', 'flagged', 'project', 'estimated_minutes', 'tags', 'primary_tag', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'parent_task', 'sequential', 'complete_with_last_item', 'floating_time_zone', 'assigned_container', 'attach_file', 'link_file', 'remove_attachment'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For estimated_minutes: a whole number of minutes (for example 30), or \"none\" to remove the estimate. For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: the date a repeating task is based on, "due", "defer" or "planned" (the task must have it). For repeat_catch_up: "true" if a repeating task on a fixed schedule skips the occurrences in the past, "false" if not. For parent_task: an open task by name or "id:<id>"; the task is moved below it together with its own subtasks (use project to move it to a project or the inbox instead); a task cannot be moved below itself or one of its subtasks. For sequential: "true" if the subtasks are to be done one after another, "false" for any order. For complete_with_last_item: "true" if the task completes when its last subtask is completed, "false" otherwise. For append_note: text that is added as a new line at the end of the note (note replaces the whole note), for example a link of any app (message://, https://, file://, things:///, ...), see get_selected_link. For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_task (1 is the first one).'
+                    description: 'New value for the property. For project: a project name or a path "Folder > Subfolder > Project" (projects in all folders are searched; an ambiguous name returns the matches instead of changing anything), or "inbox". For estimated_minutes: a whole number of minutes (for example 30), or \"none\" to remove the estimate. For due_date, defer_date and planned_date: prefer ISO "YYYY-MM-DD" or "YYYY-MM-DD HH:MM", or "none" to clear. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: the date a repeating task is based on, "due", "defer" or "planned" (the task must have it). For repeat_catch_up: "true" if a repeating task on a fixed schedule skips the occurrences in the past, "false" if not. For parent_task: an open task by name or "id:<id>"; the task is moved below it together with its own subtasks (use project to move it to a project or the inbox instead); a task cannot be moved below itself or one of its subtasks. For sequential: "true" if the subtasks are to be done one after another, "false" for any order. For complete_with_last_item: "true" if the task completes when its last subtask is completed, "false" otherwise. For primary_tag: the first tag of the task (name, path "Parent > Child" or "id:<id>"; an existing tag moves to the front, a new tag is added in front and missing tags are created), or "none" to remove the first tag and keep the others. For floating_time_zone: "true" if the due and defer date keep their clock time in every time zone, "false" for a fixed time zone (only counts for a task with a due or defer date). For assigned_container: only for inbox tasks: a project (name, path "Folder > Subfolder > Project" or "id:<id>") or "task:<open task name or id:<id>>" that the task is provisionally assigned to; it stays in the inbox until clean_up moves it, "none" removes the assignment. For append_note: text that is added as a new line at the end of the note (note replaces the whole note), for example a link of any app (message://, https://, file://, things:///, ...), see get_selected_link. For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_task (1 is the first one).'
                 }
             },
             required: ['task_name', 'property', 'value']
@@ -622,12 +622,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'attach_file', 'link_file', 'remove_attachment'],
+                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item', 'floating_time_zone', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'attach_file', 'link_file', 'remove_attachment'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: "due", "defer" or "planned" (the project must have that date). For repeat_catch_up: "true" or "false" (fixed schedule only). For append_note: text that is added as a new line at the end of the note (note replaces the whole note). For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_project (1 is the first one).'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For floating_time_zone: "true" if the due and defer date keep their clock time in every time zone, "false" for a fixed time zone (only counts for a project with a due or defer date). For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: "due", "defer" or "planned" (the project must have that date). For repeat_catch_up: "true" or "false" (fixed schedule only). For append_note: text that is added as a new line at the end of the note (note replaces the whole note). For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_project (1 is the first one).'
                 }
             },
             required: ['project', 'property', 'value']
@@ -1073,6 +1073,49 @@ const tools = [
             },
             required: ['date_field']
         }
+    },
+    {
+        name: 'get_settings',
+        description: 'Read OmniFocus settings, for example the default due time or the default review interval. "document" shows the settings stored in the database, "application" the preferences of the app. Every entry shows its ID and value, and the default value if it differs. Use filter to find an entry by a part of its ID. Nothing is changed.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                scope: {
+                    type: 'string',
+                    enum: ['document', 'application', 'all'],
+                    description: 'Which settings to read: the settings of the database (default), the preferences of the app, or both',
+                    default: 'document'
+                },
+                filter: {
+                    type: 'string',
+                    description: 'Only entries whose ID contains this text (ignoring case), for example "due" or "review"'
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of entries per group',
+                    default: 100
+                }
+            }
+        }
+    },
+    {
+        name: 'create_backup',
+        description: 'Write a backup archive of the OmniFocus database, using the archive command of OmniFocus. Nothing in OmniFocus is changed. The path must not exist yet and its folder must exist; the archive is written as a package (a folder that Finder shows as one file).',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                path: {
+                    type: 'string',
+                    description: 'The full path of the new archive (starting with / or ~)'
+                },
+                compression: {
+                    type: 'boolean',
+                    description: 'Write the archive with data compression',
+                    default: true
+                }
+            },
+            required: ['path']
+        }
     }
 ];
 
@@ -1419,6 +1462,21 @@ async function executeTool(name, args) {
                     args.status || '',
                     args.project || '',
                     String(sanitizeLimit(args.limit, 100))
+                ]);
+                break;
+
+            case 'get_settings':
+                result = executeAppleScriptFile('get_settings', [
+                    ['document', 'application', 'all'].includes(args.scope) ? args.scope : 'document',
+                    args.filter || '',
+                    String(sanitizeLimit(args.limit, 100))
+                ]);
+                break;
+
+            case 'create_backup':
+                result = executeAppleScriptFile('create_backup', [
+                    args.path || '',
+                    args.compression === undefined ? 'true' : String(args.compression === true)
                 ]);
                 break;
 

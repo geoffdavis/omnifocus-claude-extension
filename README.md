@@ -23,6 +23,8 @@ A powerful OmniFocus integration for Claude Desktop that enables advanced task m
 - **Action groups**: Move a task below another task, make the subtasks of a task sequential, let a task complete with its last subtask
 - **Duplicate**: Copy a task with its subtasks or a project with all its tasks (for example as a template), into another project, folder or the inbox
 - **Queries by date**: List tasks or projects by the date they were created, last modified or dropped, for the last days or a period, newest first
+- **Small properties**: The primary tag of a task, the time zone setting of due and defer dates (floating or fixed) for tasks and projects, and the provisional project of an inbox task
+- **Settings and backup**: Read the settings of the database and the preferences of the app (for example the default due time), and write a backup archive of the database
 
 ### Tags
 - **List Tags**: View all tags with hierarchy
@@ -249,6 +251,28 @@ task when it copies it, so the tool drops those tasks again in the copy. Complet
 addressed with `id:<id>` (the copy has the same name as the original). Only open tasks can be duplicated; OmniFocus
 cannot duplicate folders.
 
+### Small Properties, Settings and Backup
+```
+"Make 'Phone' the primary tag of 'Call the plumber'"
+"Let the due date of 'Flight check-in' keep its clock time in every time zone"
+"Assign the inbox task 'Order cable' to the project 'Home office' without moving it"
+"What is the default due time in OmniFocus?"
+"Write a backup of OmniFocus to ~/Documents/omnifocus-backup"
+```
+`primary_tag` is the first tag of a task: an existing tag moves to the front, a new one is added in front, `none`
+removes the first tag and keeps the others. `get_task` shows the primary tag when a task has several tags.
+`floating_time_zone` (tasks and projects) decides whether the due and defer date keep their clock time in every time
+zone (`true`) or stay at a fixed time zone (`false`); `get_task` and `get_project` show it for items with a due or defer
+date. `assigned_container` gives an inbox task a provisional project (or `task:<name>` as parent task); it stays in the
+inbox, `list_inbox` shows the project after an arrow, and `clean_up` moves it there.
+
+`get_settings` reads the settings of the database (`scope: document`, the default) or the preferences of the app
+(`scope: application`, or `all`). Every entry shows its ID and value, and the default value if it differs; `filter`
+finds entries by a part of the ID; a value that is a list or data is shown as not readable. Nothing is changed. `create_backup` writes a backup archive of the database to a
+new path (it must not exist, its folder must exist; `compression` is on by default); it uses the `archive` command of
+OmniFocus, so the folder has to be one that OmniFocus may write to. OmniFocus writes the archive as a package, a folder
+that Finder shows as one file.
+
 ### GTD Queries and Reviews
 ```
 "What can I work on now?"
@@ -287,7 +311,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 |---------|-------------|---------|
 | `add_task` | Add a task with full properties | "Add task to buy milk due tomorrow, defer until morning" |
 | `search_tasks` | Search across all tasks | "Search for budget tasks" |
-| `edit_task` | Modify existing task, including its repetition (`repeat`, `repeat_based_on`, `repeat_catch_up`), its parent task, the behavior of its subtasks and file attachments in its note | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
+| `edit_task` | Modify existing task, including its repetition (`repeat`, `repeat_based_on`, `repeat_catch_up`), its parent task, the behavior of its subtasks, its primary tag (`primary_tag`), its time zone setting (`floating_time_zone`), the provisional project of an inbox task (`assigned_container`) and file attachments in its note | "Change due date of 'Report' to Friday", "Repeat 'Pay rent' every month" |
 | `batch_add_tasks` | Create multiple tasks | "Add tasks: Task1\|Task2\|-Subtask" |
 | `create_recurring_task` | Set up a repeating task with a repeat rule in words or as an iCalendar rule | "Create daily task 'Review email'", "Repeat 'Invoices' on the last Friday of the month" |
 | `list_inbox` | Show inbox tasks | "Show my inbox" |
@@ -308,7 +332,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 | `create_project` | Create a project, optionally in a folder, with review interval, due and defer date and type | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
-| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
+| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior, time zone setting (`floating_time_zone`) and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `save_attachment` | Save an embedded attachment of a task, project or folder as a file | "Save the attachment of 'Answer the offer' to ~/Downloads/offer.pdf" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
@@ -330,6 +354,8 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `list_due_soon` | Tasks due in the next days, grouped by tag, day or project | "What is due this week, by tag?" |
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
 | `list_tasks_by_date` | Tasks or projects by creation, modification or drop date, for the last days or a period, optionally one project or only open items | "What did I add this week?" |
+| `get_settings` | Settings of the database (`document`) and preferences of the app (`application`) with their values and defaults, optionally filtered by a part of the ID | "What is the default due time in OmniFocus?" |
+| `create_backup` | Write a backup archive of the database to a new path | "Write a backup of OmniFocus to ~/Documents/omnifocus-backup" |
 | `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
 | `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
 | `list_stalled_projects` | Active projects without a next action | "Which projects are stalled?" |
@@ -384,6 +410,8 @@ omnifocus-claude-extension/
 │   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag
 │   │   │   ├── list_completed_tasks.applescript
 │   │   │   ├── list_tasks_by_date.applescript
+│   │   │   ├── get_settings.applescript
+│   │   │   ├── create_backup.applescript
 │   │   │   ├── list_projects_for_review.applescript
 │   │   │   ├── mark_project_reviewed.applescript
 │   │   │   └── list_stalled_projects.applescript

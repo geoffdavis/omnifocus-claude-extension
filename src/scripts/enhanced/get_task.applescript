@@ -70,7 +70,28 @@ on run argv
                 set AppleScript's text item delimiters to ", "
                 set taskInfo to taskInfo & "Tags: " & (tagNames as string) & return
                 set AppleScript's text item delimiters to oldDelims
+                -- With several tags the first one is the primary tag
+                if (count of tagNames) > 1 then
+                    try
+                        set primaryTag to primary tag of targetTask
+                        if primaryTag is not missing value then set taskInfo to taskInfo & "Primary tag: " & (name of primaryTag) & return
+                    end try
+                end if
             end if
+
+            -- An inbox task can have a provisional project or parent task (Clean Up moves it there)
+            try
+                if in inbox of targetTask then
+                    set assignedItem to assigned container of targetTask
+                    if assignedItem is not missing value then
+                        if class of assignedItem is project then
+                            set taskInfo to taskInfo & "Assigned to: " & my projectLabel(assignedItem) & " (stays in the inbox until Clean Up)" & return
+                        else
+                            set taskInfo to taskInfo & "Assigned to the task: " & (name of assignedItem) & " (stays in the inbox until Clean Up)" & return
+                        end if
+                    end if
+                end if
+            end try
             
             -- Dates and estimate
             set deferValue to defer date of targetTask
@@ -81,6 +102,16 @@ on run argv
             end try
             set dueValue to due date of targetTask
             if dueValue is not missing value then set taskInfo to taskInfo & "Due: " & (dueValue as string) & return
+            -- The time zone setting only matters for a task with a due or defer date
+            if dueValue is not missing value or deferValue is not missing value then
+                try
+                    if should use floating time zone of targetTask then
+                        set taskInfo to taskInfo & "Time zone: floating (the same clock time in every time zone)" & return
+                    else
+                        set taskInfo to taskInfo & "Time zone: fixed" & return
+                    end if
+                end try
+            end if
             set estimateValue to estimated minutes of targetTask
             if estimateValue is not missing value then set taskInfo to taskInfo & "Estimate: " & estimateValue & " minutes" & return
             set repeatText to my repetitionText(targetTask)

@@ -33,10 +33,16 @@ on run argv
         set taskList to "📥 Inbox (" & (count of incompleteTasks) & " items):"
         repeat with aTask in incompleteTasks
           set taskName to name of aTask
+          -- A task that already has a provisional project or parent task (it stays here until Clean Up)
+          set assignedText to ""
+          try
+            set assignedItem to assigned container of aTask
+            if assignedItem is not missing value then set assignedText to " → " & (name of assignedItem)
+          end try
           if flagged of aTask then
-            set taskList to taskList & return & "• " & taskName & " 🚩 [id:" & (id of aTask) & "]"
+            set taskList to taskList & return & "• " & taskName & " 🚩" & assignedText & " [id:" & (id of aTask) & "]"
           else
-            set taskList to taskList & return & "• " & taskName & " [id:" & (id of aTask) & "]"
+            set taskList to taskList & return & "• " & taskName & assignedText & " [id:" & (id of aTask) & "]"
           end if
         end repeat
         return taskList

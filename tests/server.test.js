@@ -240,7 +240,7 @@ describe('MCP Server', () => {
 
             const responses = responseData.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
             const toolNames = responses.find(r => r.id === 2).result.tools.map(t => t.name);
-            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks', 'edit_tag', 'reopen_task', 'get_project', 'list_due_soon', 'parse_tasks', 'list_perspectives', 'get_selected_link', 'synchronize', 'clean_up', 'undo', 'list_folders', 'edit_folder', 'delete_folder', 'save_attachment', 'get_selection', 'set_view', 'show_item', 'duplicate_item', 'list_tasks_by_date'].forEach(name => {
+            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks', 'edit_tag', 'reopen_task', 'get_project', 'list_due_soon', 'parse_tasks', 'list_perspectives', 'get_selected_link', 'synchronize', 'clean_up', 'undo', 'list_folders', 'edit_folder', 'delete_folder', 'save_attachment', 'get_selection', 'set_view', 'show_item', 'duplicate_item', 'list_tasks_by_date', 'get_settings', 'create_backup'].forEach(name => {
                 expect(toolNames).toContain(name);
             });
 

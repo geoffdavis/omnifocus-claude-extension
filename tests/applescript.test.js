@@ -87,6 +87,8 @@ describe('AppleScript Integration', () => {
                 'list_tasks_filtered.applescript',
                 'list_completed_tasks.applescript',
                 'list_tasks_by_date.applescript',
+                'get_settings.applescript',
+                'create_backup.applescript',
                 'edit_tag.applescript',
                 'reopen_task.applescript',
                 'get_project.applescript',
@@ -422,6 +424,65 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('could not read the');
         });
 
+        test('edit_task.applescript sets the primary tag, the time zone setting and the assigned container', () => {
+            const content = read('edit_task.applescript');
+            // primary tag: an existing tag moves to the front, none removes the first tag
+            expect(content).toContain('propertyName is "primary_tag"');
+            expect(content).toContain('set primary tag of targetTask to theTag');
+            expect(content).toContain('set primary tag of targetTask to missing value');
+            // setting the primary tag replaces all tags in OmniFocus, so the old ones are added again
+            expect(content).toContain('set oldTagIDs to id of every tag of targetTask');
+            expect(content).toContain('add (item 1 of oldTagMatches) to tags of targetTask');
+            // floating time zone with a checked flag
+            expect(content).toContain('set should use floating time zone of targetTask to (flagValue is "true")');
+            expect(content).toContain('Invalid value for floating_time_zone');
+            // assigned container only for inbox tasks, a project or "task:<task>", checked before it is set
+            expect(content).toContain('on setAssignedContainer(');
+            expect(content).toContain('in inbox of targetTask');
+            expect(content).toContain('Only inbox tasks have an assigned container');
+            expect(content).toContain('set assigned container of targetTask to containerRef');
+            expect(content).toContain('A task cannot be assigned to itself');
+        });
+
+        test('edit_project.applescript sets the time zone setting', () => {
+            const content = read('edit_project.applescript');
+            expect(content).toContain('set should use floating time zone of targetProject to (flagValue is "true")');
+            expect(content).toContain('Invalid value for floating_time_zone');
+        });
+
+        test('get_task, get_project and list_inbox show the new properties', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('Primary tag: ');
+            expect(task).toContain('Time zone: floating');
+            expect(task).toContain('Assigned to: ');
+            expect(fs.readFileSync(path.join(enhancedScriptsDir, 'get_project.applescript'), 'utf8')).toContain('Time zone: floating');
+            expect(fs.readFileSync(path.join(enhancedScriptsDir, '..', 'list_inbox.applescript'), 'utf8')).toContain('assigned container of aTask');
+        });
+
+        test('get_settings.applescript reads settings and preferences with a filter', () => {
+            const content = read('get_settings.applescript');
+            // only the IDs are read in bulk (OmniFocus cannot return all values at once); values one by one by ID
+            expect(content).toContain('id of every setting');
+            expect(content).toContain('id of every preference');
+            expect(content).not.toContain('value of every setting');
+            expect(content).toContain('set theEntry to setting id idText of default document');
+            expect(content).toContain('set theEntry to preference id idText');
+            expect(content).toContain('cannot be read: a list or data');
+            expect(content).toContain('Invalid scope');
+            expect(content).toContain('Invalid limit');
+            // nothing is written
+            expect(content).not.toMatch(/set value of/);
+        });
+
+        test('create_backup.applescript writes an archive only to a new path', () => {
+            const content = read('create_backup.applescript');
+            expect(content).toContain('archive default document in (POSIX file archivePath)');
+            expect(content).toContain('exists already. Nothing was written');
+            expect(content).toContain('The folder of the archive does not exist');
+            expect(content).toContain('Give the full path of the archive');
+            expect(content).toContain('Invalid value for compression');
+        });
+
         test('edit_project.applescript supports the project types', () => {
             const content = read('edit_project.applescript');
             expect(content).toContain('propertyName is "type"');
@@ -449,7 +510,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set planned date of targetProject');
             expect(content).toContain('set flagged of targetProject');
             expect(content).toContain('set completed by children of targetProject');
-            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, repeat, repeat_based_on, repeat_catch_up');
+            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, repeat, repeat_based_on, repeat_catch_up');
         });
 
         test('create_project.applescript checks the optional settings before it creates anything', () => {
@@ -871,7 +932,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set completed by children of targetTask to (flagValue is "true")');
             expect(content).toContain('Invalid value for sequential');
             expect(content).toContain('on parseFlag(');
-            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up, parent_task, sequential, complete_with_last_item');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up, parent_task, sequential, complete_with_last_item');
         });
 
         test('get_task and get_project show how the subtasks of a task behave', () => {
@@ -900,7 +961,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('propertyName is "repeat_catch_up"');
             expect(content).toContain('my changeRepetition(targetTask, "task", originalName, "catch_up", newValue)');
             expect(content).toContain('set repetition rule of theItem to missing value');
-            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, repeat, repeat_based_on, repeat_catch_up');
+            expect(content).toContain('Valid properties: name, note, append_note, due_date, defer_date, planned_date, flagged, project, estimated_minutes, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up');
         });
 
         test('edit_project.applescript repeats projects as well', () => {

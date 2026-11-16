@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   day: a yearly rule repeats on the date of the due date
 - **Undo**: `undo` undoes or redoes the last change(s) in OmniFocus (`action`, `steps` up to 20). OmniFocus reverts the last
   change whoever made it, so also changes made by hand
+- **Small properties**: `edit_task` sets the primary tag (`primary_tag`), the time zone setting of the due and defer date
+  (`floating_time_zone`, also in `edit_project`) and the provisional project or parent task of an inbox task
+  (`assigned_container`, made final by `clean_up`). `get_task`, `get_project` and `list_inbox` show them
+- **Settings and backup**: `get_settings` reads the settings of the database and the preferences of the app (value and
+  default, filter by ID), `create_backup` writes a backup archive of the database to a new path (a package)
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
   it is finished (`wait_seconds`, default 15, 0 = do not wait); its answer shows when the last synchronization finished and
   its error, if there was one, and `status_only` reports that without starting a synchronization; `clean_up` runs Clean Up (inbox items that already have
