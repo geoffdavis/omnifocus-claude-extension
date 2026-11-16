@@ -254,9 +254,9 @@ on run argv
             set dueDate to item i of dueDateList
             if dueDate is not missing value then
                 if dueDate < nowDate then
-                    set entry to entry & " ⚠️ overdue since " & (date string of dueDate)
+                    set entry to entry & " ⚠️ overdue since " & (my shortDate(dueDate))
                 else
-                    set entry to entry & " 📅 due " & (date string of dueDate)
+                    set entry to entry & " 📅 due " & (my shortDate(dueDate))
                 end if
             end if
             if not availableOnly then
@@ -265,7 +265,7 @@ on run argv
                 if deferDate is not missing value then
                     if deferDate > nowDate then
                         set isDeferred to true
-                        set entry to entry & " ⏸ deferred until " & (date string of deferDate)
+                        set entry to entry & " ⏸ deferred until " & (my shortDate(deferDate))
                     end if
                 end if
                 -- OmniFocus also calls deferred tasks blocked; only mention other reasons
@@ -800,3 +800,31 @@ on hiddenFolderProjectIDs()
     end tell
     return idList
 end hiddenFolderProjectIDs
+
+on shortDate(aDate)
+    -- "2026-11-18": year, month and day with the digits 0 to 9 in a fixed order, independent of the language and the date
+    -- format of the Mac (and shorter than "Wednesday, 18. November 2026" for a reader that counts tokens)
+    set monthNumber to (month of aDate) as integer
+    return (my plainNumberText(year of aDate)) & "-" & (text -2 thru -1 of ("0" & my plainNumberText(monthNumber))) & "-" & (text -2 thru -1 of ("0" & my plainNumberText(day of aDate)))
+end shortDate
+
+on shortTime(aDate)
+    -- "08:30": hours and minutes with the digits 0 to 9
+    return (text -2 thru -1 of ("0" & my plainNumberText(hours of aDate))) & ":" & (text -2 thru -1 of ("0" & my plainNumberText(minutes of aDate)))
+end shortTime
+
+on shortDateTime(aDate)
+    -- "2026-11-18" for a date at midnight (a date without a time), "2026-11-18 08:30" otherwise
+    if (time of aDate) is 0 then return my shortDate(aDate)
+    return (my shortDate(aDate)) & " " & (my shortTime(aDate))
+end shortDateTime
+
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText

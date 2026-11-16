@@ -51,7 +51,6 @@ on run argv
     set thisWeekOverdue to {}
     set lastWeekOverdue to {}
     set olderOverdue to {}
-    set flaggedOverdue to 0
 
     copy currentTime to todayStart
     set hours of todayStart to 0
@@ -66,7 +65,6 @@ on run argv
         set t to contents of idx
         set dueDate to item t of dueDateList
         set lineText to my formatOverdueTask(item t of taskNameList, dueDate, item t of containerNameList, item t of flaggedList, item t of deferDateList, currentTime)
-        if item t of flaggedList then set flaggedOverdue to flaggedOverdue + 1
 
         if dueDate ≥ todayStart then
             set end of todayOverdue to lineText
@@ -83,7 +81,7 @@ on run argv
 
     -- Build output
     set taskList to "⚠️ Overdue Tasks (" & (count of overdueIndexes) & " items)" & return
-    set taskList to taskList & "════════════════════════════" & return & return
+    set taskList to taskList & return
 
     -- Earlier today
     if (count of todayOverdue) > 0 then
@@ -130,23 +128,6 @@ on run argv
         set taskList to taskList & return
     end if
 
-    -- Add action summary
-    set taskList to taskList & return & "💡 Recommended Actions:" & return
-
-    if flaggedOverdue > 0 then
-        set taskList to taskList & "• " & flaggedOverdue & " flagged tasks are overdue - prioritize these first" & return
-    end if
-
-    if (count of olderOverdue) > 0 then
-        set taskList to taskList & "• " & (count of olderOverdue) & " tasks are significantly overdue - consider rescheduling or dropping" & return
-    end if
-
-    if (count of overdueIndexes) > 10 then
-        set taskList to taskList & "• Large backlog detected - consider a focused catch-up session" & return
-    end if
-
-    set taskList to taskList & "• Review and either complete, reschedule, or drop each overdue task"
-
     return taskList
 end run
 
@@ -182,7 +163,7 @@ on formatOverdueTask(taskName, dueDate, projectName, isFlagged, deferDate, curre
         if deferDate > currentTime then set flags to flags & " ⏸"
     end if
 
-    return "• " & taskName & projectInfo & flags & return & "  ⏰ Was due: " & overdueText & " (" & (date string of dueDate) & ")"
+    return "• " & taskName & projectInfo & flags & return & "  ⏰ Was due: " & overdueText & " (" & (my shortDate(dueDate)) & ")"
 end formatOverdueTask
 
 on hiddenFolderProjectIDs()
@@ -256,3 +237,31 @@ on isHiddenProjectID(containerID, hiddenProjectIDList)
     if (count of hiddenProjectIDList) = 0 then return false
     return (hiddenProjectIDList contains containerID)
 end isHiddenProjectID
+
+on shortDate(aDate)
+    -- "2026-11-18": year, month and day with the digits 0 to 9 in a fixed order, independent of the language and the date
+    -- format of the Mac (and shorter than "Wednesday, 18. November 2026" for a reader that counts tokens)
+    set monthNumber to (month of aDate) as integer
+    return (my plainNumberText(year of aDate)) & "-" & (text -2 thru -1 of ("0" & my plainNumberText(monthNumber))) & "-" & (text -2 thru -1 of ("0" & my plainNumberText(day of aDate)))
+end shortDate
+
+on shortTime(aDate)
+    -- "08:30": hours and minutes with the digits 0 to 9
+    return (text -2 thru -1 of ("0" & my plainNumberText(hours of aDate))) & ":" & (text -2 thru -1 of ("0" & my plainNumberText(minutes of aDate)))
+end shortTime
+
+on shortDateTime(aDate)
+    -- "2026-11-18" for a date at midnight (a date without a time), "2026-11-18 08:30" otherwise
+    if (time of aDate) is 0 then return my shortDate(aDate)
+    return (my shortDate(aDate)) & " " & (my shortTime(aDate))
+end shortDateTime
+
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText

@@ -70,19 +70,12 @@ on run argv
   end repeat
 
   set report to "📊 WEEKLY REVIEW SUMMARY" & return
-  set report to report & "════════════════════════" & return & return
+  set report to report & return
   set report to report & "📥 Inbox: " & inboxCount & " items" & return
   set report to report & "🚩 Flagged: " & flaggedCount & " tasks" & return
   set report to report & "⚠️  Overdue: " & overdueCount & " tasks" & return
   set report to report & "📅 Due this week: " & dueThisWeek & " tasks" & return
   set report to report & "📁 Projects with open tasks: " & activeProjectCount & " of " & projectCount & " active" & return & return
-
-  if inboxCount > 0 then
-    set report to report & "💡 Action: Process " & inboxCount & " inbox items" & return
-  end if
-  if overdueCount > 0 then
-    set report to report & "💡 Action: Review " & overdueCount & " overdue tasks" & return
-  end if
 
   return report
 end run

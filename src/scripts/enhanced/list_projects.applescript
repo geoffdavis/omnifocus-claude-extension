@@ -123,7 +123,6 @@ on run argv
     end if
 
     set projectList to "📁 Projects Overview" & return
-    set projectList to projectList & "════════════════════" & return
     set projectList to projectList & "Active: " & totalActive & " | On Hold: " & totalOnHold & " | Dropped: " & totalDropped & return & return
 
     set projectList to projectList & "📂 Active Projects:" & return

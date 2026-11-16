@@ -70,7 +70,7 @@ on run argv
 
     -- Build output
     set taskList to "🚩 Flagged Tasks (" & (count of flaggedIndexes) & " items)" & return
-    set taskList to taskList & "════════════════════════════" & return & return
+    set taskList to taskList & return
 
     -- Overdue flagged tasks (highest priority)
     if (count of overdueTasks) > 0 then
@@ -116,16 +116,6 @@ on run argv
         end repeat
     end if
 
-    -- Add summary
-    set taskList to taskList & return & "💡 Summary:" & return
-    if (count of overdueTasks) > 0 then
-        set taskList to taskList & "• " & (count of overdueTasks) & " overdue tasks need immediate attention" & return
-    end if
-    if (count of todayTasks) > 0 then
-        set taskList to taskList & "• " & (count of todayTasks) & " tasks due today" & return
-    end if
-    set taskList to taskList & "• " & (count of flaggedIndexes) & " total flagged tasks to review"
-
     return taskList
 end run
 
@@ -149,7 +139,7 @@ on formatFlaggedTask(taskName, projectName, dueDate, isOverdue, deferDate, nowDa
             end if
         else
             -- Format the due date nicely
-            set dueInfo to " (due " & (date string of dueDate) & ")"
+            set dueInfo to " (due " & (my shortDate(dueDate)) & ")"
         end if
     end if
 
@@ -192,3 +182,31 @@ on isHiddenProjectID(containerID, hiddenProjectIDList)
     if (count of hiddenProjectIDList) = 0 then return false
     return (hiddenProjectIDList contains containerID)
 end isHiddenProjectID
+
+on shortDate(aDate)
+    -- "2026-11-18": year, month and day with the digits 0 to 9 in a fixed order, independent of the language and the date
+    -- format of the Mac (and shorter than "Wednesday, 18. November 2026" for a reader that counts tokens)
+    set monthNumber to (month of aDate) as integer
+    return (my plainNumberText(year of aDate)) & "-" & (text -2 thru -1 of ("0" & my plainNumberText(monthNumber))) & "-" & (text -2 thru -1 of ("0" & my plainNumberText(day of aDate)))
+end shortDate
+
+on shortTime(aDate)
+    -- "08:30": hours and minutes with the digits 0 to 9
+    return (text -2 thru -1 of ("0" & my plainNumberText(hours of aDate))) & ":" & (text -2 thru -1 of ("0" & my plainNumberText(minutes of aDate)))
+end shortTime
+
+on shortDateTime(aDate)
+    -- "2026-11-18" for a date at midnight (a date without a time), "2026-11-18 08:30" otherwise
+    if (time of aDate) is 0 then return my shortDate(aDate)
+    return (my shortDate(aDate)) & " " & (my shortTime(aDate))
+end shortDateTime
+
+on plainNumberText(theNumber)
+    -- A whole number as text with the digits 0 to 9. "as text" and "&" write the digits of the region instead
+    -- (Eastern Arabic digits on a Mac with an Arabic or Persian region), which breaks text that is read by a program,
+    -- for example an iCalendar rule.
+    set wholeNumber to theNumber as integer
+    if wholeNumber < 0 then return "-" & my plainNumberText(0 - wholeNumber)
+    if wholeNumber < 10 then return character (wholeNumber + 1) of "0123456789"
+    return (my plainNumberText(wholeNumber div 10)) & (character ((wholeNumber mod 10) + 1) of "0123456789")
+end plainNumberText

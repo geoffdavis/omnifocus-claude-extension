@@ -835,6 +835,54 @@ describe('AppleScript Integration', () => {
         });
     });
 
+    describe('Compact output (few tokens for the reader)', () => {
+        const read = (name, dir = enhancedScriptsDir) => fs.readFileSync(path.join(dir, name), 'utf8');
+        const listTools = [
+            'list_completed_tasks.applescript', 'list_deferred_tasks.applescript', 'list_due_soon.applescript',
+            'list_flagged_tasks.applescript', 'list_overdue_tasks.applescript', 'list_projects_for_review.applescript',
+            'list_tasks_by_date.applescript', 'list_tasks_filtered.applescript', 'search_tasks.applescript'
+        ];
+
+        test.each(listTools)('%s writes dates as 2026-11-18, not as the long date text of the Mac', name => {
+            const content = read(name);
+            // "date string", "time string" and "as string" give long text that depends on the language and region
+            expect(content).not.toMatch(/date string of/);
+            expect(content).not.toMatch(/time string of/);
+            expect(content).not.toMatch(/[dD]ate as string/);
+            expect(content).toMatch(/my short(Date|Time|DateTime)\(/);
+            expect(content).toContain('on shortDate(aDate)');
+            // the digits 0 to 9 on every Mac
+            expect(content).toContain('on plainNumberText(theNumber)');
+        });
+
+        test('the short date has a fixed order and two-digit month and day', () => {
+            const content = read('list_overdue_tasks.applescript');
+            expect(content).toContain('set monthNumber to (month of aDate) as integer');
+            expect(content).toContain('text -2 thru -1 of ("0" & my plainNumberText(monthNumber))');
+            expect(content).toContain('text -2 thru -1 of ("0" & my plainNumberText(day of aDate))');
+            expect(read('search_tasks.applescript')).toContain('on shortDateTime(aDate)');
+        });
+
+        test('the reports have no decoration lines and no advice blocks (the counts are in the headings)', () => {
+            ['list_overdue_tasks.applescript', 'list_flagged_tasks.applescript', 'list_deferred_tasks.applescript', 'list_projects.applescript'].forEach(name => {
+                expect(read(name)).not.toContain('════');
+            });
+            expect(read('weekly_review.applescript', scriptsDir)).not.toContain('════');
+            expect(read('list_overdue_tasks.applescript')).not.toContain('Recommended Actions');
+            expect(read('list_flagged_tasks.applescript')).not.toContain('Summary:');
+            expect(read('weekly_review.applescript', scriptsDir)).not.toContain('Action:');
+        });
+
+        test('a list that was cut at the limit says so and how to get fewer results', () => {
+            expect(read('search_tasks.applescript')).toContain('Limit of " & resultLimit & " tasks reached, more tasks may match. Use a more specific search or a higher limit.');
+            ['list_tasks_filtered.applescript', 'list_due_soon.applescript'].forEach(name => {
+                expect(read(name)).toContain('Limit of');
+            });
+            expect(read('list_completed_tasks.applescript')).toContain('more not shown (limit');
+            expect(read('list_tasks_by_date.applescript')).toContain('more not shown (limit');
+        });
+    });
+
     describe('Due soon', () => {
         const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
 

@@ -114,6 +114,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tag name returns the matches and changes nothing
 - `create_tag` looks for an existing tag with the same name below the same parent only, and accepts a nested tag as parent
 - `list_tags` shows IDs, hidden tags and tags that do not allow next actions
+- Shorter output for the reader (fewer tokens per call): the list tools (`list_overdue_tasks`, `list_flagged_tasks`,
+  `list_deferred_tasks`, `list_due_soon`, `list_completed_tasks`, `list_tasks_by_date`, `list_available_tasks`,
+  `list_tasks_by_tag`, `list_projects_for_review`, `search_tasks`) write dates as `2026-11-18` (with `08:30` if the date has
+  a time) instead of `Wednesday, 18. November 2026 at 08:30:00`; the form is the same on every Mac, whatever its language
+  and region. The decoration lines (`════`) and the advice blocks (`Recommended Actions` in `list_overdue_tasks`,
+  `Summary` in `list_flagged_tasks`, the action lines in `weekly_review`) are gone; the counts are in the headings.
+  `search_tasks` says when the list was cut at the limit and how to get fewer results. `get_task`, `get_project` and the
+  messages after a change keep the long date
 
 ### Fixed
 - `search_tasks` with `filter: "remaining"` or `"available"` failed
