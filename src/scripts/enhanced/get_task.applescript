@@ -19,7 +19,7 @@ on run argv
             else
                 set foundTasks to every flattened task whose name contains searchTerm and completed is false
             end if
-            
+
             if (count of foundTasks) = 0 then
                 return "❌ No matching tasks found for: " & searchTerm
             else if (count of foundTasks) > 1 then
@@ -112,10 +112,48 @@ on run argv
                     end if
                 end try
             end if
+            -- Dates of the task as OmniFocus works them out, counting the containing tasks and the project too. Only shown when
+            -- they differ from the dates of the task itself.
+            try
+                set effectiveDeferValue to effective defer date of targetTask
+                if effectiveDeferValue is not missing value then
+                    if deferValue is missing value or effectiveDeferValue is not deferValue then set taskInfo to taskInfo & "Effective deferred until: " & (effectiveDeferValue as string) & " (inherited)" & return
+                end if
+            end try
+            try
+                set ownPlannedValue to planned date of targetTask
+                set effectivePlannedValue to effective planned date of targetTask
+                if effectivePlannedValue is not missing value then
+                    if ownPlannedValue is missing value or effectivePlannedValue is not ownPlannedValue then set taskInfo to taskInfo & "Effective planned: " & (effectivePlannedValue as string) & " (inherited)" & return
+                end if
+            end try
+            try
+                set effectiveDueValue to effective due date of targetTask
+                if effectiveDueValue is not missing value then
+                    if dueValue is missing value or effectiveDueValue is not dueValue then set taskInfo to taskInfo & "Effective due: " & (effectiveDueValue as string) & " (inherited)" & return
+                end if
+            end try
             set estimateValue to estimated minutes of targetTask
             if estimateValue is not missing value then set taskInfo to taskInfo & "Estimate: " & estimateValue & " minutes" & return
             set repeatText to my repetitionText(targetTask)
-            if repeatText is not "" then set taskInfo to taskInfo & "Repeats: " & repeatText & return
+            if repeatText is not "" then
+                set taskInfo to taskInfo & "Repeats: " & repeatText & return
+                -- OmniFocus knows the dates of the next occurrence for a task that repeats on a fixed schedule
+                set nextParts to {}
+                try
+                    set nextDeferValue to next defer date of targetTask
+                    if nextDeferValue is not missing value then set end of nextParts to "defer " & (nextDeferValue as string)
+                end try
+                try
+                    set nextPlannedValue to next planned date of targetTask
+                    if nextPlannedValue is not missing value then set end of nextParts to "planned " & (nextPlannedValue as string)
+                end try
+                try
+                    set nextDueValue to next due date of targetTask
+                    if nextDueValue is not missing value then set end of nextParts to "due " & (nextDueValue as string)
+                end try
+                if (count of nextParts) > 0 then set taskInfo to taskInfo & "Next occurrence: " & my joinText(nextParts, ", ") & return
+            end if
             set subtaskCount to number of tasks of targetTask
             if subtaskCount > 0 then
                 set groupNotes to {}
@@ -133,6 +171,11 @@ on run argv
                     set AppleScript's text item delimiters to oldDelims
                 end if
                 set taskInfo to taskInfo & return
+                -- How many of the subtasks can be worked on now (not blocked, not deferred, not completed)
+                try
+                    set availableCount to number of available tasks of targetTask
+                    set taskInfo to taskInfo & "Available subtasks: " & availableCount & return
+                end try
             end if
             
             -- Note, shortened if very long

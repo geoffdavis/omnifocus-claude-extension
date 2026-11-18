@@ -3,7 +3,8 @@ on run argv
     -- Usage: edit_project.applescript "project name or Folder > Project" "property" "new value"
     -- Properties: name, note, append_note, folder, status, type, review_interval, next_review_date,
     --             due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone,
-    --             tags, primary_tag, repeat, repeat_based_on, repeat_catch_up, attach_file, link_file, remove_attachment
+    --             default_single_action_list, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up, attach_file,
+    --             link_file, remove_attachment
     --   tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all
     --     current tags, or "none" to remove all tags
     --   primary_tag: the first tag of the project (the other tags stay), or "none" to remove the first tag
@@ -21,6 +22,8 @@ on run argv
     --   due_date, defer_date, planned_date: a date, or "none" to clear it
     --   flagged, complete_with_last_item: true or false
     --   floating_time_zone: "true" = due and defer date keep their clock time in every time zone, "false" = fixed time zone
+    --   default_single_action_list: "true" = the project is the default project for single actions (OmniFocus has only one: the
+    --     flag leaves the project that had it, and the project becomes a single action list), "false" = it is not
     
     if (count of argv) < 3 then
         return "❌ Project, property and value are required."
@@ -237,6 +240,36 @@ on run argv
                         return "📍 Due and defer date use a fixed time zone: " & originalLabel & hintText
                     end if
 
+                else if propertyName is "default_single_action_list" then
+                    -- The default project for single actions. OmniFocus allows only one: setting the flag clears it on the project
+                    -- that had it, and makes the project a single action list
+                    set flagValue to my parseFlag(newValue)
+                    if flagValue is "" then return "❌ Invalid value for default_single_action_list: " & newValue & ". Use true or false. Nothing was changed."
+                    if flagValue is "true" then
+                        set targetID to id of targetProject
+                        set wasSingleList to singleton action holder of targetProject
+                        -- the project that has the flag now (one query for each property of all projects)
+                        set projectIDList to id of every flattened project
+                        set projectNameList to name of every flattened project
+                        set holderFlagList to default singleton action holder of every flattened project
+                        set previousHolder to ""
+                        repeat with i from 1 to count of projectIDList
+                            if (item i of holderFlagList) is true and (item i of projectIDList) is not targetID then set previousHolder to item i of projectNameList
+                        end repeat
+                        set default singleton action holder of targetProject to true
+                        if not (default singleton action holder of targetProject) then return "❌ OmniFocus did not make the project the default for single actions: " & originalLabel
+                        set resultText to "☑️ Default project for single actions: " & originalLabel
+                        set noteParts to {}
+                        if not wasSingleList then set end of noteParts to "it is now a single action list"
+                        if previousHolder is not "" then set end of noteParts to "no longer the default: " & previousHolder
+                        if (count of noteParts) > 0 then set resultText to resultText & " (" & my joinText(noteParts, ", ") & ")"
+                        return resultText
+                    else
+                        set default singleton action holder of targetProject to false
+                        if default singleton action holder of targetProject then return "❌ OmniFocus did not clear the default for single actions: " & originalLabel
+                        return "☑️ Project is no longer the default for single actions: " & originalLabel
+                    end if
+
                 else if propertyName is "tags" then
                     -- Replace all tags with the new comma-separated list; "none" or "clear" removes all tags
                     return my setItemTags(targetProject, "project", originalLabel, newValue)
@@ -255,7 +288,7 @@ on run argv
                     return my changeRepetition(targetProject, "project", originalLabel, "catch_up", newValue)
 
                 else
-                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up, attach_file, link_file, remove_attachment"
+                    return "❌ Unknown property: " & propertyName & ". Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, default_single_action_list, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up, attach_file, link_file, remove_attachment"
                 end if
             on error errMsg
                 return "❌ Error updating project: " & errMsg

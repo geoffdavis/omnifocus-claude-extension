@@ -1,7 +1,7 @@
 on run argv
     -- List all tags in OmniFocus with hierarchy (indentation shows parent/child relationships)
     -- Usage: list_tags.applescript [include_counts]
-    -- Pass "true" as first argument to include per-tag task counts
+    -- Pass "true" as first argument to include per-tag task counts (remaining and available, child tags included)
 
     set includeCounts to false
     if (count of argv) > 0 then
@@ -27,9 +27,30 @@ on run argv
     set tagCount to count of tagIDList
     set tagIDText to linefeed & my joinText(tagIDList, linefeed) & linefeed
 
-    -- Number of open tasks per tag (the tasks that are not completed), counted in one pass over all tasks
-    set tagTaskCounts to {}
+    -- Counts per tag as OmniFocus works them out (tasks of the tag and of its active child tags): the remaining tasks and the
+    -- available ones (not blocked, not deferred). One query each for all tags.
+    set tagRemainingCounts to {}
+    set tagAvailableCounts to {}
+    set hasOmniFocusCounts to false
     if includeCounts then
+        try
+            tell application "OmniFocus"
+                tell default document
+                    set tagRemainingCounts to remaining task count of every flattened tag
+                    set tagAvailableCounts to available task count of every flattened tag
+                end tell
+            end tell
+            if (count of tagRemainingCounts) = tagCount and (count of tagAvailableCounts) = tagCount then
+                -- only numbers are used; anything else means the counts are not usable
+                if (class of item 1 of tagRemainingCounts) is integer and (class of item 1 of tagAvailableCounts) is integer then set hasOmniFocusCounts to true
+            end if
+        end try
+    end if
+
+    -- Without those counts (an older OmniFocus): the number of open tasks per tag (the tasks that are not completed),
+    -- counted in one pass over all tasks
+    set tagTaskCounts to {}
+    if includeCounts and not hasOmniFocusCounts then
         repeat with i from 1 to tagCount
             set end of tagTaskCounts to 0
         end repeat
@@ -69,7 +90,11 @@ on run argv
 
         set lineText to indent & "• " & (item i of tagNameList)
         if includeCounts then
-            if (item i of tagTaskCounts) > 0 then set lineText to lineText & " (" & (item i of tagTaskCounts) & " tasks)"
+            if hasOmniFocusCounts then
+                if (item i of tagRemainingCounts) > 0 then set lineText to lineText & " (" & (item i of tagRemainingCounts) & " remaining, " & (item i of tagAvailableCounts) & " available)"
+            else if (item i of tagTaskCounts) > 0 then
+                set lineText to lineText & " (" & (item i of tagTaskCounts) & " tasks)"
+            end if
         end if
         if item i of tagHiddenList then set lineText to lineText & " ⏸ hidden"
         if not (item i of tagAllowsList) then set lineText to lineText & " 🚫 no next action"

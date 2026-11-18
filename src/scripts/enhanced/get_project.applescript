@@ -55,6 +55,9 @@ on run argv
         set reportText to reportText & "Status: " & statusText & " | Type: " & typeText
         if flagged of targetProject then set reportText to reportText & " | 🚩 flagged"
         try
+            if default singleton action holder of targetProject then set reportText to reportText & " | default project for single actions"
+        end try
+        try
             if completed by children of targetProject then set reportText to reportText & " | completes with its last item"
         end try
         set reportText to reportText & return
@@ -106,11 +109,32 @@ on run argv
         end try
 
         set repeatText to my repetitionText(targetProject)
-        if repeatText is not "" then set reportText to reportText & "Repeats: " & repeatText & return
+        if repeatText is not "" then
+            set reportText to reportText & "Repeats: " & repeatText & return
+            -- OmniFocus knows the dates of the next occurrence of a project that repeats on a fixed schedule
+            set nextParts to {}
+            try
+                set nextDeferValue to next defer date of targetProject
+                if nextDeferValue is not missing value then set end of nextParts to "defer " & (nextDeferValue as string)
+            end try
+            try
+                set nextPlannedValue to next planned date of targetProject
+                if nextPlannedValue is not missing value then set end of nextParts to "planned " & (nextPlannedValue as string)
+            end try
+            try
+                set nextDueValue to next due date of targetProject
+                if nextDueValue is not missing value then set end of nextParts to "due " & (nextDueValue as string)
+            end try
+            if (count of nextParts) > 0 then set reportText to reportText & "Next occurrence: " & my joinText(nextParts, ", ") & return
+        end if
 
         set openCount to count of (flattened tasks of targetProject whose effectively completed is false and effectively dropped is false)
         set doneCount to count of (flattened tasks of targetProject whose completed is true)
         set reportText to reportText & "Tasks: " & openCount & " open, " & doneCount & " completed"
+        try
+            -- the tasks directly below the project that can be worked on now (for a single action list that is every action)
+            set reportText to reportText & ", " & (number of available tasks of targetProject) & " available at top level"
+        end try
         try
             set nextTask to next task of targetProject
             if nextTask is not missing value then set reportText to reportText & " | Next action: " & (name of nextTask)

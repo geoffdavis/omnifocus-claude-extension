@@ -590,7 +590,7 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('set planned date of targetProject');
             expect(content).toContain('set flagged of targetProject');
             expect(content).toContain('set completed by children of targetProject');
-            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up');
+            expect(content).toContain('Valid properties: name, note, append_note, folder, status, type, review_interval, next_review_date, due_date, defer_date, planned_date, flagged, complete_with_last_item, floating_time_zone, default_single_action_list, tags, primary_tag, repeat, repeat_based_on, repeat_catch_up');
         });
 
         test('edit_project.applescript sets the tags and the primary tag through the shared tag handlers', () => {
@@ -1408,6 +1408,106 @@ describe('AppleScript Integration', () => {
         test('the server offers the new edit_task properties', () => {
             const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
             expect(server).toContain("'repeat', 'repeat_based_on', 'repeat_catch_up', 'parent_task', 'sequential', 'complete_with_last_item'");
+        });
+    });
+
+    describe('Inherited dates, next dates and tag counts', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('get_task shows the dates a task gets from its surroundings only when they differ from its own', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('effective defer date of targetTask');
+            expect(task).toContain('effective planned date of targetTask');
+            expect(task).toContain('effective due date of targetTask');
+            expect(task).toContain('effectiveDueValue is not dueValue');
+            expect(task).toContain('effectiveDeferValue is not deferValue');
+            expect(task).toContain('effectivePlannedValue is not ownPlannedValue');
+            expect(task).toContain('"Effective due: "');
+            expect(task).toContain('" (inherited)"');
+        });
+
+        test('get_task shows the dates of the next occurrence only for a repeating task', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('next due date of targetTask');
+            expect(task).toContain('next defer date of targetTask');
+            expect(task).toContain('next planned date of targetTask');
+            expect(task).toContain('"Next occurrence: "');
+            // inside the branch of the "Repeats:" line
+            expect(task.indexOf('"Repeats: "')).toBeLessThan(task.indexOf('next due date of targetTask'));
+        });
+
+        test('get_task shows how many subtasks are available', () => {
+            const task = read('get_task.applescript');
+            expect(task).toContain('number of available tasks of targetTask');
+            expect(task).toContain('"Available subtasks: "');
+            // the line "Subtasks: N (...)" keeps its form
+            expect(task).toContain('"Subtasks: " & subtaskCount');
+        });
+
+        test('every new read is guarded, so an OmniFocus without the property does not break the tool', () => {
+            const task = read('get_task.applescript');
+            ['effective due date of targetTask', 'effective defer date of targetTask', 'next due date of targetTask', 'number of available tasks of targetTask'].forEach(term => {
+                const before = task.slice(0, task.indexOf(term));
+                const lastTry = before.lastIndexOf('try\n');
+                const lastEnd = before.lastIndexOf('end try');
+                expect(lastTry).toBeGreaterThan(lastEnd);
+            });
+        });
+
+        test('list_tags takes the counts of OmniFocus with one query each and keeps the old count as fallback', () => {
+            const tags = read('list_tags.applescript');
+            expect(tags).toContain('set tagRemainingCounts to remaining task count of every flattened tag');
+            expect(tags).toContain('set tagAvailableCounts to available task count of every flattened tag');
+            expect(tags).toContain('" remaining, "');
+            expect(tags).toContain('" available)"');
+            expect(tags).toContain('if includeCounts and not hasOmniFocusCounts then');
+            expect(tags).toContain('set taskTagIDLists to id of tags of every flattened task');
+            expect(tags).toContain('" tasks)"');
+        });
+
+        test('the server describes the new output', () => {
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(server).toContain('the remaining and the available tasks as OmniFocus counts them');
+            expect(server).toContain('the dates of the next occurrence of a repeating task');
+        });
+
+        test('get_project shows the next occurrence, the available tasks and the default project for single actions, each guarded', () => {
+            const project = fs.readFileSync(path.join(enhancedScriptsDir, 'get_project.applescript'), 'utf8');
+            expect(project).toContain('next due date of targetProject');
+            expect(project).toContain('next defer date of targetProject');
+            expect(project).toContain('next planned date of targetProject');
+            expect(project).toContain('"Next occurrence: "');
+            expect(project.indexOf('"Repeats: "')).toBeLessThan(project.indexOf('next due date of targetProject'));
+            expect(project).toContain('number of available tasks of targetProject');
+            expect(project).toContain('available at top level');
+            expect(project).toContain('default singleton action holder of targetProject');
+            expect(project).toContain('default project for single actions');
+            ['next due date of targetProject', 'number of available tasks of targetProject', 'default singleton action holder of targetProject'].forEach(term => {
+                const before = project.slice(0, project.indexOf(term));
+                expect(before.lastIndexOf('try\n')).toBeGreaterThan(before.lastIndexOf('end try'));
+            });
+        });
+
+        test('edit_project sets the default project for single actions, tells which project lost the flag and checks the result', () => {
+            const edit = fs.readFileSync(path.join(enhancedScriptsDir, 'edit_project.applescript'), 'utf8');
+            expect(edit).toContain('propertyName is "default_single_action_list"');
+            expect(edit).toContain('Invalid value for default_single_action_list');
+            expect(edit).toContain('Nothing was changed.');
+            // the previous holder is found with one query for each property of all projects, not with a filter query
+            expect(edit).toContain('set holderFlagList to default singleton action holder of every flattened project');
+            expect(edit).not.toMatch(/flattened projects? whose default singleton action holder/);
+            expect(edit).toContain('set default singleton action holder of targetProject to true');
+            expect(edit).toContain('set default singleton action holder of targetProject to false');
+            expect(edit).toContain('OmniFocus did not make the project the default for single actions');
+            expect(edit).toContain('it is now a single action list');
+            expect(edit).toContain('no longer the default: ');
+        });
+
+        test('the server offers default_single_action_list for edit_project and describes the new get_project output', () => {
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(server).toContain("'floating_time_zone', 'default_single_action_list', 'tags', 'primary_tag'");
+            expect(server).toContain('For default_single_action_list: ');
+            expect(server).toContain('also the available tasks at top level');
         });
     });
 

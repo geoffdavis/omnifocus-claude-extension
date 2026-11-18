@@ -290,6 +290,16 @@ anything changes, so a failed lookup leaves the item as it was and `create_proje
 zone (`true`) or stay at a fixed time zone (`false`); `get_task` and `get_project` show it for items with a due or defer
 date. `assigned_container` gives an inbox task a provisional project (or `task:<name>` as parent task); it stays in the
 inbox, `list_inbox` shows the project after an arrow, and `clean_up` moves it there.
+`get_task` also shows the dates a task gets from a containing task or project (`Effective due:`, `Effective deferred until:`,
+`Effective planned:`, only when they differ from its own dates), the dates of the next occurrence of a task that repeats on a
+fixed schedule (`Next occurrence:`) and the number of subtasks that can be worked on now (`Available subtasks:`).
+`list_tags` with `include_counts` shows the remaining and the available tasks of each tag as OmniFocus counts them (the tasks of
+child tags included); an OmniFocus that does not give these numbers shows the number of open tasks per tag instead.
+`get_project` shows the same for projects: `Next occurrence:` for a project that repeats on a fixed schedule, the number of
+tasks directly below the project that can be worked on now (`available at top level`) and `default project for single
+actions` for the project that OmniFocus uses for single actions. `edit_project` sets it with `default_single_action_list`
+(`true` or `false`): OmniFocus has only one such project, so the flag leaves the project that had it (the answer names it),
+and the project becomes a single action list.
 
 `get_settings` reads the settings of the database (`scope: document`, the default) or the preferences of the app
 (`scope: application`, or `all`). Every entry shows its ID and value, and the default value if it differs; `filter`
@@ -360,16 +370,16 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `complete_task` | Mark as complete | "Complete budget review" |
 | `reopen_task` | Reopen a completed or dropped task | "Reopen the task 'Budget review'" |
 | `weekly_review` | GTD weekly review | "Show weekly review" |
-| `get_task` | Show all details of one task, including its repetition and attachments | "Show details of 'Report'" |
-| `get_project` | Show a project with its properties, repetition and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
+| `get_task` | Show all details of one task, including inherited dates, the next occurrence, repetition and attachments | "Show details of 'Report'" |
+| `get_project` | Show a project with its properties, repetition (with the next occurrence), counts and all its tasks as an indented list | "Show the project 'Website 2.0' with all tasks" |
 | `drop_task` | Drop a task (deleting needs `confirm_delete`) | "Drop the task 'Old idea'" |
-| `list_tags` | Show all tags with hierarchy, IDs, hidden / no-next-action flags and locations | "List my tags" |
+| `list_tags` | Show all tags with hierarchy, IDs, hidden / no-next-action flags, locations and optionally remaining / available task counts | "List my tags" |
 | `create_tag` | Create a new tag, optionally below another tag | "Create tag 'Urgent'" |
 | `edit_tag` | Rename, move, hide a tag, change its note or next-action behavior, set or remove its location (latitude, longitude, radius, trigger) | "Rename tag 'Waiting' to 'Waiting for'" |
 | `add_tag_to_task` | Add a tag to a task | "Tag 'Report' with 'Priority'" |
 | `remove_tag_from_task` | Remove a tag from a task | "Remove 'Waiting' tag from 'Report'" |
 | `create_project` | Create a project, optionally in a folder, with review interval, due and defer date, type and tags | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
-| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior, time zone setting (`floating_time_zone`), tags (`tags`, `primary_tag`) and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
+| `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior, time zone setting (`floating_time_zone`), the default project for single actions (`default_single_action_list`), tags (`tags`, `primary_tag`) and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
 | `save_attachment` | Save an embedded attachment of a task, project or folder as a file | "Save the attachment of 'Answer the offer' to ~/Downloads/offer.pdf" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |

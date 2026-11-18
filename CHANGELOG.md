@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Dates and counts**: `get_task` shows the dates a task gets from a containing task or project (effective due, defer and
+  planned date, only when they differ from its own), the dates of the next occurrence of a task that repeats on a fixed
+  schedule and the number of available subtasks. `list_tags` with `include_counts` shows the remaining and the available
+  tasks per tag as OmniFocus counts them (child tags included, one query each for all tags; the old count of open tasks stays
+  as the fallback for an OmniFocus without these numbers)
+  `get_project` shows the dates of the next occurrence of a project that repeats on a fixed schedule, the number of
+  available tasks at top level and whether the project is the default project for single actions; `edit_project` sets that
+  flag (`default_single_action_list`, the flag leaves the project that had it and the answer names it)
 - **GTD queries**
   - `list_available_tasks`: next actions across all projects (open, not blocked, not deferred, active project,
     no action groups), grouped by project, optionally filtered by tag or folder

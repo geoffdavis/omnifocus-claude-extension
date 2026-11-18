@@ -460,13 +460,13 @@ const tools = [
     // Tag management tools
     {
         name: 'list_tags',
-        description: 'List all tags in OmniFocus as a hierarchy with ID, a note for hidden tags and tags that do not allow next actions, and the location of a tag (name, latitude, longitude, radius, trigger), optionally with per-tag task counts',
+        description: 'List all tags in OmniFocus as a hierarchy with ID, a note for hidden tags and tags that do not allow next actions, and the location of a tag (name, latitude, longitude, radius, trigger), optionally with per-tag task counts: the remaining and the available tasks as OmniFocus counts them, the tasks of child tags included',
         inputSchema: {
             type: 'object',
             properties: {
                 include_counts: {
                     type: 'boolean',
-                    description: 'Include the number of active tasks per tag (slower on large databases)',
+                    description: 'Include the number of remaining and available tasks per tag, the tasks of child tags included (slower on large databases)',
                     default: false
                 }
             }
@@ -616,7 +616,7 @@ const tools = [
     },
     {
         name: 'edit_project',
-        description: 'Edit an existing project: rename it, change its note, move it to another folder, set its status (active, on hold, completed, dropped) or its type (sequential, parallel, single action list), set its review interval and next review date, due, defer and planned date, flag it, let it complete with its last item, set its time zone setting (floating_time_zone), its tags (tags, primary_tag) or make it repeat (repeat, repeat_based_on, repeat_catch_up). Fails without changes if the project name is ambiguous.',
+        description: 'Edit an existing project: rename it, change its note, move it to another folder, set its status (active, on hold, completed, dropped) or its type (sequential, parallel, single action list), set its review interval and next review date, due, defer and planned date, flag it, let it complete with its last item, set its time zone setting (floating_time_zone), make it the default project for single actions (default_single_action_list), set its tags (tags, primary_tag) or make it repeat (repeat, repeat_based_on, repeat_catch_up). Fails without changes if the project name is ambiguous.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -626,12 +626,12 @@ const tools = [
                 },
                 property: {
                     type: 'string',
-                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item', 'floating_time_zone', 'tags', 'primary_tag', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'attach_file', 'link_file', 'remove_attachment'],
+                    enum: ['name', 'note', 'append_note', 'folder', 'status', 'type', 'review_interval', 'next_review_date', 'due_date', 'defer_date', 'planned_date', 'flagged', 'complete_with_last_item', 'floating_time_zone', 'default_single_action_list', 'tags', 'primary_tag', 'repeat', 'repeat_based_on', 'repeat_catch_up', 'attach_file', 'link_file', 'remove_attachment'],
                     description: 'Property to modify'
                 },
                 value: {
                     type: 'string',
-                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For floating_time_zone: "true" if the due and defer date keep their clock time in every time zone, "false" for a fixed time zone (only counts for a project with a due or defer date). For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For primary_tag: the first tag of the project (name, path or "id:<id>"; an existing tag moves to the front, a new tag is added in front, missing tags are created, the other tags stay), or "none" to remove the first tag. For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: "due", "defer" or "planned" (the project must have that date). For repeat_catch_up: "true" or "false" (fixed schedule only). For append_note: text that is added as a new line at the end of the note (note replaces the whole note). For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_project (1 is the first one).'
+                    description: 'New value. For name: the new project name. For folder: an existing folder by name or path "Folder > Subfolder", or "none" for top level. For status: "active", "on_hold", "completed" or "dropped". For type: "sequential", "parallel" or "single_action". For review_interval: for example "1 week", "2 weeks", "1 month" or "1 year" (OmniFocus has no "no review" setting; to keep a project out of the reviews, set next_review_date far ahead). For next_review_date: a date, or "none" to derive it again from the last review and the interval. For due_date, defer_date and planned_date: ISO date (e.g. 2026-12-31 or 2026-12-31T17:00), or "none" to clear it. For flagged and complete_with_last_item: "true" or "false". For floating_time_zone: "true" if the due and defer date keep their clock time in every time zone, "false" for a fixed time zone (only counts for a project with a due or defer date). For default_single_action_list: "true" makes the project the default project for single actions (OmniFocus has only one: the flag leaves the project that had it, and the project becomes a single action list), "false" clears the flag. For tags: comma-separated tags (name, path "Parent > Child" or "id:<id>"; missing tags are created) that replace all current tags, or "none" to remove all tags. For primary_tag: the first tag of the project (name, path or "id:<id>"; an existing tag moves to the front, a new tag is added in front, missing tags are created, the other tags stay), or "none" to remove the first tag. For repeat: a rule in words or an iCalendar rule. In words: "daily", "weekly", "monthly", "yearly", "3 days", "2 weeks", "every monday and thursday", "weekdays", "every 2 weeks on monday", "monthly on the 15th", "last day of the month", "first monday of the month", "last friday of the month"; or an iCalendar rule such as "FREQ=WEEKLY;BYDAY=MO,TH" (upper case). Add "fixed" at the end for a fixed schedule (the next occurrence follows the calendar) or "from completion" (the next occurrence follows the completion). Without it, a rule that only has an interval follows the completion, a rule with weekdays or days of the month follows the calendar. A yearly rule repeats on the date of the due date. The item needs a due, defer or planned date; a replaced rule keeps the date it is based on; "none" stops the repetition. For repeat_based_on: "due", "defer" or "planned" (the project must have that date). For repeat_catch_up: "true" or "false" (fixed schedule only). For append_note: text that is added as a new line at the end of the note (note replaces the whole note). For attach_file: the full path of a file on this Mac (or starting with ~), a copy of it is stored in the note and synchronized to all devices; the file goes to the end of the note, and the note keeps its text. For link_file: the same, but the note only links to the file, which has to stay where it is (it opens on this Mac only). For remove_attachment: the number of the attachment as shown by get_project (1 is the first one).'
                 }
             },
             required: ['project', 'property', 'value']
@@ -927,7 +927,7 @@ const tools = [
     },
     {
         name: 'get_task',
-        description: 'Show the details of one task: ID, state, project with folder path, tags, dates, estimate, repetition, subtask count, attachments and note',
+        description: 'Show the details of one task: ID, state, project with folder path, tags, dates (also the dates it gets from a containing task or project, and the dates of the next occurrence of a repeating task), estimate, repetition, subtask count with the number of available subtasks, attachments and note',
         inputSchema: {
             type: 'object',
             properties: {
@@ -942,7 +942,7 @@ const tools = [
 
     {
         name: 'get_project',
-        description: 'Show a project with its status, type, dates, repetition, review interval and counts, and all its tasks as an indented list with subtasks. Open tasks are listed with their state (available, blocked, deferred, action group), flag, due date, estimate, tags and ID, also blocked and deferred ones.',
+        description: 'Show a project with its status, type (and whether it is the default project for single actions), dates, repetition (with the next occurrence of a project that repeats on a fixed schedule), review interval and counts (also the available tasks at top level), and all its tasks as an indented list with subtasks. Open tasks are listed with their state (available, blocked, deferred, action group), flag, due date, estimate, tags and ID, also blocked and deferred ones.',
         inputSchema: {
             type: 'object',
             properties: {
