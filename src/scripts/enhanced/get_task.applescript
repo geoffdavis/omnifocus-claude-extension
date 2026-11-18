@@ -78,9 +78,23 @@ on run argv
             if effectively dropped of targetTask then set stateText to "dropped"
             if effectively completed of targetTask then set stateText to "completed"
             if flagged of targetTask then set stateText to stateText & ", flagged"
+            -- A task that starts in the future is "deferred" (same word as get_project); "blocked" is kept for
+            -- tasks that wait for an earlier task or for their subtasks
+            set isDeferred to false
             try
-                if stateText starts with "open" and blocked of targetTask then set stateText to stateText & ", blocked"
+                set stateDeferValue to effective defer date of targetTask
+                if stateDeferValue is missing value then set stateDeferValue to defer date of targetTask
+                if stateDeferValue is not missing value and stateDeferValue > (current date) then set isDeferred to true
             end try
+            if stateText starts with "open" then
+                if isDeferred then
+                    set stateText to stateText & ", deferred"
+                else
+                    try
+                        if blocked of targetTask then set stateText to stateText & ", blocked"
+                    end try
+                end if
+            end if
             set taskInfo to taskInfo & "State: " & stateText & return
             
             -- Location

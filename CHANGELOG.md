@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Dates and counts**: `get_task` shows the dates a task gets from a containing task or project (effective due, defer and
   planned date, only when they differ from its own), the dates of the next occurrence of a task that repeats on a fixed
-  schedule and the number of available subtasks. `list_tags` with `include_counts` shows the remaining and the available
-  tasks per tag as OmniFocus counts them (child tags included, one query each for all tags; the old count of open tasks stays
+  schedule and the number of available subtasks. The state of a task that starts in the future reads `deferred` (as in
+  `get_project`) instead of `blocked`; `blocked` stays for tasks that wait for an earlier task or for their subtasks.
+  `list_tags` with `include_counts` shows the remaining and the available tasks per tag as OmniFocus counts them (child tags included, one query each for all tags; the old count of open tasks stays
   as the fallback for an OmniFocus without these numbers)
   `get_project` shows the dates of the next occurrence of a project that repeats on a fixed schedule, the number of
   available tasks at top level and whether the project is the default project for single actions; `edit_project` sets that

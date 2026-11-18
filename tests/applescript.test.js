@@ -1444,6 +1444,17 @@ describe('AppleScript Integration', () => {
             expect(task).toContain('"Subtasks: " & subtaskCount');
         });
 
+        test('get_task names a task with a future start "deferred" and keeps "blocked" for the others', () => {
+            const task = read('get_task.applescript');
+            // same word as get_project, taken from the effective defer date (own or inherited)
+            expect(task).toContain('set stateDeferValue to effective defer date of targetTask');
+            expect(task).toContain('stateDeferValue > (current date)');
+            expect(task).toContain('set stateText to stateText & ", deferred"');
+            // "blocked" only when the task is not deferred
+            expect(task.indexOf('", deferred"')).toBeLessThan(task.indexOf('", blocked"'));
+            expect(task).toContain('if blocked of targetTask then set stateText to stateText & ", blocked"');
+        });
+
         test('get_task treats the root task of a project as no task', () => {
             const task = read('get_task.applescript');
             // the project IDs come from one query for all projects and are compared with case
