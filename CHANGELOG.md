@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_project` shows the dates of the next occurrence of a project that repeats on a fixed schedule, the number of
   available tasks at top level and whether the project is the default project for single actions; `edit_project` sets that
   flag (`default_single_action_list`, the flag leaves the project that had it and the answer names it)
+- **View options**: `set_view` sets the grouping, sorting and filters of the list of the front OmniFocus window (`grouping`,
+  `sorting`, `task_filter`, `duration_filter`, `flagged_filter`) and the smart group of the sidebar of the Projects
+  perspective (`smart_group`), with the identifiers that OmniFocus offers for the current view; the perspective is switched
+  first, a value that the view does not offer is answered with the list of those it offers, and the result is checked.
+  `get_selection` shows the current values in a line `List view:`
 - **Styled notes**: `format_note` sets or removes bold, italic and underline in the note of a task, project or folder, for
   the whole note, one paragraph or the places where a text occurs (`text`, `occurrence`, `paragraph`, `bold`, `italic`,
   `underline`; only the styles that are named change, the text stays). The position of the text is compared with the

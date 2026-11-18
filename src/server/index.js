@@ -826,7 +826,7 @@ const tools = [
     },
     {
         name: 'get_selection',
-        description: 'Show what the front OmniFocus window shows: the perspective, the search term, the focus and the selected items (tasks, projects, folders or tags, each with its ID, so that get_task, get_project, edit_task and the other tools can take it with "id:<id>"). Use it when the user says "this task", "the selected project" or "what I am looking at". Nothing is changed.',
+        description: 'Show what the front OmniFocus window shows: the perspective, the search term, the focus, the grouping, sorting and filters of the list (as the identifiers that set_view takes) and the selected items (tasks, projects, folders or tags, each with its ID, so that get_task, get_project, edit_task and the other tools can take it with "id:<id>"). Use it when the user says "this task", "the selected project" or "what I am looking at". Nothing is changed.',
         inputSchema: {
             type: 'object',
             properties: {}
@@ -834,7 +834,7 @@ const tools = [
     },
     {
         name: 'set_view',
-        description: 'Change what the front OmniFocus window shows: switch the perspective, search for text, or focus on a project or folder. Only the view changes, no task, project or folder is touched. At least one of perspective, search and focus is required. Use get_selection to see the current view and list_perspectives for the available perspectives.',
+        description: 'Change what the front OmniFocus window shows: switch the perspective, group, sort or filter the list, choose a smart group of the sidebar, search for text, or focus on a project or folder. Only the view changes, no task, project or folder is touched. At least one option is required. The perspective is switched first, so grouping, sorting and filters apply to it; an identifier that the view does not offer is answered with the list of those it offers. Use get_selection to see the current view and list_perspectives for the available perspectives.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -849,6 +849,30 @@ const tools = [
                 focus: {
                     type: 'string',
                     description: 'Project (name, path "Folder > Subfolder > Project" or "id:<id>") or folder (name, path or "id:<id>") to focus the window on, or "none" to remove the focus'
+                },
+                grouping: {
+                    type: 'string',
+                    description: 'How the list is grouped, for example "none", "folder", "due", "planned", "start", "completed", "dropped", "next-review", "added" or "modified" (the identifiers that get_selection shows; the view offers some of them)'
+                },
+                sorting: {
+                    type: 'string',
+                    description: 'How the list is sorted, for example "none", "name", "flagged", "due", "planned", "start", "complete", "dropped", "next-review", "add", "modified" or "time"'
+                },
+                task_filter: {
+                    type: 'string',
+                    description: 'Which tasks the list shows: "next", "available", "incomplete", "all", "complete" or "dropped"'
+                },
+                duration_filter: {
+                    type: 'string',
+                    description: 'Filter by estimated duration: "any", "5m", "15m", "30m", "60m", "long" or "unestimated"'
+                },
+                flagged_filter: {
+                    type: 'string',
+                    description: 'Filter by flag: "all", "flagged" or "unflagged"'
+                },
+                smart_group: {
+                    type: 'string',
+                    description: 'Smart group of the sidebar of the Projects perspective: "all-projects", "remaining-projects", "active-projects", "stalled-projects", "pending-projects", "on-hold-projects", "dropped-projects" or "completed-projects"'
                 }
             }
         }
@@ -1752,7 +1776,13 @@ async function executeTool(name, args) {
                     args.perspective || '',
                     args.search === undefined || args.search === null ? '' : String(args.search),
                     args.search === undefined || args.search === null ? 'no' : 'yes',
-                    args.focus || ''
+                    args.focus || '',
+                    args.grouping || '',
+                    args.sorting || '',
+                    args.task_filter || '',
+                    args.duration_filter || '',
+                    args.flagged_filter || '',
+                    args.smart_group || ''
                 ]);
                 break;
 

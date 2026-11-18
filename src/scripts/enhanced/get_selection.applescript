@@ -69,6 +69,8 @@ on run argv
         set reportText to reportText & return & "Search: \"" & searchText & "\""
     end if
     set reportText to reportText & return & "Focus: " & focusText
+    set viewText to my viewOptionsText(theWindow)
+    if viewText is not "" then set reportText to reportText & return & "List view: " & viewText
 
     if contentTotal = 0 and sidebarTotal = 0 then
         return reportText & return & "Selected: nothing"
@@ -94,6 +96,37 @@ on run argv
     set reportText to reportText & return & return & "Use id:<id> to give one of these items to get_task, get_project, edit_task and the other tools."
     return reportText
 end run
+
+on viewOptionsText(theWindow)
+    -- Grouping, sorting and filters of the list and the smart group of the sidebar, as OmniFocus names them ("" if it gives none)
+    set partList to {}
+    tell application "OmniFocus"
+        try
+            set end of partList to "grouping " & ((selected grouping identifier of (content of theWindow)) as text)
+        end try
+        try
+            set end of partList to "sorting " & ((selected sorting identifier of (content of theWindow)) as text)
+        end try
+        try
+            set end of partList to "tasks " & ((selected task state filter identifier of (content of theWindow)) as text)
+        end try
+        try
+            set end of partList to "duration " & ((selected task duration filter identifier of (content of theWindow)) as text)
+        end try
+        try
+            set end of partList to "flagged " & ((selected task flagged filter identifier of (content of theWindow)) as text)
+        end try
+        try
+            set smartGroupID to (selected smart group identifier of (sidebar of theWindow)) as text
+            if smartGroupID is not "missing value" and smartGroupID is not "" then set end of partList to "smart group " & smartGroupID
+        end try
+    end tell
+    set oldDelims to AppleScript's text item delimiters
+    set AppleScript's text item delimiters to ", "
+    set joined to partList as text
+    set AppleScript's text item delimiters to oldDelims
+    return joined
+end viewOptionsText
 
 on describeTree(aTree)
     -- "task: Name [id:…]" for one selected row of the content area or the sidebar

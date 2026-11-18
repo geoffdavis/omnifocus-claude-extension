@@ -1127,6 +1127,53 @@ describe('AppleScript Integration', () => {
             expect(serverContent).toContain("executeAppleScriptFile('set_view', [");
             expect(serverContent).toContain("args.search === undefined || args.search === null ? 'no' : 'yes'");
         });
+
+        test('set_view sets grouping, sorting, filters and the smart group only to identifiers that OmniFocus offers, and checks them', () => {
+            const content = read('set_view.applescript');
+            ['viewOptionList', 'viewOptionValue', 'setViewOption'].forEach(handler => {
+                expect(content).toContain(`on ${handler}(`);
+            });
+            [
+                ['available grouping identifiers of (content of theWindow)', 'set selected grouping identifier of (content of theWindow) to newValue', 'selected grouping identifier of (content of theWindow)'],
+                ['available sorting identifiers of (content of theWindow)', 'set selected sorting identifier of (content of theWindow) to newValue', 'selected sorting identifier of (content of theWindow)'],
+                ['available task state filter identifiers of (content of theWindow)', 'set selected task state filter identifier of (content of theWindow) to newValue', 'selected task state filter identifier of (content of theWindow)'],
+                ['available task duration filter identifiers of (content of theWindow)', 'set selected task duration filter identifier of (content of theWindow) to newValue', 'selected task duration filter identifier of (content of theWindow)'],
+                ['available task flagged filter identifiers of (content of theWindow)', 'set selected task flagged filter identifier of (content of theWindow) to newValue', 'selected task flagged filter identifier of (content of theWindow)'],
+                ['available smart group identifiers of (sidebar of theWindow)', 'set selected smart group identifier of (sidebar of theWindow) to newValue', 'selected smart group identifier of (sidebar of theWindow)']
+            ].forEach(([available, setter, current]) => {
+                expect(content).toContain(available);
+                expect(content).toContain(setter);
+                expect(content).toContain(current);
+            });
+            expect(content).toContain('is not available in this view. Available: ');
+            expect(content).toContain('The current view has no ');
+            expect(content).toContain('but OmniFocus shows ');
+            // optional arguments 5 to 10, the perspective is switched first, then the options, then search and focus
+            expect(content).toContain('if (count of argv) ≥ 4 + k then');
+            expect(content.indexOf('set perspective name of theWindow to wantedName')).toBeLessThan(content.indexOf('my setViewOption(theWindow, optionKind, canonicalValue)'));
+            expect(content.indexOf('my setViewOption(theWindow, optionKind, canonicalValue)')).toBeLessThan(content.indexOf('set search term of theWindow to searchText'));
+        });
+
+        test('get_selection shows the grouping, sorting and filters of the list', () => {
+            const content = read('get_selection.applescript');
+            expect(content).toContain('on viewOptionsText(');
+            expect(content).toContain('"List view: "');
+            ['grouping', 'sorting', 'tasks', 'duration', 'flagged', 'smart group'].forEach(label => {
+                expect(content).toContain(`"${label} " & `);
+            });
+            expect(content).not.toMatch(/set selected [a-z ]+ identifier/);
+        });
+
+        test('set_view passes the view options to the script in the order of its arguments', () => {
+            const serverContent = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            const order = ['args.focus || \'\',', 'args.grouping || \'\',', 'args.sorting || \'\',', 'args.task_filter || \'\',', 'args.duration_filter || \'\',', 'args.flagged_filter || \'\',', 'args.smart_group || \'\''];
+            let position = serverContent.indexOf("executeAppleScriptFile('set_view', [");
+            order.forEach(part => {
+                const next = serverContent.indexOf(part, position);
+                expect(next).toBeGreaterThan(position);
+                position = next;
+            });
+        });
     });
 
     describe('Synchronize and clean up', () => {

@@ -1,10 +1,12 @@
 on run argv
-    -- Change what the front OmniFocus window shows: perspective, search term and focus.
-    -- Usage: set_view.applescript "perspective" "search term" "change search" "focus"
+    -- Change what the front OmniFocus window shows: perspective, grouping, sorting, filters, search term and focus.
+    -- Usage: set_view.applescript "perspective" "search term" "change search" "focus" ["grouping" "sorting" "task filter" "duration filter" "flag filter" "smart group"]
     --   perspective:   name of a built-in or custom perspective (empty = keep the current one)
     --   search term:   text for the search field
     --   change search: "yes" sets the search term (an empty term clears the search), anything else keeps it
     --   focus:         project or folder to focus on, or "none" to remove the focus (empty = keep it)
+    --   grouping, sorting, task filter, duration filter, flag filter: the identifiers that OmniFocus offers for the list of the
+    --                  window (empty = keep it), smart group: the identifier of a smart group of the sidebar (Projects)
     -- Only the view of the window changes, no task, project or folder is touched.
 
     if (count of argv) < 4 then
@@ -14,9 +16,19 @@ on run argv
     set searchText to item 2 of argv
     set changeSearch to ((item 3 of argv) is "yes")
     set focusText to my trimText(item 4 of argv)
+    set optionWanted to {"", "", "", "", "", ""}
+    repeat with k from 1 to 6
+        if (count of argv) ≥ 4 + k then set item k of optionWanted to my trimText(item (4 + k) of argv)
+    end repeat
+    set optionKinds to {"grouping", "sorting", "status", "duration", "flagged", "smart group"}
+    set optionLabels to {"Grouping", "Sorting", "Task filter", "Duration filter", "Flag filter", "Smart group"}
+    set anyOption to false
+    repeat with wantedText in optionWanted
+        if (contents of wantedText) is not "" then set anyOption to true
+    end repeat
 
-    if perspectiveText is "" and not changeSearch and focusText is "" then
-        return "❌ Give a perspective, a search term or a focus."
+    if perspectiveText is "" and not changeSearch and focusText is "" and not anyOption then
+        return "❌ Give a perspective, a view option (grouping, sorting, filters, smart group), a search term or a focus."
     end if
 
     -- The front window of the default document
@@ -72,6 +84,38 @@ on run argv
         end if
         set end of resultLines to "🧭 Perspective: " & wantedName
     end if
+
+    -- Grouping, sorting, filters and smart group: only the identifiers that OmniFocus offers for the current view
+    repeat with k from 1 to 6
+        set wantedText to item k of optionWanted
+        if wantedText is not "" then
+            set optionKind to item k of optionKinds
+            set kindLabel to item k of optionLabels
+            set availableList to my viewOptionList(theWindow, optionKind)
+            if (count of availableList) = 0 then
+                return my withEarlier(resultLines, "❌ The current view has no " & kindLabel & " to set. Switch to a perspective that has one first (perspective).")
+            end if
+            set canonicalValue to ""
+            repeat with anIdentifier in availableList
+                if (contents of anIdentifier) is wantedText then set canonicalValue to contents of anIdentifier
+            end repeat
+            if canonicalValue is "" then
+                return my withEarlier(resultLines, "❌ " & kindLabel & " \"" & wantedText & "\" is not available in this view. Available: " & my joinText(availableList, ", "))
+            end if
+            try
+                my setViewOption(theWindow, optionKind, canonicalValue)
+            on error errMsg
+                return my withEarlier(resultLines, "❌ Could not set the " & kindLabel & ": " & errMsg)
+            end try
+            delay 0.3
+            set currentValue to my viewOptionValue(theWindow, optionKind)
+            if currentValue is canonicalValue then
+                set end of resultLines to "🗂 " & kindLabel & ": " & canonicalValue
+            else
+                set end of resultLines to "⚠️ " & kindLabel & " was set to " & canonicalValue & ", but OmniFocus shows " & currentValue & "."
+            end if
+        end if
+    end repeat
 
     -- Search term
     if changeSearch then
@@ -149,6 +193,72 @@ on run argv
 
     return my joinText(resultLines, return)
 end run
+
+on viewOptionList(theWindow, optionKind)
+    -- The identifiers that OmniFocus offers for one view option of the window (an empty list if there are none)
+    set optionList to {}
+    tell application "OmniFocus"
+        try
+            if optionKind is "grouping" then
+                set optionList to available grouping identifiers of (content of theWindow)
+            else if optionKind is "sorting" then
+                set optionList to available sorting identifiers of (content of theWindow)
+            else if optionKind is "status" then
+                set optionList to available task state filter identifiers of (content of theWindow)
+            else if optionKind is "duration" then
+                set optionList to available task duration filter identifiers of (content of theWindow)
+            else if optionKind is "flagged" then
+                set optionList to available task flagged filter identifiers of (content of theWindow)
+            else if optionKind is "smart group" then
+                set optionList to available smart group identifiers of (sidebar of theWindow)
+            end if
+        end try
+    end tell
+    if class of optionList is not list then return {}
+    return optionList
+end viewOptionList
+
+on viewOptionValue(theWindow, optionKind)
+    -- The identifier that the window uses for one view option now ("" if OmniFocus gives none)
+    set currentValue to ""
+    tell application "OmniFocus"
+        try
+            if optionKind is "grouping" then
+                set currentValue to (selected grouping identifier of (content of theWindow)) as text
+            else if optionKind is "sorting" then
+                set currentValue to (selected sorting identifier of (content of theWindow)) as text
+            else if optionKind is "status" then
+                set currentValue to (selected task state filter identifier of (content of theWindow)) as text
+            else if optionKind is "duration" then
+                set currentValue to (selected task duration filter identifier of (content of theWindow)) as text
+            else if optionKind is "flagged" then
+                set currentValue to (selected task flagged filter identifier of (content of theWindow)) as text
+            else if optionKind is "smart group" then
+                set currentValue to (selected smart group identifier of (sidebar of theWindow)) as text
+            end if
+        end try
+    end tell
+    return currentValue
+end viewOptionValue
+
+on setViewOption(theWindow, optionKind, newValue)
+    -- Sets one view option of the window to an identifier that OmniFocus offers
+    tell application "OmniFocus"
+        if optionKind is "grouping" then
+            set selected grouping identifier of (content of theWindow) to newValue
+        else if optionKind is "sorting" then
+            set selected sorting identifier of (content of theWindow) to newValue
+        else if optionKind is "status" then
+            set selected task state filter identifier of (content of theWindow) to newValue
+        else if optionKind is "duration" then
+            set selected task duration filter identifier of (content of theWindow) to newValue
+        else if optionKind is "flagged" then
+            set selected task flagged filter identifier of (content of theWindow) to newValue
+        else if optionKind is "smart group" then
+            set selected smart group identifier of (sidebar of theWindow) to newValue
+        end if
+    end tell
+end setViewOption
 
 on focusItemCount(theWindow)
     -- Number of items of the focus. OmniFocus can report an old focus to the script that just changed it,

@@ -198,7 +198,10 @@ does not give scripts the name of an embedded file. `save_attachment` writes an 
 items (tasks, projects, folders or tags) with their IDs, so that you can say "this task" or "the selected project" and
 the other tools take the item with `id:<id>`. `set_view` switches the perspective (a part of a name works if only one
 perspective fits), sets or clears the search term and focuses the window on a project or folder (`none` removes the
-focus); it checks the result and says so if OmniFocus did not accept a value. OmniFocus reports a removed focus to the
+focus). It also sets the grouping, sorting and filters of the list (`grouping`, `sorting`, `task_filter`,
+`duration_filter`, `flagged_filter`) and the smart group of the sidebar of the Projects perspective (`smart_group`) with
+the identifiers of OmniFocus (`get_selection` shows the current ones in the line `List view:`); a value that the
+view does not offer is answered with the list of those it offers. `set_view` checks the result and says so if OmniFocus did not accept a value. OmniFocus reports a removed focus to the
 script late, so `set_view` may only say that the removal was sent: check it with `get_selection`. For a project that is
 completed or dropped, or below a hidden folder, `set_view` and `show_item` add a note, because OmniFocus may not show it. `show_item` opens a task, project, folder or
 tag in the window and selects it, through the `omnifocus:///` links of OmniFocus. These tools only change what the window
@@ -403,7 +406,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `synchronize` | Synchronize OmniFocus with its sync database and wait until it is finished; shows when the last synchronization finished and its error, `status_only` only reports that | "Sync OmniFocus now", "When did OmniFocus last sync?" |
 | `clean_up` | Clean Up: move inbox items that have a project into their projects, hide completed tasks | "Clean up OmniFocus" |
 | `get_selection` | Perspective, search term, focus and selected items (with IDs) of the front OmniFocus window | "What is selected in OmniFocus?" |
-| `set_view` | Switch the perspective, search, or focus on a project or folder in the front OmniFocus window | "Show the Forecast perspective" |
+| `set_view` | Switch the perspective, group, sort or filter the list, choose a smart group, search, or focus on a project or folder in the front OmniFocus window | "Show the Forecast perspective", "Group the list by due date" |
 | `show_item` | Open a task, project, folder or tag in OmniFocus and select it | "Show the project 'Rental' in OmniFocus" |
 | `duplicate_item` | Duplicate a task with its subtasks or a project with all its tasks, optionally into another project, folder or the inbox, under a new name, with completed tasks reopened | "Duplicate the project 'Onboarding' into the folder 'Clients'" |
 | `list_perspectives` | Built-in and custom perspectives with their IDs (the rules of a perspective are not available to scripts) | "Which perspectives do I have?" |
