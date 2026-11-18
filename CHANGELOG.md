@@ -166,6 +166,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   messages after a change keep the long date
 
 ### Fixed
+- `get_task` did not find a completed task by its name: the name search looked only at tasks that were not completed, so it
+  answered "No matching tasks found" or found an older dropped task with a similar name instead. The name is now searched
+  among open, completed and dropped tasks (one query each for the names, IDs and states of all tasks; the comparison is done
+  in the script, so case does not matter and special characters or emoji of the name reach no query). Spaces around the name
+  and the `📝` in front of it (the first line of the answer shows the name with it) are ignored. A task with exactly this name
+  wins over tasks that only contain the text. When several tasks remain, all of them are listed with ID, state and project
+  (open first, then completed, then dropped; at most 20); when only one of several tasks with the same name is open (the
+  history of a repeating task), that one is shown and the others are named below it
 - `create_backup` blocked the call until OmniFocus had written the archive, so a large database ran into the time limit of
   the app (about 80 seconds) and left it open whether the archive was written. The archive command now runs in a process of
   its own, the call returns after `wait_seconds`, and `status_only` shows the result. The call also no longer waits in

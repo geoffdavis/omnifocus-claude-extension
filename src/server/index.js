@@ -1016,7 +1016,7 @@ const tools = [
     },
     {
         name: 'get_task',
-        description: 'Show the details of one task: ID, state, project with folder path, tags, dates (also the dates it gets from a containing task or project, and the dates of the next occurrence of a repeating task), estimate, repetition, subtask count with the number of available subtasks, attachments and note. A project is no task: the ID of a project (or a name that only a project has) is answered with a pointer to get_project',
+        description: 'Show the details of one task: ID, state, project with folder path, tags, dates (also the dates it gets from a containing task or project, and the dates of the next occurrence of a repeating task), estimate, repetition, subtask count with the number of available subtasks, attachments and note. A project is no task: the ID of a project (or a name that only a project has) is answered with a pointer to get_project. A name is searched among open, completed and dropped tasks, ignoring case; a task with exactly this name wins over tasks that only contain the text, and several hits are listed with ID, state and project',
         inputSchema: {
             type: 'object',
             properties: {

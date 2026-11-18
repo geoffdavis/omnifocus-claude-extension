@@ -296,6 +296,10 @@ inbox, `list_inbox` shows the project after an arrow, and `clean_up` moves it th
 `get_task` also shows the dates a task gets from a containing task or project (`Effective due:`, `Effective deferred until:`,
 `Effective planned:`, only when they differ from its own dates), the dates of the next occurrence of a task that repeats on a
 fixed schedule (`Next occurrence:`) and the number of subtasks that can be worked on now (`Available subtasks:`).
+`get_task` searches a name among open, completed and dropped tasks, ignoring case, spaces around the name and the `📝` in front of
+it (the first line of the answer shows the name with it). A task with exactly this name wins over tasks that only contain the
+text. When several tasks remain, the answer lists all of them with ID, state and project (open first, at most 20); of several
+tasks with the same name, the one that is open is shown and the others are named below it.
 A project is no task: OmniFocus gives every project a hidden root task with the ID of the project. `get_task`, `complete_task`,
 `drop_task`, `reopen_task`, `edit_task`, `add_tag_to_task`, `remove_tag_from_task` (and the tools that take a task by name or ID, such as
 `add_task` with `parent_task`, `parse_tasks`, `show_item`, `save_attachment` and `duplicate_item`) refuse the ID of a project

@@ -1653,9 +1653,50 @@ describe('AppleScript Integration', () => {
             // the name search leaves the root tasks out and says so when only projects match
             expect(task).toContain('set skippedProjects to skippedProjects + 1');
             expect(task).toContain('project(s) match this name. Use get_project to see a project.');
-            // the hit list and the IDs come from the same condition
-            const condition = 'every flattened task whose name contains searchTerm and completed is false';
-            expect(task.split(condition).length - 1).toBe(2);
+            // the hit list and the IDs come from the same bulk queries
+            expect(task).toContain('set allNames to name of every flattened task');
+            expect(task).toContain('set allIDs to id of every flattened task');
+        });
+
+        test('get_task finds a task by name among open, completed and dropped tasks', () => {
+            const task = read('get_task.applescript');
+            // no condition on the state in a query: the comparison is done in the script, so case does not matter
+            // and no special character or emoji of the name reaches a query
+            expect(task).not.toContain('whose name contains');
+            expect(task).not.toContain('completed is false');
+            expect(task).toContain('set allCompleted to effectively completed of every flattened task');
+            expect(task).toContain('set allDropped to effectively dropped of every flattened task');
+            expect(task).toContain('if nameText contains searchTerm then');
+            expect(task).toContain('if nameText is searchTerm then set end of exactIdx to i');
+            // the name is searched without the spaces around it and without the 📝 that the first line of the answer shows
+            expect(task).toContain('set searchTerm to my cleanTerm(item 1 of argv)');
+            expect(task).toContain('if cleaned starts with "📝" then');
+            expect(task).toContain('set whiteChars to {" ", tab, return, linefeed}');
+        });
+
+        test('get_task lists all hits with ID, state and project, and lets an exact name win', () => {
+            const task = read('get_task.applescript');
+            // open tasks come first, then completed ones (also a dropped one inside a completed one), then dropped ones
+            expect(task).toContain('repeat with wantedRank from 1 to 3');
+            expect(task).toContain('if completedValue then return 2');
+            expect(task).toContain('if droppedValue then return 3');
+            expect(task).toContain('"🔍 Multiple tasks found ("');
+            expect(task).toContain('" open, " & (item 2 of stateCounts) & " completed, " & (item 3 of stateCounts) & " dropped):"');
+            expect(task).toContain('"• " & (item i of allNames) & " [id:" & (item i of allIDs) & "] (" & my stateWord(rankValue) & ", " & my locationOfTask(item i of allIDs) & ")"');
+            expect(task).toContain('"project " & my projectLabel(hitProject)');
+            expect(task).toContain('set locationText to "Inbox"');
+            // a task with exactly this name wins over tasks that only contain the text; the others are named
+            expect(task).toContain('if (count of exactIdx) > 0 then');
+            expect(task).toContain('more task(s) contain this text. search_tasks lists them.');
+            // several tasks with the same name and one open one (history of a repeating task): the open one is shown, the others named
+            expect(task).toContain('if isExact and (item 1 of stateCounts) = 1 then');
+            expect(task).toContain('other task(s) have the same name:');
+            expect(task).toContain('if pickNote is not "" then set taskInfo to taskInfo & return & pickNote');
+            // the list is limited and says how many hits it leaves out
+            expect(task).toContain('my hitLines(orderedIdx, 1, 20, allNames, allIDs, allCompleted, allDropped)');
+            expect(task).toContain('"… and " & hiddenCount & " more"');
+            // the ID lookup is not changed
+            expect(task).toContain('set foundTasks to every flattened task whose id is wantedID');
         });
 
         test('the tools that change a task refuse the ID of a project and leave project root tasks out of the name search', () => {

@@ -5,7 +5,7 @@ on run argv
     if (count of argv) = 0 then
         return "❌ Task name is required."
     end if
-    set searchTerm to item 1 of argv
+    set searchTerm to my cleanTerm(item 1 of argv)
     if searchTerm is "" then
         return "❌ Task name cannot be empty."
     end if
@@ -19,8 +19,10 @@ on run argv
                 set projectIDs to id of every flattened project
             end try
 
-            -- "id:<id>" addresses exactly one task; otherwise search open tasks by name
+            -- "id:<id>" addresses exactly one task; otherwise the name is searched among all tasks (open, completed and dropped)
             set skippedProjects to 0
+            set foundTasks to {}
+            set pickNote to ""
             if searchTerm starts with "id:" and (length of searchTerm) > 3 then
                 set wantedID to text 4 thru -1 of searchTerm
                 set isProjectID to false
@@ -35,39 +37,74 @@ on run argv
                 end if
                 set foundTasks to every flattened task whose id is wantedID
             else
-                set foundTasks to every flattened task whose name contains searchTerm and completed is false
-                if (count of foundTasks) > 0 and (count of projectIDs) > 0 then
-                    -- Same condition, same order: the IDs tell which hits are root tasks of projects
-                    set foundIDs to id of every flattened task whose name contains searchTerm and completed is false
-                    set keptTasks to {}
-                    repeat with i from 1 to count of foundTasks
+                -- One query per property for all tasks; the comparison is done here, so that case does not matter and
+                -- special characters and emoji reach no query. The root tasks of projects are no tasks
+                set allNames to name of every flattened task
+                set allIDs to id of every flattened task
+                set allCompleted to effectively completed of every flattened task
+                set allDropped to effectively dropped of every flattened task
+                set exactIdx to {}
+                set partIdx to {}
+                repeat with i from 1 to count of allNames
+                    set nameText to item i of allNames
+                    if nameText contains searchTerm then
                         set isProjectID to false
                         considering case
-                            if projectIDs contains (item i of foundIDs) then set isProjectID to true
+                            if projectIDs contains (item i of allIDs) then set isProjectID to true
                         end considering
                         if isProjectID then
                             set skippedProjects to skippedProjects + 1
                         else
-                            set end of keptTasks to item i of foundTasks
+                            set end of partIdx to i
+                            if nameText is searchTerm then set end of exactIdx to i
                         end if
-                    end repeat
-                    set foundTasks to keptTasks
+                    end if
+                end repeat
+
+                -- A task with exactly this name wins over tasks that only contain the text
+                set candidateIdx to partIdx
+                set isExact to false
+                if (count of exactIdx) > 0 then
+                    set candidateIdx to exactIdx
+                    set isExact to true
                 end if
+                set chosenID to ""
+                if (count of candidateIdx) = 1 then
+                    set chosenID to item (item 1 of candidateIdx) of allIDs
+                    if isExact and (count of partIdx) > 1 then set pickNote to "ℹ️ " & ((count of partIdx) - 1) & " more task(s) contain this text. search_tasks lists them."
+                else if (count of candidateIdx) > 1 then
+                    -- Open tasks first, then completed, then dropped
+                    set orderedIdx to {}
+                    set stateCounts to {0, 0, 0}
+                    repeat with wantedRank from 1 to 3
+                        repeat with k from 1 to count of candidateIdx
+                            set i to item k of candidateIdx
+                            if my stateRank(item i of allCompleted, item i of allDropped) is wantedRank then
+                                set end of orderedIdx to i
+                                set item wantedRank of stateCounts to (item wantedRank of stateCounts) + 1
+                            end if
+                        end repeat
+                    end repeat
+                    if isExact and (item 1 of stateCounts) = 1 then
+                        -- Several tasks with this name, one of them open (for example the history of a repeating task): the open one is shown
+                        set chosenID to item (item 1 of orderedIdx) of allIDs
+                        set pickNote to "ℹ️ " & ((count of orderedIdx) - 1) & " other task(s) have the same name:" & return & my hitLines(orderedIdx, 2, 6, allNames, allIDs, allCompleted, allDropped)
+                    else
+                        set listText to "🔍 Multiple tasks found (" & (count of orderedIdx) & ": " & (item 1 of stateCounts) & " open, " & (item 2 of stateCounts) & " completed, " & (item 3 of stateCounts) & " dropped):" & return
+                        set listText to listText & my hitLines(orderedIdx, 1, 20, allNames, allIDs, allCompleted, allDropped)
+                        set listText to listText & return & "Please be more specific or use id:<id>."
+                        return listText
+                    end if
+                end if
+                if chosenID is not "" then set foundTasks to every flattened task whose id is chosenID
             end if
 
             if (count of foundTasks) = 0 then
                 set notFoundText to "❌ No matching tasks found for: " & searchTerm
                 if skippedProjects > 0 then set notFoundText to notFoundText & return & "ℹ️ " & skippedProjects & " project(s) match this name. Use get_project to see a project."
                 return notFoundText
-            else if (count of foundTasks) > 1 then
-                set taskList to "🔍 Multiple tasks found (" & (count of foundTasks) & "):" & return
-                repeat with aTask in foundTasks
-                    set taskList to taskList & "• " & name of aTask & " [id:" & (id of aTask) & "]" & return
-                end repeat
-                set taskList to taskList & return & "Please be more specific or use id:<id>."
-                return taskList
             end if
-            
+
             set targetTask to item 1 of foundTasks
             set taskInfo to "📝 " & (name of targetTask) & return
             set taskInfo to taskInfo & "ID: " & (id of targetTask) & return
@@ -239,10 +276,90 @@ on run argv
                 if styled of noteInfo then set taskInfo to taskInfo & "Note styles: **bold**, *italic*, __underlined__" & return
                 set taskInfo to taskInfo & "Note: " & taskNote & return
             end if
+            if pickNote is not "" then set taskInfo to taskInfo & return & pickNote
             return taskInfo
         end tell
     end tell
 end run
+
+on cleanTerm(termText)
+    -- Spaces around the name do not belong to it, and neither does the 📝 in front of it: get_task shows the name with it
+    set cleaned to termText
+    if cleaned starts with "📝" then
+        if (length of cleaned) <= (length of "📝") then
+            set cleaned to ""
+        else
+            set cleaned to text ((length of "📝") + 1) thru -1 of cleaned
+        end if
+    end if
+    set whiteChars to {" ", tab, return, linefeed}
+    repeat while cleaned is not "" and whiteChars contains (character 1 of cleaned)
+        if (length of cleaned) = 1 then
+            set cleaned to ""
+        else
+            set cleaned to text 2 thru -1 of cleaned
+        end if
+    end repeat
+    repeat while cleaned is not "" and whiteChars contains (character -1 of cleaned)
+        if (length of cleaned) = 1 then
+            set cleaned to ""
+        else
+            set cleaned to text 1 thru -2 of cleaned
+        end if
+    end repeat
+    return cleaned
+end cleanTerm
+
+on stateRank(completedValue, droppedValue)
+    -- 1 open, 2 completed (also when it is dropped), 3 dropped: the same order as the State line
+    if completedValue then return 2
+    if droppedValue then return 3
+    return 1
+end stateRank
+
+on stateWord(rankValue)
+    if rankValue is 2 then return "completed"
+    if rankValue is 3 then return "dropped"
+    return "open"
+end stateWord
+
+on hitLines(orderedIdx, fromRank, maxLines, allNames, allIDs, allCompleted, allDropped)
+    -- One line per hit with ID, state and project (at most maxLines; only the hits from fromRank on, in the order given)
+    set linesText to ""
+    set shown to 0
+    set hiddenCount to 0
+    repeat with k from 1 to count of orderedIdx
+        set i to item k of orderedIdx
+        set rankValue to my stateRank(item i of allCompleted, item i of allDropped)
+        if rankValue >= fromRank then
+            if shown < maxLines then
+                set linesText to linesText & "• " & (item i of allNames) & " [id:" & (item i of allIDs) & "] (" & my stateWord(rankValue) & ", " & my locationOfTask(item i of allIDs) & ")" & return
+                set shown to shown + 1
+            else
+                set hiddenCount to hiddenCount + 1
+            end if
+        end if
+    end repeat
+    if hiddenCount > 0 then set linesText to linesText & "… and " & hiddenCount & " more" & return
+    return linesText
+end hitLines
+
+on locationOfTask(hitID)
+    -- "Inbox" or "project Folder > Project" of the task with this ID
+    set locationText to "Inbox"
+    tell application "OmniFocus"
+        tell default document
+            try
+                set hitTasks to every flattened task whose id is hitID
+                if (count of hitTasks) > 0 then
+                    set hitProject to containing project of item 1 of hitTasks
+                    if hitProject is not missing value then set locationText to "project " & my projectLabel(hitProject)
+                end if
+            end try
+        end tell
+    end tell
+    return locationText
+end locationOfTask
 
 on projectFolderNames(aProject)
     -- Folder names from the outermost folder down to the one holding the project; {} at top level
