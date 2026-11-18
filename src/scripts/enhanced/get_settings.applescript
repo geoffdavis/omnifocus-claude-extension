@@ -31,8 +31,33 @@ on run argv
         if reportText is not "" then set reportText to reportText & return & return
         set reportText to reportText & my settingsReport("application", filterText, maxResults)
     end if
+    -- The version of OmniFocus first: the available settings and their values depend on it
+    set versionLine to my appVersionLine()
+    if versionLine is not "" then set reportText to versionLine & return & return & reportText
     return reportText
 end run
+
+on appVersionLine()
+    -- "🖥 OmniFocus 4.10.1 (build 192.18.1)", or "" if OmniFocus gives neither
+    set versionText to ""
+    set buildText to ""
+    -- Inside the tell block, so that "build number" (a term of the OmniFocus dictionary) is known when compiling
+    try
+        tell application "OmniFocus"
+            set versionText to (version) as text
+        end tell
+    end try
+    try
+        tell application "OmniFocus"
+            set buildText to (build number) as text
+        end tell
+    end try
+    if versionText is "" and buildText is "" then return ""
+    set lineText to "🖥 OmniFocus"
+    if versionText is not "" then set lineText to lineText & " " & versionText
+    if buildText is not "" then set lineText to lineText & " (build " & buildText & ")"
+    return lineText
+end appVersionLine
 
 on settingsReport(groupName, filterText, maxResults)
     -- One group: the settings of the database or the preferences of the app, sorted by ID

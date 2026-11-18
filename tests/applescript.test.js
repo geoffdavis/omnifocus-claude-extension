@@ -525,6 +525,11 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('cannot be read: a list or data');
             expect(content).toContain('Invalid scope');
             expect(content).toContain('Invalid limit');
+            // the first line shows the version and the build number of OmniFocus
+            // read inside a tell block: "build number" is a term of the OmniFocus dictionary and does not compile outside of it
+            expect(content).toMatch(/tell application "OmniFocus"\s+set versionText to \(version\) as text/);
+            expect(content).toMatch(/tell application "OmniFocus"\s+set buildText to \(build number\) as text/);
+            expect(content).toContain('set reportText to versionLine & return & return & reportText');
             // nothing is written
             expect(content).not.toMatch(/set value of/);
         });

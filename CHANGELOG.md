@@ -87,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`primary_tag`) of a project, `create_project` takes `tags`, `get_project` shows `Tags:` and `Primary tag:`. Tasks and
   projects share the same handlers; all tags are looked up before anything changes
 - **Settings and backup**: `get_settings` reads the settings of the database and the preferences of the app (value and
-  default, filter by ID), `create_backup` writes a backup archive of the database to a new path (a package). The archive
+  default, filter by ID) and starts with the version and build number of OmniFocus, `create_backup` writes a backup archive of the database to a new path (a package). The archive
   is written in the background: the call waits `wait_seconds` (default 40, at most 70) and `status_only` shows later
   whether the archive is finished, still being written, failed or interrupted, with its size
 - **Purge**: `purge_tasks` deletes completed and/or dropped tasks permanently (`scope`, `older_than_days`, `folder`,

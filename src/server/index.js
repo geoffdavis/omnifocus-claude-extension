@@ -1217,7 +1217,7 @@ const tools = [
     },
     {
         name: 'get_settings',
-        description: 'Read OmniFocus settings, for example the default due time or the default review interval. "document" shows the settings stored in the database, "application" the preferences of the app. Every entry shows its ID and value, and the default value if it differs. Use filter to find an entry by a part of its ID. Nothing is changed.',
+        description: 'Read OmniFocus settings, for example the default due time or the default review interval. "document" shows the settings stored in the database, "application" the preferences of the app. Every entry shows its ID and value, and the default value if it differs. Use filter to find an entry by a part of its ID. The first line shows the version and build number of OmniFocus. Nothing is changed.',
         inputSchema: {
             type: 'object',
             properties: {

@@ -313,7 +313,7 @@ and the project becomes a single action list.
 
 `get_settings` reads the settings of the database (`scope: document`, the default) or the preferences of the app
 (`scope: application`, or `all`). Every entry shows its ID and value, and the default value if it differs; `filter`
-finds entries by a part of the ID; a value that is a list or data is shown as not readable. Nothing is changed. `create_backup` writes a backup archive of the database to a
+finds entries by a part of the ID; a value that is a list or data is shown as not readable. The first line shows the version and build number of OmniFocus. Nothing is changed. `create_backup` writes a backup archive of the database to a
 new path (it must not exist, its folder must exist; `compression` is on by default); it uses the `archive` command of
 OmniFocus, so the folder has to be one that OmniFocus may write to. OmniFocus writes the archive as a package, a folder
 that Finder shows as one file. The archive is written by a process of its own, so a large database cannot block the call
