@@ -321,6 +321,10 @@ on resolveTask(queryText)
       end tell
     end tell
     if (count of idMatches) = 1 then
+      set projectNameText to my projectNameForID(wantedID)
+      if projectNameText is not "" then
+        return {foundTask:missing value, errorText:"❌ id:" & wantedID & " is a project, not a task: " & projectNameText & ". Nothing was changed. Projects are handled by the project tools (get_project, edit_project)."}
+      end if
       return {foundTask:item 1 of idMatches, errorText:""}
     end if
     return {foundTask:missing value, errorText:"❌ Open task not found: " & searchText}
@@ -331,6 +335,7 @@ on resolveTask(queryText)
       set nameMatches to every flattened task whose name contains searchText and effectively completed is false and effectively dropped is false
     end tell
   end tell
+  set nameMatches to my withoutProjectRoots(nameMatches, searchText)
 
   set exactMatches to {}
   repeat with aMatch in nameMatches
@@ -372,6 +377,51 @@ on resolveTask(queryText)
   end repeat
   return {foundTask:missing value, errorText:matchList}
 end resolveTask
+on projectNameForID(wantedID)
+  -- The name of the project with this ID, or "" if the ID belongs to no project (the root task of a project has the ID
+  -- of its project and is no task)
+  tell application "OmniFocus"
+    tell default document
+      try
+        set projectIDs to id of every flattened project
+        set isProjectID to false
+        considering case
+          if projectIDs contains wantedID then set isProjectID to true
+        end considering
+        if isProjectID then
+          set projectMatches to every flattened project whose id is wantedID
+          if (count of projectMatches) > 0 then return name of item 1 of projectMatches
+          return wantedID
+        end if
+      end try
+    end tell
+  end tell
+  return ""
+end projectNameForID
+
+on withoutProjectRoots(taskList, searchText)
+  -- Leaves the root tasks of projects out of the name hits of resolveTask (same condition and order for the IDs)
+  if (count of taskList) = 0 then return taskList
+  tell application "OmniFocus"
+    tell default document
+      set projectIDs to {}
+      try
+        set projectIDs to id of every flattened project
+      end try
+      if (count of projectIDs) = 0 then return taskList
+      set hitIDs to id of every flattened task whose name contains searchText and effectively completed is false and effectively dropped is false
+    end tell
+  end tell
+  set keptTasks to {}
+  repeat with i from 1 to count of taskList
+    set isProjectID to false
+    considering case
+      if projectIDs contains (item i of hitIDs) then set isProjectID to true
+    end considering
+    if not isProjectID then set end of keptTasks to item i of taskList
+  end repeat
+  return keptTasks
+end withoutProjectRoots
 
 on resolveProject(queryText)
     -- "id:<id>" addresses exactly one project

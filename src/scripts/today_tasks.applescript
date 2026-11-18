@@ -35,7 +35,8 @@ on run argv
       if dueDate ≥ todayStart and dueDate < todayEnd and not (item t of effCompletedList) then
         if includeDropped or not (item t of effDroppedList) then
           -- Leave out tasks of projects below hidden (dropped) folders
-          if not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList) then
+          -- The root task of a project has the ID of its project and is no task
+          if (not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList)) and ((item t of taskIDList) is not (item t of containerIDList)) then
             -- The name of what holds the task: the parent task, the project, or the inbox
             set holderName to "Inbox"
             set parentID to item t of parentIDList

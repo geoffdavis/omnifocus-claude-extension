@@ -14,8 +14,26 @@ on run argv
     tell application "OmniFocus"
         tell default document
             -- "id:<id>" addresses exactly one task; otherwise search completed and dropped tasks by name
+            -- The hidden root task of a project has the ID of its project. It is no task: the project IDs are left out of the
+            -- search, and an ID that belongs to a project is refused
+            set projectIDs to {}
+            try
+                set projectIDs to id of every flattened project
+            end try
+            set skippedProjects to 0
+
             if searchTerm starts with "id:" and (length of searchTerm) > 3 then
                 set wantedID to my trimItem(text 4 thru -1 of searchTerm)
+                set isProjectID to false
+                considering case
+                    if projectIDs contains wantedID then set isProjectID to true
+                end considering
+                if isProjectID then
+                    set projectMatches to every flattened project whose id is wantedID
+                    set projectNameText to wantedID
+                    if (count of projectMatches) > 0 then set projectNameText to name of item 1 of projectMatches
+                    return "❌ id:" & wantedID & " is a project, not a task: " & projectNameText & return & "Nothing was changed. Projects are handled by the project tools (get_project, edit_project)."
+                end if
                 set foundTasks to every flattened task whose id is wantedID
             else
                 set completedMatches to every flattened task whose name contains searchTerm and completed is true
@@ -28,6 +46,23 @@ on run argv
                 repeat with aTask in droppedMatches
                     if knownIDs does not contain (id of aTask) then set end of foundTasks to contents of aTask
                 end repeat
+
+                -- Root tasks of projects are no tasks
+                if (count of foundTasks) > 0 and (count of projectIDs) > 0 then
+                    set keptTasks to {}
+                    repeat with aTask in foundTasks
+                        set isProjectID to false
+                        considering case
+                            if projectIDs contains (id of aTask) then set isProjectID to true
+                        end considering
+                        if isProjectID then
+                            set skippedProjects to skippedProjects + 1
+                        else
+                            set end of keptTasks to contents of aTask
+                        end if
+                    end repeat
+                    set foundTasks to keptTasks
+                end if
 
                 -- An exact name wins over longer names that contain it
                 if (count of foundTasks) > 1 then
@@ -42,7 +77,9 @@ on run argv
             end if
 
             if (count of foundTasks) = 0 then
-                return "❌ No completed or dropped task found for: " & searchTerm
+                set notFoundText to "❌ No completed or dropped task found for: " & searchTerm
+                if skippedProjects > 0 then set notFoundText to notFoundText & return & "ℹ️ " & skippedProjects & " project(s) match this name. Projects are handled by the project tools (get_project, edit_project)."
+                return notFoundText
             else if (count of foundTasks) > 1 then
                 set taskList to "🔍 Multiple completed or dropped tasks found (" & (count of foundTasks) & "):" & return
                 set shownCount to 0

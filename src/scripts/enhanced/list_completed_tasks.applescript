@@ -46,7 +46,8 @@ on run argv
     set doneIndexes to {}
     set sortKeys to {}
     repeat with i from 1 to count of taskIDList
-        if item i of completedList then
+        -- The root task of a project (a completed project) has the ID of its project and is no task
+        if (item i of completedList) and ((item i of taskIDList) is not (item i of taskProjectIDList)) then
             set completedAt to item i of completionDateList
             if completedAt is not missing value then
                 if completedAt ≥ cutoffDate then

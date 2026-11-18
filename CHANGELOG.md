@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_project` shows the dates of the next occurrence of a project that repeats on a fixed schedule, the number of
   available tasks at top level and whether the project is the default project for single actions; `edit_project` sets that
   flag (`default_single_action_list`, the flag leaves the project that had it and the answer names it)
+- **Projects are no tasks**: OmniFocus gives every project a hidden root task with the ID of the project, which the task
+  tools found by ID or by name. `get_task` now answers with a pointer to `get_project`; `complete_task`, `drop_task`,
+  `reopen_task`, `edit_task`, `add_tag_to_task`, `remove_tag_from_task` and the tools that take a task by name or ID
+  (`add_task` and `parse_tasks` with `parent_task`, `show_item`, `save_attachment`, `duplicate_item`, and `edit_task` with
+  `parent_task` or `assigned_container`) refuse the ID of a project and change nothing. The name search leaves the root
+  tasks out and says so when only projects have that name
+  Also `search_tasks`, `list_overdue_tasks`, `list_flagged_tasks`, `list_deferred_tasks`, `list_due_soon`, `list_completed_tasks`,
+  `today_tasks` and `weekly_review` no longer show (or count) a project with a due date, a flag or a completion as a task
 - **GTD queries**
   - `list_available_tasks`: next actions across all projects (open, not blocked, not deferred, active project,
     no action groups), grouped by project, optionally filtered by tag or folder

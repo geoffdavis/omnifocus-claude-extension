@@ -293,6 +293,13 @@ inbox, `list_inbox` shows the project after an arrow, and `clean_up` moves it th
 `get_task` also shows the dates a task gets from a containing task or project (`Effective due:`, `Effective deferred until:`,
 `Effective planned:`, only when they differ from its own dates), the dates of the next occurrence of a task that repeats on a
 fixed schedule (`Next occurrence:`) and the number of subtasks that can be worked on now (`Available subtasks:`).
+A project is no task: OmniFocus gives every project a hidden root task with the ID of the project. `get_task`, `complete_task`,
+`drop_task`, `reopen_task`, `edit_task`, `add_tag_to_task`, `remove_tag_from_task` (and the tools that take a task by name or ID, such as
+`add_task` with `parent_task`, `parse_tasks`, `show_item`, `save_attachment` and `duplicate_item`) refuse the ID of a project
+(`is a project, not a task`, nothing is changed), and a name search leaves the projects out and says so when only projects
+have that name.
+The lists and the search (`search_tasks`, `list_overdue_tasks`, `list_flagged_tasks`, `list_deferred_tasks`, `list_due_soon`,
+`list_completed_tasks`, `today_tasks`, `weekly_review`) do not show a project, or count it, as a task.
 `list_tags` with `include_counts` shows the remaining and the available tasks of each tag as OmniFocus counts them (the tasks of
 child tags included); an OmniFocus that does not give these numbers shows the number of open tasks per tag instead.
 `get_project` shows the same for projects: `Next occurrence:` for a project that repeats on a fixed schedule, the number of

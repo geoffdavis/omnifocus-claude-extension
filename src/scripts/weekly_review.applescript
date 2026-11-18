@@ -11,6 +11,7 @@ on run argv
     tell default document
       set inboxCompletedList to effectively completed of every inbox task
       set inboxDroppedList to effectively dropped of every inbox task
+      set taskIDList to id of every flattened task
       set flaggedList to flagged of every flattened task
       set dueDateList to due date of every flattened task
       set effCompletedList to effectively completed of every flattened task
@@ -44,7 +45,8 @@ on run argv
   repeat with t from 1 to count of effCompletedList
     if not (item t of effCompletedList) then
       if includeDropped or not (item t of effDroppedList) then
-        if not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList) then
+        -- The root task of a project has the ID of its project and is no task
+        if (not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList)) and ((item t of taskIDList) is not (item t of containerIDList)) then
           if item t of flaggedList then set flaggedCount to flaggedCount + 1
           set dueDate to item t of dueDateList
           if dueDate is not missing value then

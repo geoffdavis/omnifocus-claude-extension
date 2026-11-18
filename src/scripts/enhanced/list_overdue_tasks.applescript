@@ -12,6 +12,7 @@ on run argv
     -- are fetched at once (the same position in each list is the same task) and filtered and sorted in the script
     tell application "OmniFocus"
         tell default document
+            set taskIDList to id of every flattened task
             set taskNameList to name of every flattened task
             set flaggedList to flagged of every flattened task
             set dueDateList to due date of every flattened task
@@ -32,7 +33,7 @@ on run argv
         if dueDate is not missing value then
             if dueDate < currentTime and not (item t of effCompletedList) then
                 if includeDropped or not (item t of effDroppedList) then
-                    if not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList) then set end of overdueIndexes to t
+                    if (not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList)) and ((item t of taskIDList) is not (item t of containerIDList)) then set end of overdueIndexes to t
                 end if
             end if
         end if

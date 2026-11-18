@@ -1444,6 +1444,71 @@ describe('AppleScript Integration', () => {
             expect(task).toContain('"Subtasks: " & subtaskCount');
         });
 
+        test('get_task treats the root task of a project as no task', () => {
+            const task = read('get_task.applescript');
+            // the project IDs come from one query for all projects and are compared with case
+            expect(task).toContain('set projectIDs to id of every flattened project');
+            expect(task).toContain('considering case');
+            // an ID of a project points to get_project and finds nothing else
+            expect(task).toContain('is a project, not a task: ');
+            expect(task).toContain('Use get_project with project \\"id:');
+            expect(task.indexOf('is a project, not a task: ')).toBeLessThan(task.indexOf('set foundTasks to every flattened task whose id is wantedID'));
+            // the name search leaves the root tasks out and says so when only projects match
+            expect(task).toContain('set skippedProjects to skippedProjects + 1');
+            expect(task).toContain('project(s) match this name. Use get_project to see a project.');
+            // the hit list and the IDs come from the same condition
+            const condition = 'every flattened task whose name contains searchTerm and completed is false';
+            expect(task.split(condition).length - 1).toBe(2);
+        });
+
+        test('the tools that change a task refuse the ID of a project and leave project root tasks out of the name search', () => {
+            ['complete_task.applescript', 'enhanced/drop_task.applescript', 'enhanced/edit_task.applescript',
+                'enhanced/add_tag_to_task.applescript', 'enhanced/remove_tag_from_task.applescript',
+                'enhanced/reopen_task.applescript'].forEach(file => {
+                const script = file.startsWith('enhanced/') ? read(file.slice('enhanced/'.length)) : fs.readFileSync(path.join(scriptsDir, file), 'utf8');
+                expect(script).toContain('set projectIDs to id of every flattened project');
+                expect(script).toContain('considering case');
+                expect(script).toContain('is a project, not a task: ');
+                expect(script).toContain('Nothing was changed. Projects are handled by the project tools (get_project, edit_project).');
+                expect(script).toContain('set skippedProjects to skippedProjects + 1');
+                expect(script).toContain('project(s) match this name.');
+                // the refusal comes before the task is looked up by its ID
+                expect(script.indexOf('is a project, not a task: ')).toBeLessThan(script.indexOf('set foundTasks to every flattened task whose id is wantedID'));
+            });
+        });
+
+        test('the tools that resolve a task for another tool refuse the ID of a project and leave project root tasks out of the name search', () => {
+            ['add_task.applescript', 'parse_tasks.applescript', 'edit_task.applescript', 'show_item.applescript',
+                'save_attachment.applescript', 'duplicate_item.applescript'].forEach(file => {
+                const script = file === 'add_task.applescript' ? fs.readFileSync(path.join(scriptsDir, file), 'utf8') : read(file);
+                expect(script).toContain('on projectNameForID(wantedID)');
+                expect(script).toContain('on withoutProjectRoots(taskList, searchText)');
+                expect(script).toContain('set nameMatches to my withoutProjectRoots(nameMatches, searchText)');
+                expect(script).toContain('set projectNameText to my projectNameForID(wantedID)');
+                expect(script).toContain('is a project, not a task: ');
+                // the refusal comes before the single ID hit is returned as the task
+                expect(script.indexOf('set projectNameText to my projectNameForID(wantedID)')).toBeLessThan(script.indexOf('return {foundTask:item 1 of idMatches, errorText:""}'));
+            });
+        });
+
+        test('the list and search tools leave the root task of a project out', () => {
+            const lists = ['list_overdue_tasks.applescript', 'list_flagged_tasks.applescript', 'list_deferred_tasks.applescript', 'list_due_soon.applescript'];
+            lists.forEach(file => {
+                const script = read(file);
+                expect(script).toContain('set taskIDList to id of every flattened task');
+                expect(script).toContain('((item t of taskIDList) is not (item t of containerIDList))');
+            });
+            ['today_tasks.applescript', 'weekly_review.applescript'].forEach(file => {
+                const script = fs.readFileSync(path.join(scriptsDir, file), 'utf8');
+                expect(script).toContain('set taskIDList to id of every flattened task');
+                expect(script).toContain('((item t of taskIDList) is not (item t of containerIDList))');
+            });
+            expect(read('list_completed_tasks.applescript')).toContain('((item i of taskIDList) is not (item i of taskProjectIDList))');
+            const search = read('search_tasks.applescript');
+            expect(search).toContain('set projectIDList to id of containing project of every flattened task');
+            expect(search).toContain('((item i of taskIDList) is (item i of projectIDList)) then set taskMatches to false');
+        });
+
         test('every new read is guarded, so an OmniFocus without the property does not break the tool', () => {
             const task = read('get_task.applescript');
             ['effective due date of targetTask', 'effective defer date of targetTask', 'next due date of targetTask', 'number of available tasks of targetTask'].forEach(term => {

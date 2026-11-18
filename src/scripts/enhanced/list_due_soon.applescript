@@ -68,7 +68,7 @@ on run argv
         set taskDue to item t of dueDateList
         if taskDue is not missing value then
             if taskDue ≥ nowDate and taskDue ≤ endDate and not (item t of effCompletedList) and not (item t of effDroppedList) then
-                if not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList) then set end of dueIndexes to t
+                if (not my isHiddenProjectID(item t of containerIDList, hiddenProjectIDList)) and ((item t of taskIDList) is not (item t of containerIDList)) then set end of dueIndexes to t
             end if
         end if
     end repeat

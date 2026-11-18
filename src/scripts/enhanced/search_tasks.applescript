@@ -38,7 +38,7 @@ on run argv
             set flaggedList to flagged of every flattened task
             set dueDateList to due date of every flattened task
             set projectNameList to name of containing project of every flattened task
-            if checkHidden then set projectIDList to id of containing project of every flattened task
+            set projectIDList to id of containing project of every flattened task
             if checkAvailable then
                 set blockedList to blocked of every flattened task
                 set deferDateList to defer date of every flattened task
@@ -58,6 +58,9 @@ on run argv
         set taskMatches to true
         if onlyOpen and (item i of effCompletedList) then set taskMatches to false
         if taskMatches and not includeDropped and (item i of effDroppedList) then set taskMatches to false
+        
+        -- The root task of a project has the ID of its project and is no task
+        if taskMatches and ((item i of taskIDList) is (item i of projectIDList)) then set taskMatches to false
         
         -- Search in both name and note
         if taskMatches then
