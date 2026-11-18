@@ -1298,7 +1298,9 @@ const SCRIPT_TIMEOUT_SECONDS = (() => {
 let scriptQueue = Promise.resolve();
 
 // Execute AppleScript file with arguments (asynchronous: the server stays responsive while a script runs)
-async function executeAppleScriptFile(scriptName, args = []) {
+// options.queued false: the script does not wait for the scripts in front of it. Only for a script that does not talk to
+// OmniFocus itself (create_backup), so that a long script ahead of it cannot push its answer beyond the time limit of the app.
+async function executeAppleScriptFile(scriptName, args = [], options = {}) {
     // Try enhanced scripts first
     let scriptPath = path.join(__dirname, '..', 'scripts', 'enhanced', `${scriptName}.applescript`);
 
@@ -1338,6 +1340,7 @@ async function executeAppleScriptFile(scriptName, args = []) {
         });
     });
 
+    if (options.queued === false) return run();
     const result = scriptQueue.then(run, run);
     scriptQueue = result.catch(() => {});
     return result;
@@ -1713,7 +1716,7 @@ async function executeTool(name, args) {
                     args.compression === undefined ? 'true' : String(args.compression === true),
                     String(args.wait_seconds === undefined ? 40 : Math.max(0, Math.min(70, Math.floor(Number(args.wait_seconds)) || 0))),
                     String(args.status_only === true)
-                ]);
+                ], { queued: false });
                 break;
 
             case 'reopen_task':

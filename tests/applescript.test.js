@@ -558,6 +558,11 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('Wrote a backup archive of the database');
             expect(content).toContain('OmniFocus could not write the archive');
             expect(content).toContain('ended without a result');
+            // the foreground script does not talk to OmniFocus, so it does not wait for the scripts in front of it in the queue
+            const serverContent = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(serverContent).toContain('if (options.queued === false) return run();');
+            const backupCase = serverContent.slice(serverContent.indexOf("case 'create_backup':"), serverContent.indexOf("case 'reopen_task':"));
+            expect(backupCase).toContain('], { queued: false });');
             // status_only starts nothing and is checked before the folder and the path are looked at
             expect(content.indexOf('if statusOnly then return my statusReport')).toBeGreaterThan(-1);
             expect(content.indexOf('if statusOnly then return my statusReport')).toBeLessThan(content.indexOf('startArchive(archivePath'));

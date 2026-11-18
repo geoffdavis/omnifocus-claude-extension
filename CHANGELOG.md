@@ -168,7 +168,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `create_backup` blocked the call until OmniFocus had written the archive, so a large database ran into the time limit of
   the app (about 80 seconds) and left it open whether the archive was written. The archive command now runs in a process of
-  its own, the call returns after `wait_seconds`, and `status_only` shows the result
+  its own, the call returns after `wait_seconds`, and `status_only` shows the result. The call also no longer waits in
+  the queue of the scripts: it does not talk to OmniFocus itself, and a long script in front of it could push its answer
+  beyond that time limit
 - `search_tasks` with `filter: "remaining"` or `"available"` failed
 - Completed tasks showed up in `list_inbox` and `list_overdue_tasks`
 - Adding a nested tag to a task created a second tag with the same name at top level
