@@ -52,7 +52,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`primary_tag`) of a project, `create_project` takes `tags`, `get_project` shows `Tags:` and `Primary tag:`. Tasks and
   projects share the same handlers; all tags are looked up before anything changes
 - **Settings and backup**: `get_settings` reads the settings of the database and the preferences of the app (value and
-  default, filter by ID), `create_backup` writes a backup archive of the database to a new path (a package)
+  default, filter by ID), `create_backup` writes a backup archive of the database to a new path (a package). The archive
+  is written in the background: the call waits `wait_seconds` (default 40, at most 70) and `status_only` shows later
+  whether the archive is finished, still being written, failed or interrupted, with its size
+- **Purge**: `purge_tasks` deletes completed and/or dropped tasks permanently (`scope`, `older_than_days`, `folder`,
+  `project`). It only lists what it would delete unless `dry_run` is false and `confirm_delete` is true. Open tasks are
+  never touched; a task is only deleted together with all its subtasks, so a task with open subtasks is skipped and
+  reported. Tasks below hidden folders are counted and marked. `limit` (default 200) and a time limit of about 50
+  seconds keep a call short, the answer says how many tasks are left
 - **Sync and clean up**: `synchronize` starts the synchronization with the sync database and waits until OmniFocus reports that
   it is finished (`wait_seconds`, default 15, 0 = do not wait); its answer shows when the last synchronization finished and
   its error, if there was one, and `status_only` reports that without starting a synchronization; `clean_up` runs Clean Up (inbox items that already have
@@ -124,6 +131,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   messages after a change keep the long date
 
 ### Fixed
+- `create_backup` blocked the call until OmniFocus had written the archive, so a large database ran into the time limit of
+  the app (about 80 seconds) and left it open whether the archive was written. The archive command now runs in a process of
+  its own, the call returns after `wait_seconds`, and `status_only` shows the result
 - `search_tasks` with `filter: "remaining"` or `"available"` failed
 - Completed tasks showed up in `list_inbox` and `list_overdue_tasks`
 - Adding a nested tag to a task created a second tag with the same name at top level

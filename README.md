@@ -296,7 +296,19 @@ inbox, `list_inbox` shows the project after an arrow, and `clean_up` moves it th
 finds entries by a part of the ID; a value that is a list or data is shown as not readable. Nothing is changed. `create_backup` writes a backup archive of the database to a
 new path (it must not exist, its folder must exist; `compression` is on by default); it uses the `archive` command of
 OmniFocus, so the folder has to be one that OmniFocus may write to. OmniFocus writes the archive as a package, a folder
-that Finder shows as one file.
+that Finder shows as one file. The archive is written by a process of its own, so a large database cannot block the call
+or run into the time limit of the app (about 80 seconds): the call waits `wait_seconds` (default 40, at most 70) and, if
+the archive is not finished by then, says that it is still being written. `status_only: true` with the same path shows
+later whether it is finished, still being written, failed or interrupted, with its size.
+
+`purge_tasks` deletes completed and/or dropped tasks permanently, for example everything older than a year. It only
+lists what it would delete (`dry_run`, the default); deleting needs `dry_run: false` and `confirm_delete: true`. `scope`
+is `completed`, `dropped` or `both`, `older_than_days` looks at the completion or drop date, `folder` or `project` limit
+it (without them the whole database counts, with the inbox). Open tasks, also recurring ones, are never touched. Deleting a
+task deletes its subtasks, so a task is only deleted if all its subtasks are part of the purge too: a task with open
+subtasks (or with subtasks that are too young or in another state) is skipped and reported. Tasks below hidden folders
+are counted and marked. `limit` (default 200) and a time limit of about 50 seconds keep one call short; the answer says
+how many tasks are left, and calling it again continues. Deleting cannot be undone.
 
 ### GTD Queries and Reviews
 ```
@@ -364,6 +376,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `list_folders` | Show all folders as a hierarchy with IDs, project counts, hidden folders and notes | "List my folders" |
 | `edit_folder` | Rename, move (with everything in it), hide or show a folder, change or extend its note, attach or remove files | "Move the folder 'Old clients' below 'Archive'" |
 | `delete_folder` | Delete a folder (needs `confirm_delete`; a folder with content only with `delete_contents`) | "Delete the empty folder 'Test'" |
+| `purge_tasks` | Delete completed and/or dropped tasks permanently (preview by default; deleting needs `dry_run: false` and `confirm_delete`), optionally only older than N days, in a folder or a project | "Show which completed tasks older than a year could be deleted" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag, folder, a single project or time (`max_minutes`) | "What can I work on now?" |
 | `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
 | `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
@@ -380,7 +393,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `list_completed_tasks` | Tasks completed in the last days | "What did I complete last week?" |
 | `list_tasks_by_date` | Tasks or projects by creation, modification or drop date, for the last days or a period, optionally one project or only open items | "What did I add this week?" |
 | `get_settings` | Settings of the database (`document`) and preferences of the app (`application`) with their values and defaults, optionally filtered by a part of the ID | "What is the default due time in OmniFocus?" |
-| `create_backup` | Write a backup archive of the database to a new path | "Write a backup of OmniFocus to ~/Documents/omnifocus-backup" |
+| `create_backup` | Write a backup archive of the database to a new path, in the background (`wait_seconds`; `status_only` shows whether it is finished) | "Write a backup of OmniFocus to ~/Documents/omnifocus-backup" |
 | `list_projects_for_review` | Projects whose review is due, with their review interval | "Which projects need a review?" |
 | `mark_project_reviewed` | Mark a project as reviewed today | "Mark 'Website 2.0' as reviewed" |
 | `list_stalled_projects` | Active projects without a next action | "Which projects are stalled?" |
@@ -432,6 +445,7 @@ omnifocus-claude-extension/
 │   │   │   ├── save_attachment.applescript
 │   │   │   ├── edit_folder.applescript
 │   │   │   ├── delete_folder.applescript
+│   │   │   ├── purge_tasks.applescript
 │   │   │   ├── list_tasks_filtered.applescript    # list_available_tasks and list_tasks_by_tag
 │   │   │   ├── list_completed_tasks.applescript
 │   │   │   ├── list_tasks_by_date.applescript

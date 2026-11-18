@@ -240,7 +240,7 @@ describe('MCP Server', () => {
 
             const responses = responseData.split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
             const toolNames = responses.find(r => r.id === 2).result.tools.map(t => t.name);
-            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks', 'edit_tag', 'reopen_task', 'get_project', 'list_due_soon', 'parse_tasks', 'list_perspectives', 'get_selected_link', 'synchronize', 'clean_up', 'undo', 'list_folders', 'edit_folder', 'delete_folder', 'save_attachment', 'get_selection', 'set_view', 'show_item', 'duplicate_item', 'list_tasks_by_date', 'get_settings', 'create_backup'].forEach(name => {
+            ['list_available_tasks', 'list_tasks_by_tag', 'list_completed_tasks', 'edit_tag', 'reopen_task', 'get_project', 'list_due_soon', 'parse_tasks', 'list_perspectives', 'get_selected_link', 'synchronize', 'clean_up', 'undo', 'list_folders', 'edit_folder', 'delete_folder', 'save_attachment', 'get_selection', 'set_view', 'show_item', 'duplicate_item', 'list_tasks_by_date', 'get_settings', 'create_backup', 'purge_tasks'].forEach(name => {
                 expect(toolNames).toContain(name);
             });
 
@@ -409,7 +409,7 @@ describe('MCP Server', () => {
 
         // Runs the server with a stand-in "osascript" (a shell script) in front of the real one on the PATH and
         // sends initialize and one tools/call; stdin is closed right after the request.
-        function callWithFakeOsascript(fakeBody, env, toolName = 'list_inbox') {
+        function callWithFakeOsascript(fakeBody, env, toolName = 'list_inbox', toolArguments = {}) {
             const fakeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-osascript-'));
             fs.writeFileSync(path.join(fakeDir, 'osascript'), `#!/bin/sh\n${fakeBody}\n`, { mode: 0o755 });
             const child = spawn('node', [serverPath], {
@@ -422,7 +422,7 @@ describe('MCP Server', () => {
                     output += data.toString();
                     if (!sent && output.includes('"id":1')) {
                         sent = true;
-                        child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: toolName, arguments: {} }, id: 2 }) + '\n');
+                        child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: toolName, arguments: toolArguments }, id: 2 }) + '\n');
                         child.stdin.end();
                     }
                 });
@@ -446,6 +446,65 @@ describe('MCP Server', () => {
             expect(JSON.stringify(response)).toContain('stopped after 1 seconds');
             expect(JSON.stringify(response)).toContain('Check in OmniFocus whether a change was made');
         }, 15000);
+    });
+
+    describe('Tools that delete or write in the background', () => {
+        const os = require('os');
+
+        // The stand-in osascript answers with the arguments it got (the script path first)
+        async function argumentsOf(toolName, toolArguments) {
+            const fakeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fake-osascript-'));
+            fs.writeFileSync(path.join(fakeDir, 'osascript'), '#!/bin/sh\nshift\nfor a in "$@"; do printf "[%s]" "$a"; done\n', { mode: 0o755 });
+            const child = spawn('node', [serverPath], {
+                env: { ...process.env, PATH: `${fakeDir}${path.delimiter}${process.env.PATH}` }
+            });
+            let output = '';
+            return new Promise((resolve, reject) => {
+                let sent = false;
+                child.stdout.on('data', data => {
+                    output += data.toString();
+                    if (!sent && output.includes('"id":1')) {
+                        sent = true;
+                        child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: toolName, arguments: toolArguments }, id: 2 }) + '\n');
+                        child.stdin.end();
+                    }
+                });
+                child.on('close', () => {
+                    fs.rmSync(fakeDir, { recursive: true, force: true });
+                    const responses = output.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
+                    resolve(responses.find(response => response.id === 2).result.content[0].text);
+                });
+                child.on('error', reject);
+                child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {} }, id: 1 }) + '\n');
+            });
+        }
+
+        test('purge_tasks only previews unless dry_run is false and confirm_delete is true', async () => {
+            // scope, older_than_days, folder, project, dry_run, confirm_delete, limit
+            expect(await argumentsOf('purge_tasks', {})).toContain('[both][][][][true][false][200]');
+            expect(await argumentsOf('purge_tasks', { scope: 'completed', older_than_days: 30 })).toContain('[completed][30][][][true][false][200]');
+            expect(await argumentsOf('purge_tasks', { dry_run: false })).toContain('[both][][][][false][false][200]');
+            expect(await argumentsOf('purge_tasks', { dry_run: false, confirm_delete: true, limit: 50, project: 'id:abc' })).toContain('[both][][][id:abc][false][true][50]');
+            // the text "false" is read as false, any other text than true or false is refused: nothing is passed on
+            expect(await argumentsOf('purge_tasks', { dry_run: 'false', confirm_delete: 'true' })).toContain('[false][true]');
+            const refused = await argumentsOf('purge_tasks', { dry_run: 'no', confirm_delete: 'yes' });
+            expect(refused).toContain('Invalid values for dry_run');
+            expect(refused).toContain('Nothing was done');
+            expect(refused).not.toContain('[true][false]');
+        }, 30000);
+
+        test('purge_tasks refuses values of the wrong type before anything reaches OmniFocus', async () => {
+            const answer = await argumentsOf('purge_tasks', { scope: 'everything' });
+            expect(answer).toContain('scope');
+            expect(answer).not.toContain('[both]');
+        }, 15000);
+
+        test('create_backup passes the path, compression, the waiting time and status_only', async () => {
+            expect(await argumentsOf('create_backup', { path: '/tmp/x.ofocus-backup' })).toContain('[/tmp/x.ofocus-backup][true][40][false]');
+            expect(await argumentsOf('create_backup', { path: '/tmp/x', compression: false, wait_seconds: 5, status_only: true })).toContain('[/tmp/x][false][5][true]');
+            // more than the connection of the app waits for is cut to 70 seconds
+            expect(await argumentsOf('create_backup', { path: '/tmp/x', wait_seconds: 500 })).toContain('[/tmp/x][true][70][false]');
+        }, 30000);
     });
 
     describe('Tool Coverage', () => {

@@ -711,6 +711,49 @@ const tools = [
         }
     },
     {
+        name: 'purge_tasks',
+        description: 'Permanently delete completed and/or dropped tasks from the OmniFocus database. WARNING: deleting is permanent; undo only reaches the most recent changes and cannot be relied on for a purge. By default (dry_run true) nothing is deleted: the tool only lists the tasks it would delete, with the project, the date and the ID. A real deletion needs dry_run false AND confirm_delete true. Open tasks (also recurring ones) are never touched. A task with open subtasks, or with subtasks that are not part of the purge, is skipped, because deleting a task deletes its subtasks. Tasks below hidden folders are counted and marked. At most limit tasks are handled per call and a call stops after about 50 seconds; the answer says how many are left, call again for the rest.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                scope: {
+                    type: 'string',
+                    enum: ['completed', 'dropped', 'both'],
+                    description: 'Which tasks: completed, dropped (dropped themselves) or both',
+                    default: 'both'
+                },
+                older_than_days: {
+                    type: 'number',
+                    description: 'Only tasks whose completion or drop date is more than this many days ago (0 = all, also tasks without a date)',
+                    default: 0
+                },
+                folder: {
+                    type: 'string',
+                    description: 'Only tasks in projects below this folder (name, "Folder > Subfolder" or "id:<id>"). Without folder and project the whole database counts, including the inbox'
+                },
+                project: {
+                    type: 'string',
+                    description: 'Only tasks of this project (name, "Folder > Subfolder > Project" or "id:<id>")'
+                },
+                dry_run: {
+                    type: 'boolean',
+                    description: 'true (default) only lists what would be deleted and deletes nothing',
+                    default: true
+                },
+                confirm_delete: {
+                    type: 'boolean',
+                    description: 'Must be true, together with dry_run false, otherwise nothing is deleted',
+                    default: false
+                },
+                limit: {
+                    type: 'number',
+                    description: 'Maximum number of tasks per call; the answer says how many are left',
+                    default: 200
+                }
+            }
+        }
+    },
+    {
         name: 'save_attachment',
         description: 'Save an embedded attachment of the note of a task, project or folder as a file, for example to read it. The file must not exist yet. A linked file is not copied, its path is shown instead. The number of an attachment is shown by get_task and get_project (OmniFocus does not give scripts the name of an embedded file, so the name of the new file is up to you).',
         inputSchema: {
@@ -1104,7 +1147,7 @@ const tools = [
     },
     {
         name: 'create_backup',
-        description: 'Write a backup archive of the OmniFocus database, using the archive command of OmniFocus. Nothing in OmniFocus is changed. The path must not exist yet and its folder must exist; the archive is written as a package (a folder that Finder shows as one file).',
+        description: 'Write a backup archive of the OmniFocus database, using the archive command of OmniFocus. Nothing in OmniFocus is changed. The path must not exist yet and its folder must exist; the archive is written as a package (a folder that Finder shows as one file). A large database can need more than a minute: the archive is written in the background and the call waits at most wait_seconds. If it is not finished by then, call again with the same path and status_only true to see whether it is finished (the answer shows the state and the size).',
         inputSchema: {
             type: 'object',
             properties: {
@@ -1116,6 +1159,16 @@ const tools = [
                     type: 'boolean',
                     description: 'Write the archive with data compression',
                     default: true
+                },
+                wait_seconds: {
+                    type: 'number',
+                    description: 'Wait until the archive is written, at most this many seconds (0 to return at once, at most 70)',
+                    default: 40
+                },
+                status_only: {
+                    type: 'boolean',
+                    description: 'Start nothing, only report whether the archive at this path is finished, still being written or failed, with its size',
+                    default: false
                 }
             },
             required: ['path']
@@ -1562,7 +1615,9 @@ async function executeTool(name, args) {
             case 'create_backup':
                 result = await executeAppleScriptFile('create_backup', [
                     args.path || '',
-                    args.compression === undefined ? 'true' : String(args.compression === true)
+                    args.compression === undefined ? 'true' : String(args.compression === true),
+                    String(args.wait_seconds === undefined ? 40 : Math.max(0, Math.min(70, Math.floor(Number(args.wait_seconds)) || 0))),
+                    String(args.status_only === true)
                 ]);
                 break;
 
@@ -1597,6 +1652,19 @@ async function executeTool(name, args) {
                     args.folder || '',
                     String(args.confirm_delete === true),
                     String(args.delete_contents === true)
+                ]);
+                break;
+
+            case 'purge_tasks':
+                // Deleting needs the explicit booleans: dry_run false and confirm_delete true; anything else only lists
+                result = await executeAppleScriptFile('purge_tasks', [
+                    ['completed', 'dropped', 'both'].includes(args.scope) ? args.scope : 'both',
+                    args.older_than_days === undefined || args.older_than_days === null || args.older_than_days === '' ? '' : String(Math.max(0, Math.min(36500, Math.floor(Number(args.older_than_days)) || 0))),
+                    args.folder || '',
+                    args.project || '',
+                    String(args.dry_run !== false),
+                    String(args.confirm_delete === true),
+                    String(sanitizeLimit(args.limit, 200))
                 ]);
                 break;
 

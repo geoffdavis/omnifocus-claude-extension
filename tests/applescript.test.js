@@ -106,7 +106,8 @@ describe('AppleScript Integration', () => {
                 'undo.applescript',
                 'list_folders.applescript',
                 'edit_folder.applescript',
-                'delete_folder.applescript'
+                'delete_folder.applescript',
+                'purge_tasks.applescript'
             ];
 
             enhancedScripts.forEach(script => {
@@ -528,11 +529,38 @@ describe('AppleScript Integration', () => {
 
         test('create_backup.applescript writes an archive only to a new path', () => {
             const content = read('create_backup.applescript');
-            expect(content).toContain('archive default document in (POSIX file archivePath)');
+            expect(content).toContain('archive default document in (POSIX file archivePath) compression compressionFlag');
             expect(content).toContain('exists already. Nothing was written');
             expect(content).toContain('The folder of the archive does not exist');
             expect(content).toContain('Give the full path of the archive');
             expect(content).toContain('Invalid value for compression');
+            expect(content).toContain('Invalid wait_seconds');
+        });
+
+        test('create_backup.applescript runs the archive command in its own process and reports its state by path and size', () => {
+            const content = read('create_backup.applescript');
+            // The archive command does not run inside the script that the server waits for: a slow archive must not block the
+            // call (the connection of the app gives up after about 80 seconds) or be cut off by the timeout of the server
+            expect(content).toContain('/usr/bin/nohup /usr/bin/osascript');
+            expect(content).toContain('> /dev/null 2>&1 & echo $!');
+            const runHandler = content.slice(content.indexOf('on run argv'), content.indexOf('on startArchive'));
+            expect(runHandler).not.toContain('tell application "OmniFocus"');
+            // wait at most wait_seconds (70 at most), then say how to check
+            expect(content).toContain('if waitSeconds > 70 then set waitSeconds to 70');
+            expect(content).toContain('Check it with create_backup, the same path and status_only true');
+            // the state: running, done, error, interrupted or unknown, with the size of the archive
+            expect(content).toContain('on backupState(markerPath)');
+            expect(content).toContain('/bin/kill -0');
+            expect(content).toContain('/usr/bin/du -sk');
+            expect(content).toContain('The backup is still being written');
+            expect(content).toContain('Wrote a backup archive of the database');
+            expect(content).toContain('OmniFocus could not write the archive');
+            expect(content).toContain('ended without a result');
+            // status_only starts nothing and is checked before the folder and the path are looked at
+            expect(content.indexOf('if statusOnly then return my statusReport')).toBeGreaterThan(-1);
+            expect(content.indexOf('if statusOnly then return my statusReport')).toBeLessThan(content.indexOf('startArchive(archivePath'));
+            // a backup that is already being written is waited for, a second one is not started
+            expect(content).toContain('if stateName is not "running" then');
         });
 
         test('edit_project.applescript supports the project types', () => {
@@ -1172,6 +1200,93 @@ describe('AppleScript Integration', () => {
             expect(content).toContain('delete targetFolder');
             expect(content).toContain('every flattened project of targetFolder');
             expect(content).toContain('my countText(projectCount');
+        });
+    });
+
+    describe('Purge tasks', () => {
+        const read = name => fs.readFileSync(path.join(enhancedScriptsDir, name), 'utf8');
+
+        test('purge_tasks.applescript only previews unless dry_run is false and confirm_delete is true', () => {
+            const content = read('purge_tasks.applescript');
+            expect(content).toContain('set dryRun to true');
+            expect(content).toContain('((my trimItem(item 5 of argv)) is not "false")');
+            expect(content).toContain('((my trimItem(item 6 of argv)) is "true")');
+            expect(content).toContain('if not dryRun and not confirmDelete then');
+            expect(content).toContain('Deleting is permanent and needs confirm_delete true. Nothing was deleted');
+            expect(content).toContain('Preview, nothing was deleted');
+            // deleting happens in one place only, after the preview branch has returned
+            expect([...content.matchAll(/\bdelete theTask\b/g)].length).toBe(1);
+            expect(content.indexOf('if dryRun then')).toBeLessThan(content.indexOf('delete theTask'));
+            expect(content).toContain('This cannot be undone');
+        });
+
+        test('purge_tasks.applescript checks every value before anything is read', () => {
+            const content = read('purge_tasks.applescript');
+            expect(content).toContain('Invalid scope');
+            expect(content).toContain('Invalid older_than_days');
+            expect(content).toContain('Invalid limit');
+            expect(content.indexOf('Invalid scope')).toBeLessThan(content.indexOf('set taskIDList to id of every flattened task'));
+            expect(content).toContain('The project " & (my projectLabel(targetProject)) & " is not in the folder');
+        });
+
+        test('purge_tasks.applescript touches only completed or dropped tasks, never open ones or project root tasks', () => {
+            const content = read('purge_tasks.applescript');
+            expect(content).toContain('set isOpen to (not isDone and not isEffDropped)');
+            expect(content).toContain('kindText is "completed" and includeCompleted');
+            expect(content).toContain('kindText is "dropped" and includeDropped');
+            expect(content).toContain('if inScope and not isRoot then');
+            // the state is checked again right before a task is deleted
+            expect(content).toContain('if kindText is "completed" and not isDone then');
+            expect(content).toContain('if kindText is "dropped" and not isOwnDropped then');
+            expect(content).toContain('if (id of theTask) is not theID then');
+        });
+
+        test('purge_tasks.applescript skips a task whose subtasks are not all part of the purge, and deletes subtasks first', () => {
+            const content = read('purge_tasks.applescript');
+            expect(content).toContain('set openBelow to {}');
+            expect(content).toContain('set otherBelow to {}');
+            expect(content).toContain('has open subtasks');
+            expect(content).toContain('has subtasks that are not part of this purge');
+            // deepest first: the sort key puts a task after all its subtasks
+            expect(content).toContain('set item i of keyList to (1000 - depthValue) * 3000000000 + (2000000000 - ageSeconds)');
+            expect(content).toContain('on sortPositionsAscending(positionList, keyList)');
+            // a parent is skipped when one of its subtasks could not be deleted
+            expect(content).toContain('set failedBelow to {}');
+            expect(content).toContain('a subtask could not be deleted');
+        });
+
+        test('purge_tasks.applescript works in the time that the app allows and reports the rest', () => {
+            const content = read('purge_tasks.applescript');
+            expect(content).toContain('set timeBudgetSeconds to 50');
+            expect(content).toContain('((current date) - startedAt) > timeBudgetSeconds');
+            expect(content).toContain('left to delete. Call again to continue.');
+            expect(content).toContain('Stopped after about');
+            // errors are collected per task, the loop goes on
+            expect(content).toContain('Not deleted (');
+            // at most 200 tasks by default
+            expect(content).toContain('set maxCount to 200');
+        });
+
+        test('purge_tasks.applescript counts tasks in hidden folders and the inbox, and marks them', () => {
+            const content = read('purge_tasks.applescript');
+            expect(content).toContain('(hidden folder)');
+            expect(content).toContain('hiddenProjectIDList contains theProjectID');
+            expect(content).toContain('set labelText to "Inbox"');
+            // without folder and project the whole database counts, also tasks without a project
+            expect(content).toContain('if scopeProjectIDList is not missing value then');
+        });
+
+        test('purge_tasks.applescript reads each property of all tasks once, not task by task', () => {
+            const content = read('purge_tasks.applescript');
+            ['id of every flattened task', 'completed of every flattened task', 'dropped of every flattened task',
+                'effectively dropped of every flattened task', 'completion date of every flattened task',
+                'dropped date of every flattened task', 'id of parent task of every flattened task',
+                'id of containing project of every flattened task'].forEach(query => {
+                expect(content).toContain(query);
+            });
+            // the only Apple Events per task are those of deleteOneTask (one task at a time, right before it is deleted)
+            const runHandler = content.slice(content.indexOf('on run argv'), content.indexOf('on deleteOneTask'));
+            expect(runHandler).not.toMatch(/repeat with[^\n]*\n(?:(?!end repeat)[\s\S])*tell application "OmniFocus"/);
         });
     });
 
