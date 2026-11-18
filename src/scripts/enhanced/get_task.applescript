@@ -232,9 +232,11 @@ on run argv
             -- Note, shortened if very long
             set attachmentText to my attachmentLines(targetTask)
             if attachmentText is not "" then set taskInfo to taskInfo & attachmentText & return
-            set taskNote to my markAttachments((note of targetTask) as text)
+            set noteInfo to my styledNote(targetTask)
+            set taskNote to my markAttachments(noteText of noteInfo)
             if taskNote is not "" then
                 if (length of taskNote) > 2000 then set taskNote to (text 1 thru 2000 of taskNote) & "..."
+                if styled of noteInfo then set taskInfo to taskInfo & "Note styles: **bold**, *italic*, __underlined__" & return
                 set taskInfo to taskInfo & "Note: " & taskNote & return
             end if
             return taskInfo
@@ -312,6 +314,123 @@ on attachmentLines(theItem)
     end repeat
     return reportText
 end attachmentLines
+
+on styledNote(theItem)
+    -- The note as text with the styles of its runs marked as **bold**, *italic* and __underlined__ (a link is left
+    -- as it is). Returns {noteText:..., styled:true or false}; a note without styles comes back unchanged.
+    set plainText to ""
+    tell application "OmniFocus"
+        try
+            set plainText to (note of theItem) as text
+        end try
+    end tell
+    if plainText is "" then return {noteText:"", styled:false}
+    set runTexts to {}
+    set runFonts to {}
+    set runUnderlines to {}
+    set runCount to 0
+    tell application "OmniFocus"
+        try
+            set runCount to count of attribute run of (note of theItem)
+            -- a very long chain of runs is shown as plain text
+            if runCount < 1 or runCount > 150 then return {noteText:plainText, styled:false}
+            try
+                set runTexts to text of every attribute run of (note of theItem)
+                set runFonts to font of every attribute run of (note of theItem)
+                set runUnderlines to underlined of every attribute run of (note of theItem)
+            end try
+            if (class of runTexts is not list) or (class of runFonts is not list) or (class of runUnderlines is not list) or (count of runTexts) is not runCount or (count of runFonts) is not runCount or (count of runUnderlines) is not runCount then
+                set runTexts to {}
+                set runFonts to {}
+                set runUnderlines to {}
+                repeat with i from 1 to runCount
+                    set end of runTexts to (text of attribute run i of (note of theItem))
+                    set end of runFonts to (font of attribute run i of (note of theItem))
+                    set end of runUnderlines to (underlined of attribute run i of (note of theItem))
+                end repeat
+            end if
+        on error
+            return {noteText:plainText, styled:false}
+        end try
+    end tell
+
+    -- The runs must make up the same text as the note
+    set joinedText to ""
+    repeat with i from 1 to runCount
+        set joinedText to joinedText & (item i of runTexts)
+    end repeat
+    if joinedText is not plainText then return {noteText:plainText, styled:false}
+
+    set composedText to ""
+    set anyStyled to false
+    repeat with i from 1 to runCount
+        set runText to item i of runTexts
+        set fontName to ""
+        try
+            set fontName to (item i of runFonts) as text
+        end try
+        set isBold to (fontName contains "bold") or (fontName contains "black") or (fontName contains "heavy")
+        set isItalic to (fontName contains "italic") or (fontName contains "oblique")
+        set isUnderlined to false
+        try
+            set isUnderlined to ((item i of runUnderlines) is true)
+        end try
+        if runText contains "://" then
+            set isBold to false
+            set isItalic to false
+            set isUnderlined to false
+        end if
+        if isBold or isItalic or isUnderlined then
+            set runParts to my splitRunSpace(runText)
+            if (coreText of runParts) is "" then
+                set composedText to composedText & runText
+            else
+                set openMarks to ""
+                set closeMarks to ""
+                if isBold then
+                    set openMarks to openMarks & "**"
+                    set closeMarks to "**" & closeMarks
+                end if
+                if isItalic then
+                    set openMarks to openMarks & "*"
+                    set closeMarks to "*" & closeMarks
+                end if
+                if isUnderlined then
+                    set openMarks to openMarks & "__"
+                    set closeMarks to "__" & closeMarks
+                end if
+                set composedText to composedText & (leadText of runParts) & openMarks & (coreText of runParts) & closeMarks & (trailText of runParts)
+                set anyStyled to true
+            end if
+        else
+            set composedText to composedText & runText
+        end if
+    end repeat
+    if not anyStyled then return {noteText:plainText, styled:false}
+    return {noteText:composedText, styled:true}
+end styledNote
+
+on splitRunSpace(runText)
+    -- Splits a text into the white space in front, the text itself and the white space behind it
+    set spaceChars to {" ", tab, linefeed, return}
+    set textLength to length of runText
+    set startPos to 1
+    repeat while startPos ≤ textLength
+        if (character startPos of runText) is not in spaceChars then exit repeat
+        set startPos to startPos + 1
+    end repeat
+    if startPos > textLength then return {leadText:runText, coreText:"", trailText:""}
+    set endPos to textLength
+    repeat while endPos > startPos
+        if (character endPos of runText) is not in spaceChars then exit repeat
+        set endPos to endPos - 1
+    end repeat
+    set leadPart to ""
+    if startPos > 1 then set leadPart to text 1 thru (startPos - 1) of runText
+    set trailPart to ""
+    if endPos < textLength then set trailPart to text (endPos + 1) thru textLength of runText
+    return {leadText:leadPart, coreText:text startPos thru endPos of runText, trailText:trailPart}
+end splitRunSpace
 
 on markAttachments(noteText)
     -- The note text holds one special character for each attachment; show it as a paperclip

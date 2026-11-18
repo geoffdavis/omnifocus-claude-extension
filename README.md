@@ -388,6 +388,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `create_project` | Create a project, optionally in a folder, with review interval, due and defer date, type and tags | "Create project 'Website 2.0' in 'Clients', review every 2 weeks" |
 | `edit_project` | Rename, change or extend note (`append_note`), attach or remove files (`attach_file`, `link_file`, `remove_attachment`), folder, status, type, review interval, next review date, due, defer and planned date, flag, completion behavior, time zone setting (`floating_time_zone`), the default project for single actions (`default_single_action_list`), tags (`tags`, `primary_tag`) and repetition of a project (`repeat`, `repeat_based_on`, `repeat_catch_up`) | "Review 'Website 2.0' every 2 weeks", "Repeat the project 'Monthly closing' on the 1st" |
 | `create_folder` | Create a folder, optionally inside another folder | "Create folder 'Clients'" |
+| `format_note` | Set or remove bold, italic and underline in the note of a task, project or folder (whole note, one paragraph or the places of a text); `get_task` and `get_project` show styles as `**bold**`, `*italic*`, `__underlined__` | "Make 'Deadline' bold in the note of 'Tax return'" |
 | `save_attachment` | Save an embedded attachment of a task, project or folder as a file | "Save the attachment of 'Answer the offer' to ~/Downloads/offer.pdf" |
 | `rename_folder` | Rename a folder | "Rename folder 'Clients' to 'Customers'" |
 | `list_folders` | Show all folders as a hierarchy with IDs, project counts, hidden folders and notes | "List my folders" |
@@ -459,6 +460,7 @@ omnifocus-claude-extension/
 │   │   │   ├── create_folder.applescript
 │   │   │   ├── rename_folder.applescript
 │   │   │   ├── list_folders.applescript
+│   │   │   ├── format_note.applescript
 │   │   │   ├── save_attachment.applescript
 │   │   │   ├── edit_folder.applescript
 │   │   │   ├── delete_folder.applescript

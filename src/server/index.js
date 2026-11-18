@@ -782,6 +782,49 @@ const tools = [
         }
     },
     {
+        name: 'format_note',
+        description: 'Set or remove bold, italic and underline in the note of a task, project or folder: for the whole note, for one paragraph, or for the places where a text occurs. Only the styles that are named change, the text of the note stays as it is. get_task and get_project show styled text as **bold**, *italic* and __underlined__. The text is searched case-sensitively; if its position in the note cannot be matched safely (for example with special characters in front of it), nothing is changed.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                item_type: {
+                    type: 'string',
+                    enum: ['task', 'project', 'folder'],
+                    description: 'What the note belongs to'
+                },
+                item: {
+                    type: 'string',
+                    description: 'Task (open, by name or "id:<id>"), project (name, path "Folder > Subfolder > Project" or "id:<id>") or folder (name, path or "id:<id>")'
+                },
+                text: {
+                    type: 'string',
+                    description: 'The text to style, every occurrence (case-sensitive). Without it the whole note, or the whole paragraph if paragraph is set.'
+                },
+                occurrence: {
+                    type: 'number',
+                    description: 'With text: only the n-th occurrence (1 is the first one). Without it every occurrence.'
+                },
+                paragraph: {
+                    type: 'number',
+                    description: 'Only this paragraph of the note (1 is the first one, lines are separated by a line feed); with text only the occurrences inside it'
+                },
+                bold: {
+                    type: 'boolean',
+                    description: 'true sets bold, false removes it, left out leaves it as it is'
+                },
+                italic: {
+                    type: 'boolean',
+                    description: 'true sets italic, false removes it, left out leaves it as it is'
+                },
+                underline: {
+                    type: 'boolean',
+                    description: 'true sets underline, false removes it, left out leaves it as it is'
+                }
+            },
+            required: ['item_type', 'item']
+        }
+    },
+    {
         name: 'get_selection',
         description: 'Show what the front OmniFocus window shows: the perspective, the search term, the focus and the selected items (tasks, projects, folders or tags, each with its ID, so that get_task, get_project, edit_task and the other tools can take it with "id:<id>"). Use it when the user says "this task", "the selected project" or "what I am looking at". Nothing is changed.',
         inputSchema: {
@@ -1680,6 +1723,23 @@ async function executeTool(name, args) {
                     args.item || '',
                     String(sanitizeLimit(args.number, 1, 100000)),
                     args.destination || ''
+                ]);
+                break;
+
+            case 'format_note':
+                if (args.bold === undefined && args.italic === undefined && args.underline === undefined) {
+                    result = '❌ At least one of bold, italic and underline is required (true sets the style, false removes it).';
+                    break;
+                }
+                result = await executeAppleScriptFile('format_note', [
+                    args.item_type || '',
+                    args.item || '',
+                    args.text === undefined || args.text === null ? '' : String(args.text),
+                    String(sanitizeLimit(args.occurrence, 0, 100000)),
+                    String(sanitizeLimit(args.paragraph, 0, 100000)),
+                    args.bold === undefined ? '' : String(args.bold === true),
+                    args.italic === undefined ? '' : String(args.italic === true),
+                    args.underline === undefined ? '' : String(args.underline === true)
                 ]);
                 break;
 

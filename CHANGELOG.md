@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_project` shows the dates of the next occurrence of a project that repeats on a fixed schedule, the number of
   available tasks at top level and whether the project is the default project for single actions; `edit_project` sets that
   flag (`default_single_action_list`, the flag leaves the project that had it and the answer names it)
+- **Styled notes**: `format_note` sets or removes bold, italic and underline in the note of a task, project or folder, for
+  the whole note, one paragraph or the places where a text occurs (`text`, `occurrence`, `paragraph`, `bold`, `italic`,
+  `underline`; only the styles that are named change, the text stays). The position of the text is compared with the
+  note before anything is changed, a position that cannot be matched safely changes nothing. `get_task` and `get_project`
+  show styled text as `**bold**`, `*italic*` and `__underlined__` (with a line `Note styles:`; links are left as they are)
 - **Projects with a tag**: OmniFocus keeps the tags of a project on its hidden root task and counts the project as one
   remaining task of the tag, so `list_tags` counted one more than `list_tasks_by_tag` listed. `list_tasks_by_tag` now lists
   the open projects that carry the tag (or a child tag) in a block of their own with flag, due date, `on hold`, tags,

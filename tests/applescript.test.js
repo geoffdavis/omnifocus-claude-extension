@@ -98,6 +98,7 @@ describe('AppleScript Integration', () => {
                 'get_selected_link.applescript',
                 'synchronize.applescript',
                 'save_attachment.applescript',
+                'format_note.applescript',
                 'get_selection.applescript',
                 'set_view.applescript',
                 'show_item.applescript',
@@ -1046,7 +1047,7 @@ describe('AppleScript Integration', () => {
             ['get_task.applescript', 'get_project.applescript'].forEach(file => {
                 const content = read(file);
                 expect(content).toContain('my attachmentLines(');
-                expect(content).toContain('my markAttachments((note of');
+                expect(content).toContain('my markAttachments(noteText of noteInfo)');
                 expect(content).toContain('on attachmentLines(theItem)');
                 expect(content).toContain('embedded of (file attachment i of (note of theItem))');
                 expect(content).toContain('set fileReference to file name of (file attachment i of (note of theItem))');
@@ -1464,6 +1465,74 @@ describe('AppleScript Integration', () => {
             expect(server).toContain("String(args.include_projects !== false)");
             expect(server).toContain('include_projects: {');
             expect(server).toContain('a project that carries the tag counts as one task');
+        });
+
+        test('format_note styles ranges of the note and checks the position before anything is changed', () => {
+            const script = read('format_note.applescript');
+            // bold is the weight of the font set on the style (the command bold does nothing on italic text), on each run
+            // of text of its own (a style on a range over several runs replaces their other styles), italic and underline
+            // are commands of OmniFocus, on the whole note or on ranges of characters
+            expect(script).toContain('set runLengths to {}');
+            expect(script).toContain('set runTexts to text of every attribute run of (note of targetItem)');
+            expect(script).not.toContain('length of (text of attribute run');
+            expect(script).toContain('if runSum is not (length of noteText) then');
+            expect(script).toContain('set value of attribute "font-weight" of (style of attribute run r of (note of targetItem)) to 12');
+            expect(script).toContain('clear (attribute "font-weight" of (style of attribute run r of (note of targetItem)))');
+            expect(script).toContain('set value of attribute "font-weight" of (style of (characters partStart thru partEnd of (note of targetItem))) to 12');
+            expect(script).toContain('clear (attribute "font-weight" of (style of (characters partStart thru partEnd of (note of targetItem))))');
+            expect(script).toContain('bold (characters partStart thru partEnd of (note of targetItem))');
+            expect(script).toContain('unbold (characters rangeStart thru rangeEnd of (note of targetItem))');
+            expect(script).not.toContain('style of (note of targetItem)');
+            ['italicize (note of targetItem)', 'unitalicize (note of targetItem)', 'underline (note of targetItem)', 'ununderline (note of targetItem)',
+                'italicize (characters rangeStart thru rangeEnd of (note of targetItem))', 'unitalicize (characters rangeStart thru rangeEnd of (note of targetItem))',
+                'underline (characters rangeStart thru rangeEnd of (note of targetItem))', 'ununderline (characters rangeStart thru rangeEnd of (note of targetItem))'].forEach(command => {
+                expect(script).toContain(command);
+            });
+            // task, project and folder like save_attachment, and the root task of a project is refused
+            expect(script).toContain('else if itemType is "folder" then');
+            expect(script).toContain('is a project, not a task: ');
+            // text is searched with case, ranges come from positions and are compared with the note before the first change
+            expect(script).toContain('considering case');
+            expect(script).toContain('set foundAt to offset of searchText in remainderText');
+            expect(script).toContain('set actualText to ((characters rangeStart thru rangeEnd of (note of targetItem)) as text)');
+            expect(script).toContain('could not be matched safely');
+            expect(script.indexOf('could not be matched safely')).toBeLessThan(script.indexOf('set value of attribute "font-weight"'));
+            // whole numbers only, a style is true, false or nothing
+            expect(script).toContain('if my isDigits(occurrenceText) and (length of occurrenceText) < 6 then');
+            expect(script).toContain('At least one of bold, italic and underline is required');
+            // the number is turned into text before it is put in front of a text
+            expect(script).toContain('set placeText to ((count of rangeStarts) as text) & " place(s) of');
+        });
+
+        test('format_note is a tool and passes the styles only when they are set', () => {
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(server).toContain("name: 'format_note'");
+            expect(server).toContain("case 'format_note':");
+            expect(server).toContain("args.bold === undefined ? '' : String(args.bold === true)");
+            expect(server).toContain("args.underline === undefined ? '' : String(args.underline === true)");
+            expect(server).toContain("At least one of bold, italic and underline is required (true sets the style, false removes it).");
+            expect(server).toContain('**bold**, *italic* and __underlined__');
+        });
+
+        test('get_task and get_project show bold, italic and underline of the note as markers', () => {
+            ['get_task.applescript', 'get_project.applescript'].forEach(file => {
+                const script = read(file);
+                expect(script).toContain('on styledNote(theItem)');
+                expect(script).toContain('on splitRunSpace(runText)');
+                expect(script).toContain('set noteInfo to my styledNote(');
+                expect(script).toContain('Note styles: **bold**, *italic*, __underlined__');
+                // the styles come from the font name and underline of the runs, a link is left as it is
+                expect(script).toContain('set isBold to (fontName contains "bold") or (fontName contains "black") or (fontName contains "heavy")');
+                expect(script).toContain('set isItalic to (fontName contains "italic") or (fontName contains "oblique")');
+                expect(script).toContain('if runText contains "://" then');
+                // one query for all runs, one at a time as the fallback
+                expect(script).toContain('set runFonts to font of every attribute run of (note of theItem)');
+                expect(script).toContain('set end of runFonts to (font of attribute run i of (note of theItem))');
+                // the runs must make up the note, otherwise the plain text is shown
+                expect(script).toContain('if joinedText is not plainText then return {noteText:plainText, styled:false}');
+                // attachments are marked afterwards, the shortening comes last
+                expect(script.indexOf('my markAttachments(noteText of noteInfo)')).toBeGreaterThan(script.indexOf('set noteInfo to my styledNote('));
+            });
         });
 
         test('get_task names a task with a future start "deferred" and keeps "blocked" for the others', () => {
