@@ -395,7 +395,7 @@ project, completed tasks a `✓`, dropped ones a `🚫`. Items below hidden (dro
 | `delete_folder` | Delete a folder (needs `confirm_delete`; a folder with content only with `delete_contents`) | "Delete the empty folder 'Test'" |
 | `purge_tasks` | Delete completed and/or dropped tasks permanently (preview by default; deleting needs `dry_run: false` and `confirm_delete`), optionally only older than N days, in a folder or a project | "Show which completed tasks older than a year could be deleted" |
 | `list_available_tasks` | Next actions across all projects, optionally by tag, folder, a single project or time (`max_minutes`) | "What can I work on now?" |
-| `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`) | "Show tasks tagged 'Waiting for'" |
+| `list_tasks_by_tag` | Open tasks with a tag, grouped by project (or one `project`), or oldest first with their age (`show_age`); projects that carry the tag are listed in a block of their own | "Show tasks tagged 'Waiting for'" |
 | `parse_tasks` | Turn text, or the note of a task, into tasks and subtasks | "Turn the note of 'Plan offsite' into subtasks" |
 | `get_selected_link` | What is selected or open in Mail, Safari, Chrome and other Chromium browsers, Finder or Contacts, with a link that opens it again | "Put the link to the selected mail in the note of 'Answer the offer'" |
 | `undo` | Undo or redo the last change(s) in OmniFocus, whoever made them | "Undo that" |

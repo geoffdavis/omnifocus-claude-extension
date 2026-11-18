@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_project` shows the dates of the next occurrence of a project that repeats on a fixed schedule, the number of
   available tasks at top level and whether the project is the default project for single actions; `edit_project` sets that
   flag (`default_single_action_list`, the flag leaves the project that had it and the answer names it)
+- **Projects with a tag**: OmniFocus keeps the tags of a project on its hidden root task and counts the project as one
+  remaining task of the tag, so `list_tags` counted one more than `list_tasks_by_tag` listed. `list_tasks_by_tag` now lists
+  the open projects that carry the tag (or a child tag) in a block of their own with flag, due date, `on hold`, tags,
+  ID and folder (`include_projects`, default on; not with `available_only`, `max_minutes` or `project`). The text of
+  `list_tags` says that such a project counts as one task
 - **Projects are no tasks**: OmniFocus gives every project a hidden root task with the ID of the project, which the task
   tools found by ID or by name. `get_task` now answers with a pointer to `get_project`; `complete_task`, `drop_task`,
   `reopen_task`, `edit_task`, `add_tag_to_task`, `remove_tag_from_task` and the tools that take a task by name or ID

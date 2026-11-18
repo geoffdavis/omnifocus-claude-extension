@@ -952,7 +952,7 @@ describe('AppleScript Integration', () => {
 
         test('the server passes the project to both task list tools', () => {
             const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
-            expect((server.match(/args\.project \|\| ''\n                \]\);/g) || []).length).toBeGreaterThanOrEqual(2);
+            expect((server.match(/args\.project \|\| ''(,\n\s+String\(args\.include_projects !== false\))?\n\s+\]\);/g) || []).length).toBeGreaterThanOrEqual(2);
         });
 
         test('list_perspectives.applescript separates built-in and custom perspectives', () => {
@@ -1442,6 +1442,28 @@ describe('AppleScript Integration', () => {
             expect(task).toContain('"Available subtasks: "');
             // the line "Subtasks: N (...)" keeps its form
             expect(task).toContain('"Subtasks: " & subtaskCount');
+        });
+
+        test('list_tasks_by_tag lists the open projects that carry the tag in a block of their own', () => {
+            const script = read('list_tasks_filtered.applescript');
+            // the tags of a project sit on its root task (the task ID equals the project ID)
+            expect(script).toContain('if includeProjects and (count of tagObjects) > 0 and not availableOnly and maxMinutes = 0 and projectFilterLabel is "" then');
+            expect(script).toContain('if rootID is (item i of taskProjectIDList) and (seenProjectIDs does not contain rootID) then');
+            // only open projects (active or on hold), not those below hidden folders, with the folder filter
+            expect(script).toContain('(item projectIndex of projectActiveList) or (item projectIndex of projectOnHoldList)');
+            expect(script).toContain('set projectHeading to "📂 Projects tagged');
+            // projects alone are a result, the block comes after the tasks
+            expect(script).toContain('if matchCount = 0 and projectCount = 0 then');
+            expect(script.indexOf('set projectHeading to')).toBeGreaterThan(script.indexOf('Limit of '));
+            // the tasks keep leaving out the root task
+            expect(script).toContain('A project without tasks is returned like a task and has the same id');
+            // the parameter is the 11th argument and defaults to off for the other tools
+            expect(script).toContain('set includeProjects to false');
+            expect(script).toContain('if (count of argv) > 10 then set includeProjects to (item 11 of argv is "true")');
+            const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(server).toContain("String(args.include_projects !== false)");
+            expect(server).toContain('include_projects: {');
+            expect(server).toContain('a project that carries the tag counts as one task');
         });
 
         test('get_task names a task with a future start "deferred" and keeps "blocked" for the others', () => {

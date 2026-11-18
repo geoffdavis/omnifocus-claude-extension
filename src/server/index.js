@@ -460,7 +460,7 @@ const tools = [
     // Tag management tools
     {
         name: 'list_tags',
-        description: 'List all tags in OmniFocus as a hierarchy with ID, a note for hidden tags and tags that do not allow next actions, and the location of a tag (name, latitude, longitude, radius, trigger), optionally with per-tag task counts: the remaining and the available tasks as OmniFocus counts them, the tasks of child tags included',
+        description: 'List all tags in OmniFocus as a hierarchy with ID, a note for hidden tags and tags that do not allow next actions, and the location of a tag (name, latitude, longitude, radius, trigger), optionally with per-tag task counts: the remaining and the available tasks as OmniFocus counts them, the tasks of child tags included (a project that carries the tag counts as one task, list_tasks_by_tag shows these projects)',
         inputSchema: {
             type: 'object',
             properties: {
@@ -1008,7 +1008,7 @@ const tools = [
     },
     {
         name: 'list_tasks_by_tag',
-        description: 'List the open tasks that carry a tag, grouped by project. Works for contexts, people or a "waiting for" tag. Shows deferred and blocked tasks as well unless available_only is set. With show_age the tasks are listed oldest first with their age, to see what to follow up on in a "waiting for" list.',
+        description: 'List the open tasks that carry a tag, grouped by project. Works for contexts, people or a "waiting for" tag. Shows deferred and blocked tasks as well unless available_only is set. With show_age the tasks are listed oldest first with their age, to see what to follow up on in a "waiting for" list. Open projects that carry the tag are listed in a block of their own (OmniFocus counts such a project as a remaining task of the tag).',
         inputSchema: {
             type: 'object',
             properties: {
@@ -1043,6 +1043,11 @@ const tools = [
                     type: 'boolean',
                     description: 'Show how long each task exists (creation date) and list the tasks as one flat list, oldest first, with their project. Useful for a "waiting for" list to see what to follow up on.',
                     default: false
+                },
+                include_projects: {
+                    type: 'boolean',
+                    description: 'Also list the open projects that carry the tag (or a child tag) in a block of their own. Not with available_only, max_minutes or project, because a project is no task that can be worked on.',
+                    default: true
                 },
                 limit: {
                     type: 'number',
@@ -1580,7 +1585,8 @@ async function executeTool(name, args) {
                     String(sanitizeLimit(args.max_minutes, 0, 100000)),
                     String(args.include_unestimated === true),
                     String(args.show_age === true),
-                    args.project || ''
+                    args.project || '',
+                    String(args.include_projects !== false)
                 ]);
                 break;
 

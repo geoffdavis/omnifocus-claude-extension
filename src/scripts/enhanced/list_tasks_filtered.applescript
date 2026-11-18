@@ -1,6 +1,6 @@
 on run argv
     -- List open tasks, optionally filtered by tag, folder and availability
-    -- Usage: list_tasks_filtered.applescript "tag" "folder" "available_only" "include_subtags" "include_inbox" "limit" "max_minutes" "include_unestimated" "show_age" "project"
+    -- Usage: list_tasks_filtered.applescript "tag" "folder" "available_only" "include_subtags" "include_inbox" "limit" "max_minutes" "include_unestimated" "show_age" "project" "include_projects"
     --   tag:             tag name, part of a name or path "Parent > Tag" ("" = no tag filter)
     --   folder:          only projects whose folder path contains this text ("" = all folders)
     --   available_only:  "true" leaves out blocked and deferred tasks, tasks of projects that are
@@ -13,6 +13,9 @@ on run argv
     --   show_age:        "true" shows how long each task exists (creation date) and lists the tasks as one
     --                    flat list, oldest first, with the project of each task
     --   project:         only the tasks of this project (name, "Folder > Project" or "id:<id>"; "" = all projects)
+    --   include_projects: "true" with a tag also lists the open projects that carry the tag (the tags of a project sit on
+    --                    its hidden root task, which OmniFocus counts as a remaining task of the tag). Not with
+    --                    available_only, max_minutes or a project filter.
     -- Dropped items and items below dropped (hidden) folders are always left out.
 
     set tagQuery to ""
@@ -25,6 +28,7 @@ on run argv
     set includeUnestimated to false
     set showAge to false
     set projectQuery to ""
+    set includeProjects to false
     if (count of argv) > 0 then set tagQuery to my trimItem(item 1 of argv)
     if (count of argv) > 1 then set folderQuery to my trimItem(item 2 of argv)
     if (count of argv) > 2 then set availableOnly to (item 3 of argv is "true")
@@ -45,6 +49,7 @@ on run argv
     if (count of argv) > 7 then set includeUnestimated to (item 8 of argv is "true")
     if (count of argv) > 8 then set showAge to (item 9 of argv is "true")
     if (count of argv) > 9 then set projectQuery to my trimItem(item 10 of argv)
+    if (count of argv) > 10 then set includeProjects to (item 11 of argv is "true")
 
     -- Resolve the tag, including its child tags if requested
     set tagObjects to {}
@@ -110,8 +115,10 @@ on run argv
             set folderNameList to name of every flattened folder
             set folderParentIDList to id of container of every flattened folder
             set projectActiveList to {}
+            set projectOnHoldList to {}
             repeat with aStatus in projectStatusList
                 set end of projectActiveList to ((contents of aStatus) is active status)
+                set end of projectOnHoldList to ((contents of aStatus) is on hold status)
             end repeat
         end tell
     end tell
@@ -318,6 +325,58 @@ on run argv
         end if
     end repeat
 
+    -- Projects that carry the tag. The tags of a project sit on its hidden root task (same ID as the project), which
+    -- OmniFocus counts as a remaining task of the tag, so they are listed in a block of their own
+    set projectBlockText to ""
+    set projectCount to 0
+    if includeProjects and (count of tagObjects) > 0 and not availableOnly and maxMinutes = 0 and projectFilterLabel is "" then
+        set seenProjectIDs to {}
+        repeat with candidateIndex in candidateIndexes
+            set i to contents of candidateIndex
+            set rootID to item i of taskIDList
+            if rootID is (item i of taskProjectIDList) and (seenProjectIDs does not contain rootID) then
+                set end of seenProjectIDs to rootID
+                set projectIndex to my indexOfItem(rootID, projectIDList)
+                set keepProject to (projectIndex > 0)
+                if keepProject then
+                    if not ((item projectIndex of projectActiveList) or (item projectIndex of projectOnHoldList)) then set keepProject to false
+                end if
+                if keepProject and checkHidden then
+                    if hiddenProjectIDList contains rootID then set keepProject to false
+                end if
+                set folderPathText to ""
+                if keepProject then
+                    set folderPathText to my folderPathOf(item projectIndex of projectFolderIDList, folderIDList, folderNameList, folderParentIDList)
+                    if folderQuery is not "" then
+                        ignoring case
+                            if folderPathText does not contain folderQuery then set keepProject to false
+                        end ignoring
+                    end if
+                end if
+                if keepProject then
+                    set projectCount to projectCount + 1
+                    set entry to "• " & (item projectIndex of projectNameList)
+                    if item i of flaggedList then set entry to entry & " 🚩"
+                    set dueDate to item i of dueDateList
+                    if dueDate is not missing value then
+                        if dueDate < nowDate then
+                            set entry to entry & " ⚠️ overdue since " & (my shortDate(dueDate))
+                        else
+                            set entry to entry & " 📅 due " & (my shortDate(dueDate))
+                        end if
+                    end if
+                    if item projectIndex of projectOnHoldList then set entry to entry & " ⏸ on hold"
+                    set tagNames to item i of tagNameLists
+                    if class of tagNames is not list then set tagNames to {tagNames}
+                    if (count of tagNames) > 0 then set entry to entry & " 🏷 " & my joinText(tagNames, ", ")
+                    set entry to entry & " [id:" & rootID & "]"
+                    if folderPathText is not "" then set entry to entry & " (" & folderPathText & ")"
+                    set projectBlockText to projectBlockText & return & entry
+                end if
+            end if
+        end repeat
+    end if
+
     -- Build the report
     set titleText to "🔎 Open tasks"
     if availableOnly then set titleText to "✅ Available tasks"
@@ -334,11 +393,13 @@ on run argv
         if includeUnestimated then set filterText to filterText & " (or none)"
     end if
 
-    if matchCount = 0 then
+    if matchCount = 0 and projectCount = 0 then
         return titleText & filterText & ": none found"
     end if
 
-    if showAge then
+    if matchCount = 0 then
+        set reportText to titleText & filterText & ": none found"
+    else if showAge then
         if (count of flatTexts) > maxResults then
             set flatTexts to items 1 thru maxResults of flatTexts
             set hitLimit to true
@@ -356,6 +417,11 @@ on run argv
     end if
     if hitLimit then
         set reportText to reportText & return & return & "… Limit of " & maxResults & " tasks reached, more tasks may match."
+    end if
+    if projectCount > 0 then
+        set projectHeading to "📂 Projects tagged \"" & tagDisplayName & "\""
+        if includeSubtags then set projectHeading to projectHeading & " (or a child tag)"
+        set reportText to reportText & return & return & projectHeading & " (" & projectCount & ")" & projectBlockText
     end if
     return reportText
 end run
