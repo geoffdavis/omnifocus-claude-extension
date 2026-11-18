@@ -71,6 +71,8 @@ on run argv
     set reportText to reportText & return & "Focus: " & focusText
     set viewText to my viewOptionsText(theWindow)
     if viewText is not "" then set reportText to reportText & return & "List view: " & viewText
+    set rowsText to my rowsSummary(theWindow)
+    if rowsText is not "" then set reportText to reportText & return & "List rows: " & rowsText
 
     if contentTotal = 0 and sidebarTotal = 0 then
         return reportText & return & "Selected: nothing"
@@ -127,6 +129,32 @@ on viewOptionsText(theWindow)
     set AppleScript's text item delimiters to oldDelims
     return joined
 end viewOptionsText
+
+on rowsSummary(theWindow)
+    -- "88 (16 expanded, 0 with notes shown)": the rows of the list, hidden ones below collapsed rows included ("" if there are none)
+    set expandedStates to {}
+    set noteStates to {}
+    tell application "OmniFocus"
+        try
+            set expandedStates to expanded of every descendant tree of (content of theWindow)
+        end try
+        try
+            set noteStates to note expanded of every descendant tree of (content of theWindow)
+        end try
+    end tell
+    if class of expandedStates is not list then set expandedStates to {expandedStates}
+    if class of noteStates is not list then set noteStates to {noteStates}
+    if (count of expandedStates) = 0 then return ""
+    set expandedTotal to 0
+    repeat with aState in expandedStates
+        if (contents of aState) is true then set expandedTotal to expandedTotal + 1
+    end repeat
+    set noteTotal to 0
+    repeat with aState in noteStates
+        if (contents of aState) is true then set noteTotal to noteTotal + 1
+    end repeat
+    return ((count of expandedStates) as text) & " (" & expandedTotal & " expanded, " & noteTotal & " with notes shown)"
+end rowsSummary
 
 on describeTree(aTree)
     -- "task: Name [id:…]" for one selected row of the content area or the sidebar

@@ -826,7 +826,7 @@ const tools = [
     },
     {
         name: 'get_selection',
-        description: 'Show what the front OmniFocus window shows: the perspective, the search term, the focus, the grouping, sorting and filters of the list (as the identifiers that set_view takes) and the selected items (tasks, projects, folders or tags, each with its ID, so that get_task, get_project, edit_task and the other tools can take it with "id:<id>"). Use it when the user says "this task", "the selected project" or "what I am looking at". Nothing is changed.',
+        description: 'Show what the front OmniFocus window shows: the perspective, the search term, the focus, the grouping, sorting and filters of the list (as the identifiers that set_view takes), the number of rows of the list with those expanded and those that show their note, and the selected items (tasks, projects, folders or tags, each with its ID, so that get_task, get_project, edit_task and the other tools can take it with "id:<id>"). Use it when the user says "this task", "the selected project" or "what I am looking at". Nothing is changed.',
         inputSchema: {
             type: 'object',
             properties: {}
@@ -834,7 +834,7 @@ const tools = [
     },
     {
         name: 'set_view',
-        description: 'Change what the front OmniFocus window shows: switch the perspective, group, sort or filter the list, choose a smart group of the sidebar, search for text, or focus on a project or folder. Only the view changes, no task, project or folder is touched. At least one option is required. The perspective is switched first, so grouping, sorting and filters apply to it; an identifier that the view does not offer is answered with the list of those it offers. Use get_selection to see the current view and list_perspectives for the available perspectives.',
+        description: 'Change what the front OmniFocus window shows: switch the perspective, group, sort or filter the list, choose a smart group of the sidebar, expand or collapse all rows, show or hide the notes in the list, search for text, or focus on a project or folder. Only the view changes, no task, project or folder is touched. At least one option is required. The perspective is switched first, so grouping, sorting and filters apply to it; an identifier that the view does not offer is answered with the list of those it offers. Use get_selection to see the current view and list_perspectives for the available perspectives.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -873,6 +873,28 @@ const tools = [
                 smart_group: {
                     type: 'string',
                     description: 'Smart group of the sidebar of the Projects perspective: "all-projects", "remaining-projects", "active-projects", "stalled-projects", "pending-projects", "on-hold-projects", "dropped-projects" or "completed-projects"'
+                },
+                expand: {
+                    type: 'string',
+                    enum: ['all', 'none'],
+                    description: '"all" expands every row of the list that has rows below it, "none" collapses all of them (collapsing can clear the selection of the list)'
+                },
+                show_notes: {
+                    type: 'boolean',
+                    description: 'true shows the notes of the rows in the list, false hides them'
+                }
+            }
+        }
+    },
+    {
+        name: 'get_forecast',
+        description: 'Show the days of the Forecast with the badge counts that the Forecast sidebar of OmniFocus shows ("Past", "Today" and the following days). OmniFocus gives the days only while the Forecast is shown, so the window switches to the Forecast for a moment and back to the perspective of before. Nothing but the view changes. Use list_tasks_by_date or list_due_soon for the tasks of a day.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                days: {
+                    type: 'number',
+                    description: 'How many days to list, from "Past" on (default 14, at most 35)'
                 }
             }
         }
@@ -1782,7 +1804,15 @@ async function executeTool(name, args) {
                     args.task_filter || '',
                     args.duration_filter || '',
                     args.flagged_filter || '',
-                    args.smart_group || ''
+                    args.smart_group || '',
+                    args.expand || '',
+                    args.show_notes === undefined || args.show_notes === null ? '' : String(args.show_notes === true)
+                ]);
+                break;
+
+            case 'get_forecast':
+                result = await executeAppleScriptFile('get_forecast', [
+                    String(sanitizeLimit(args.days, 14, 35))
                 ]);
                 break;
 

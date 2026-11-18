@@ -1,12 +1,14 @@
 on run argv
     -- Change what the front OmniFocus window shows: perspective, grouping, sorting, filters, search term and focus.
-    -- Usage: set_view.applescript "perspective" "search term" "change search" "focus" ["grouping" "sorting" "task filter" "duration filter" "flag filter" "smart group"]
+    -- Usage: set_view.applescript "perspective" "search term" "change search" "focus" ["grouping" "sorting" "task filter" "duration filter" "flag filter" "smart group" "expand" "show notes"]
     --   perspective:   name of a built-in or custom perspective (empty = keep the current one)
     --   search term:   text for the search field
     --   change search: "yes" sets the search term (an empty term clears the search), anything else keeps it
     --   focus:         project or folder to focus on, or "none" to remove the focus (empty = keep it)
     --   grouping, sorting, task filter, duration filter, flag filter: the identifiers that OmniFocus offers for the list of the
     --                  window (empty = keep it), smart group: the identifier of a smart group of the sidebar (Projects)
+    --   expand:        "all" expands and "none" collapses every row of the list (empty = keep it)
+    --   show notes:    "true" shows and "false" hides the notes in the list (empty = keep it)
     -- Only the view of the window changes, no task, project or folder is touched.
 
     if (count of argv) < 4 then
@@ -20,6 +22,16 @@ on run argv
     repeat with k from 1 to 6
         if (count of argv) ≥ 4 + k then set item k of optionWanted to my trimText(item (4 + k) of argv)
     end repeat
+    set expandText to ""
+    set notesText to ""
+    if (count of argv) ≥ 11 then set expandText to my trimText(item 11 of argv)
+    if (count of argv) ≥ 12 then set notesText to my trimText(item 12 of argv)
+    if expandText is not "" and expandText is not "all" and expandText is not "none" then
+        return "❌ expand takes all or none."
+    end if
+    if notesText is not "" and notesText is not "true" and notesText is not "false" then
+        return "❌ show_notes takes true or false."
+    end if
     set optionKinds to {"grouping", "sorting", "status", "duration", "flagged", "smart group"}
     set optionLabels to {"Grouping", "Sorting", "Task filter", "Duration filter", "Flag filter", "Smart group"}
     set anyOption to false
@@ -27,8 +39,8 @@ on run argv
         if (contents of wantedText) is not "" then set anyOption to true
     end repeat
 
-    if perspectiveText is "" and not changeSearch and focusText is "" and not anyOption then
-        return "❌ Give a perspective, a view option (grouping, sorting, filters, smart group), a search term or a focus."
+    if perspectiveText is "" and not changeSearch and focusText is "" and not anyOption and expandText is "" and notesText is "" then
+        return "❌ Give a perspective, a view option (grouping, sorting, filters, smart group, expand, show_notes), a search term or a focus."
     end if
 
     -- The front window of the default document
@@ -191,8 +203,69 @@ on run argv
         end if
     end if
 
+    -- Rows of the list: expand or collapse all of them, show or hide the notes (after the search and the focus, which change the rows)
+    if expandText is not "" or notesText is not "" then
+        delay 0.5
+        if expandText is not "" then
+            tell application "OmniFocus"
+                try
+                    set expanded of every descendant tree of (content of theWindow) to (expandText is "all")
+                on error errMsg
+                    return my withEarlier(resultLines, "❌ Could not change the rows of the list: " & errMsg)
+                end try
+            end tell
+        end if
+        if notesText is not "" then
+            -- OmniFocus refuses the change for a row that cannot show a note (a group, for example), so every row is tried on its own
+            set rowTotal to 0
+            tell application "OmniFocus"
+                try
+                    set rowTotal to count of descendant tree of (content of theWindow)
+                end try
+                repeat with i from 1 to rowTotal
+                    try
+                        set note expanded of descendant tree i of (content of theWindow) to (notesText is "true")
+                    end try
+                end repeat
+            end tell
+        end if
+        delay 0.5
+        set rowInfo to my rowStateCounts(theWindow)
+        if (rowCount of rowInfo) = 0 then
+            set end of resultLines to "⚠️ The list has no rows to expand, collapse or show notes for."
+        else
+            if expandText is not "" then set end of resultLines to "↕️ Rows: " & (expandedCount of rowInfo) & " of " & (rowCount of rowInfo) & " expanded (only rows with rows below them can be expanded)"
+            if notesText is not "" then set end of resultLines to "📝 Notes shown in the list: " & (noteCount of rowInfo) & " of " & (rowCount of rowInfo) & " rows (a row that cannot show a note stays as it is)"
+        end if
+    end if
+
     return my joinText(resultLines, return)
 end run
+
+on rowStateCounts(theWindow)
+    -- The number of rows of the list (hidden ones below collapsed rows included), of expanded rows and of rows that show their note
+    set expandedStates to {}
+    set noteStates to {}
+    tell application "OmniFocus"
+        try
+            set expandedStates to expanded of every descendant tree of (content of theWindow)
+        end try
+        try
+            set noteStates to note expanded of every descendant tree of (content of theWindow)
+        end try
+    end tell
+    if class of expandedStates is not list then set expandedStates to {expandedStates}
+    if class of noteStates is not list then set noteStates to {noteStates}
+    set expandedTotal to 0
+    repeat with aState in expandedStates
+        if (contents of aState) is true then set expandedTotal to expandedTotal + 1
+    end repeat
+    set noteTotal to 0
+    repeat with aState in noteStates
+        if (contents of aState) is true then set noteTotal to noteTotal + 1
+    end repeat
+    return {rowCount:(count of expandedStates), expandedCount:expandedTotal, noteCount:noteTotal}
+end rowStateCounts
 
 on viewOptionList(theWindow, optionKind)
     -- The identifiers that OmniFocus offers for one view option of the window (an empty list if there are none)

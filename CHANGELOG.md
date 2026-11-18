@@ -21,7 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `sorting`, `task_filter`, `duration_filter`, `flagged_filter`) and the smart group of the sidebar of the Projects
   perspective (`smart_group`), with the identifiers that OmniFocus offers for the current view; the perspective is switched
   first, a value that the view does not offer is answered with the list of those it offers, and the result is checked.
-  `get_selection` shows the current values in a line `List view:`
+  `get_selection` shows the current values in a line `List view:`. `expand` (`all` or `none`) expands or collapses every row of
+  the list and `show_notes` shows or hides the notes in the list; `get_selection` shows the number of rows in a line
+  `List rows:`. The new tool `get_forecast` lists the days of the Forecast with the badge counts of the Forecast sidebar
+  (the window switches to the Forecast for a moment and back)
 - **Styled notes**: `format_note` sets or removes bold, italic and underline in the note of a task, project or folder, for
   the whole note, one paragraph or the places where a text occurs (`text`, `occurrence`, `paragraph`, `bold`, `italic`,
   `underline`; only the styles that are named change, the text stays). The position of the text is compared with the

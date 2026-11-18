@@ -100,6 +100,7 @@ describe('AppleScript Integration', () => {
                 'save_attachment.applescript',
                 'format_note.applescript',
                 'get_selection.applescript',
+                'get_forecast.applescript',
                 'set_view.applescript',
                 'show_item.applescript',
                 'duplicate_item.applescript',
@@ -1162,6 +1163,43 @@ describe('AppleScript Integration', () => {
                 expect(content).toContain(`"${label} " & `);
             });
             expect(content).not.toMatch(/set selected [a-z ]+ identifier/);
+        });
+
+        test('set_view expands, collapses and shows notes for all rows at once and reads the numbers back', () => {
+            const content = read('set_view.applescript');
+            expect(content).toContain('set expanded of every descendant tree of (content of theWindow) to (expandText is "all")');
+            // OmniFocus refuses the change for a row that cannot show a note, so each row is set on its own
+            expect(content).toContain('set note expanded of descendant tree i of (content of theWindow) to (notesText is "true")');
+            expect(content).not.toContain('set note expanded of every descendant tree');
+            expect(content).toContain('on rowStateCounts(');
+            expect(content).toContain('expand takes all or none');
+            expect(content).toContain('show_notes takes true or false');
+            // after the search and the focus, which change the rows
+            expect(content.indexOf('set focus of theWindow to {focusItem}')).toBeLessThan(content.indexOf('set expanded of every descendant tree'));
+        });
+
+        test('get_selection shows how many rows the list has, expanded and with notes', () => {
+            const content = read('get_selection.applescript');
+            expect(content).toContain('on rowsSummary(');
+            expect(content).toContain('"List rows: "');
+            expect(content).toContain('expanded of every descendant tree of (content of theWindow)');
+            expect(content).toContain('note expanded of every descendant tree of (content of theWindow)');
+        });
+
+        test('get_forecast reads the days of the forecast sidebar and returns to the perspective of before', () => {
+            const content = read('get_forecast.applescript');
+            expect(content).toContain('count of forecast day of (sidebar of theWindow)');
+            expect(content).toContain('badge count of forecast day i of (sidebar of theWindow)');
+            expect(content).toContain('set selected sidebar tab of theWindow to forecast tab');
+            expect(content).toContain('set perspective name of theWindow to originalName');
+            expect(content).toContain('OmniFocus did not show the Forecast');
+            expect(content).toContain('if maxDays > 35 then set maxDays to 35');
+            // the window goes back before the answer is built
+            expect(content.indexOf('set perspective name of theWindow to originalName')).toBeLessThan(content.indexOf('set reportText to "📅 Forecast: "'));
+            const serverContent = fs.readFileSync(path.join(__dirname, '..', 'src', 'server', 'index.js'), 'utf8');
+            expect(serverContent).toContain("executeAppleScriptFile('get_forecast', [");
+            expect(serverContent).toContain('String(sanitizeLimit(args.days, 14, 35))');
+            expect(serverContent).toContain("args.show_notes === undefined || args.show_notes === null ? '' : String(args.show_notes === true)");
         });
 
         test('set_view passes the view options to the script in the order of its arguments', () => {
